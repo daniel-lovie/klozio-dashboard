@@ -1,28 +1,28 @@
 import { Pool } from "pg";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) throw new Error("DATABASE_URL is not set");
-
-// Railway's managed Postgres needs SSL; local docker does not.
-const isLocal = /localhost|127\.0\.0\.1/.test(connectionString);
-
 declare global {
   // eslint-disable-next-line no-var
   var __klozioPool: Pool | undefined;
 }
 
-export const pool =
-  global.__klozioPool ??
-  new Pool({
+// Lazy: `next build` imports route modules to collect page data, and DATABASE_URL
+// does not exist inside the Docker build. Only fail when a query actually runs.
+export function pool(): Pool {
+  if (global.__klozioPool) return global.__klozioPool;
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is not set");
+  // Railway's managed Postgres needs SSL; local docker does not.
+  const isLocal = /localhost|127\.0\.0\.1/.test(connectionString);
+  global.__klozioPool = new Pool({
     connectionString,
     ssl: isLocal ? undefined : { rejectUnauthorized: false },
     max: 5,
   });
-
-if (process.env.NODE_ENV !== "production") global.__klozioPool = pool;
+  return global.__klozioPool;
+}
 
 export async function q<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-  const res = await pool.query(sql, params);
+  const res = await pool().query(sql, params);
   return res.rows as T[];
 }
 
@@ -32,7 +32,7 @@ export async function one<T = any>(sql: string, params: any[] = []): Promise<T |
 }
 
 export async function tx<T>(fn: (client: import("pg").PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
+  const client = await pool().connect();
   try {
     await client.query("BEGIN");
     const out = await fn(client);

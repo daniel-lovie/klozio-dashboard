@@ -17,3 +17,6 @@ const sql = readFileSync(join(__dirname, "..", "db", "schema.sql"), "utf8");
 await client.query(sql);
 console.log("✅ schema applied");
 await client.end();
+// A lingering pg/SSL handle kept the process alive on Railway, so the `&& next start`
+// chain never ran and the healthcheck starved. Exit explicitly.
+process.exit(0);

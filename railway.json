@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "node --experimental-strip-types scripts/migrate.mts && echo \"[boot] migrate done, PORT=$PORT \u2014 starting next\" && exec ./node_modules/.bin/next start -p ${PORT:-3000}",
+    "startCommand": "sh scripts/boot.sh",
     "healthcheckPath": "/login",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

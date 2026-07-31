@@ -12,4 +12,4 @@ RUN npm run build
 
 ENV NODE_ENV=production
 # migration is idempotent; runs on every boot before the server starts
-CMD ["sh", "-c", "node --experimental-strip-types scripts/migrate.mts && npm start"]
+CMD ["sh", "scripts/boot.sh"]

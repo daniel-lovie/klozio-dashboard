@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "image-size": "^2.0.2",
-    "next": "15.5.4",
+    "next": "^15.5.22",
     "pg": "^8.13.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"

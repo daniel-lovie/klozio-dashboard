@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: klozio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: klozio
+      POSTGRES_PASSWORD: klozio
+      POSTGRES_DB: klozio
+    ports: ["5433:5432"]
+    volumes: ["klozio-pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U klozio -d klozio"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  klozio-pgdata:

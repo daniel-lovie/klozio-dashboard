@@ -1,0 +1,20 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { isLoggedIn } from "@/lib/auth";
+import Calendar from "@/components/Calendar";
+
+export default async function Home() {
+  if (!(await isLoggedIn())) redirect("/login");
+  return (
+    <main className="mx-auto max-w-[1400px] px-6 py-8">
+      <div className="mb-4 flex items-center gap-3 text-sm">
+        <Link href="/plan" className="rounded-lg bg-espresso/10 px-3 py-1.5 font-medium">
+          August plan — review 200 listings
+        </Link>
+        <Link href="/orders" className="rounded-lg border border-espresso/25 px-3 py-1.5">Orders</Link>
+        <Link href="/portfolio" className="rounded-lg border border-espresso/25 px-3 py-1.5">Portfolio</Link>
+      </div>
+      <Calendar />
+    </main>
+  );
+}

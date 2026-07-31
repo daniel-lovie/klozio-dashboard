@@ -1,0 +1,180 @@
+/**
+ * The publish pipeline: takes an approved schedule row and puts the product live on Etsy.
+ *
+ * Two paths:
+ *   A) product has no etsy_listing_id  -> create draft, upload images, set inventory, activate
+ *   B) product already drafted on Etsy -> activate (and top up images/inventory if missing)
+ *
+ * Safety rules baked in:
+ *   - only rows with status='approved' are ever published
+ *   - a row scheduled further in the past than PUBLISH_GRACE_MINUTES is NOT auto-published;
+ *     it goes to 'failed' with a clear reason, so a sleeping worker can't wake up and dump
+ *     a month of backdated launches onto the shop at once
+ *   - a crude DB lock (locked_at) stops two tickers double-publishing the same row
+ */
+import { q, one, logEvent } from "./db";
+import {
+  createDraftListing,
+  uploadListingImage,
+  updateInventory,
+  activateListing,
+  setReturnPolicy,
+  getListing,
+} from "./etsy";
+
+export type DueRow = {
+  schedule_id: number;
+  product_id: number;
+  scheduled_at: string;
+  attempts: number;
+};
+
+const SHIPPING_PROFILE_ID = Number(process.env.ETSY_SHIPPING_PROFILE_ID || 312066804390);
+const READINESS_STATE_ID = Number(process.env.ETSY_READINESS_STATE_ID || 1504534157129);
+const RETURN_POLICY_ID = Number(process.env.ETSY_RETURN_POLICY_ID || 1503311217104);
+const PRODUCTION_PARTNER_IDS = (process.env.ETSY_PRODUCTION_PARTNER_IDS || "5739954")
+  .split(",")
+  .map((s) => Number(s.trim()))
+  .filter(Boolean);
+
+function graceMs() {
+  return Number(process.env.PUBLISH_GRACE_MINUTES || 180) * 60 * 1000;
+}
+
+/** Claim due rows atomically so concurrent tickers don't collide. */
+export async function claimDue(limit = 5): Promise<DueRow[]> {
+  const rows = await q<DueRow>(
+    `UPDATE schedule s
+        SET status = 'publishing', locked_at = now(), attempts = s.attempts + 1
+      WHERE s.id IN (
+        SELECT id FROM schedule
+         WHERE status = 'approved'
+           AND scheduled_at <= now()
+           AND (locked_at IS NULL OR locked_at < now() - INTERVAL '15 minutes')
+         ORDER BY scheduled_at
+         LIMIT $1
+         FOR UPDATE SKIP LOCKED
+      )
+      RETURNING s.id AS schedule_id, s.product_id, s.scheduled_at, s.attempts`,
+    [limit]
+  );
+  return rows;
+}
+
+export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?: number; error?: string }> {
+  const { schedule_id, product_id } = row;
+  await logEvent("publish_start", { scheduleId: schedule_id, productId: product_id });
+
+  // Safety: refuse to publish something long overdue without a human looking at it.
+  const overdueBy = Date.now() - new Date(row.scheduled_at).getTime();
+  if (overdueBy > graceMs()) {
+    const mins = Math.round(overdueBy / 60000);
+    const err = `Refused: scheduled ${mins} min ago, beyond the ${process.env.PUBLISH_GRACE_MINUTES || 180} min grace window. Re-approve or reschedule to publish.`;
+    await q(`UPDATE schedule SET status='failed', last_error=$2, locked_at=NULL WHERE id=$1`, [schedule_id, err]);
+    await logEvent("publish_fail", { scheduleId: schedule_id, productId: product_id, detail: err });
+    return { ok: false, error: err };
+  }
+
+  try {
+    const p = await one<any>(`SELECT * FROM products WHERE id=$1`, [product_id]);
+    if (!p) throw new Error(`product ${product_id} not found`);
+
+    let listingId: number | null = p.etsy_listing_id ? Number(p.etsy_listing_id) : null;
+
+    // ---- A) no draft yet: build it ----
+    if (!listingId) {
+      listingId = await createDraftListing({
+        title: p.title,
+        description: p.description,
+        priceCents: p.price_cents,
+        quantity: p.quantity,
+        taxonomyId: p.taxonomy_id,
+        tags: p.tags ?? [],
+        materials: p.materials ?? ["cotton"],
+        shippingProfileId: SHIPPING_PROFILE_ID,
+        readinessStateId: READINESS_STATE_ID,
+        productionPartnerIds: PRODUCTION_PARTNER_IDS,
+        returnPolicyId: RETURN_POLICY_ID,
+        // 60 of the August-plan products are text-personalised; publishing them without
+        // the personalisation box would ship a broken product page.
+        personalization: p.personalised
+          ? {
+              required: true,
+              instructions:
+                "Type the exact wording to print (names / year). Spelling and capitalisation " +
+                "are printed exactly as you type them. Text only — no photos.",
+              charCountMax: 256,
+            }
+          : undefined,
+      });
+      await q(`UPDATE products SET etsy_listing_id=$2, etsy_state='draft' WHERE id=$1`, [product_id, listingId]);
+
+      const imgs = await q<any>(
+        `SELECT rank, filename, mime, bytes FROM product_images WHERE product_id=$1 ORDER BY rank`,
+        [product_id]
+      );
+      if (imgs.length === 0) throw new Error("product has no images — Etsy requires at least one to go active");
+      for (const img of imgs) {
+        await uploadListingImage(listingId, img.rank, img.filename, img.mime, img.bytes as Buffer);
+      }
+
+      await updateInventory(listingId, {
+        colorways: p.colorways ?? [],
+        sizes: p.sizes ?? ["S", "M", "L", "XL", "2X", "3X"],
+        priceCents: p.price_cents,
+        quantity: p.quantity,
+        readinessStateId: READINESS_STATE_ID,
+        skuPrefix: (p.slug || "SKU").slice(0, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
+      });
+    } else {
+      // ---- B) draft exists: make sure it has an image before activating ----
+      const live = await getListing(listingId).catch(() => null);
+      if (!live) throw new Error(`Etsy listing ${listingId} not found — was it deleted?`);
+      const imgCount = await one<{ n: string }>(
+        `SELECT count(*)::text AS n FROM product_images WHERE product_id=$1`,
+        [product_id]
+      );
+      if (Number(imgCount?.n ?? 0) === 0) {
+        throw new Error("no images stored for this product; refusing to activate a listing we cannot verify");
+      }
+      // Drafts created before return_policy_id was wired in (or created by hand in Shop Manager)
+      // have it null, and Etsy refuses to activate them. Repair it rather than failing the launch.
+      if (!live.return_policy_id) {
+        await setReturnPolicy(listingId, RETURN_POLICY_ID);
+      }
+    }
+
+    await activateListing(listingId);
+
+    const verify = await getListing(listingId).catch(() => null);
+    const state = verify?.state ?? "unknown";
+
+    await q(
+      `UPDATE schedule SET status='published', published_at=now(), last_error=NULL, locked_at=NULL WHERE id=$1`,
+      [schedule_id]
+    );
+    await q(`UPDATE products SET etsy_state=$2 WHERE id=$1`, [product_id, state]);
+    await logEvent("publish_ok", {
+      scheduleId: schedule_id,
+      productId: product_id,
+      detail: `listing ${listingId} state=${state}`,
+    });
+    return { ok: true, listingId };
+  } catch (e: any) {
+    const err = String(e?.message ?? e).slice(0, 2000);
+    // give up after 3 attempts so we don't hammer the API
+    const status = row.attempts >= 3 ? "failed" : "approved";
+    await q(`UPDATE schedule SET status=$2, last_error=$3, locked_at=NULL WHERE id=$1`, [schedule_id, status, err]);
+    await logEvent("publish_fail", { scheduleId: schedule_id, productId: product_id, detail: err });
+    return { ok: false, error: err };
+  }
+}
+
+export async function runDue(limit = 5) {
+  const due = await claimDue(limit);
+  const results: any[] = [];
+  for (const row of due) {
+    results.push({ scheduleId: row.schedule_id, ...(await publishOne(row)) });
+  }
+  return { claimed: due.length, results };
+}

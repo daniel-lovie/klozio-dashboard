@@ -192,9 +192,11 @@ export const SIZE_VALUE_IDS: Record<string, number> = {
 export const CUSTOM1_PROPERTY = 513; // buyer-facing colorway name
 
 /** Producer cost rises with size (CC 2XL +$1.50, 3XL +$3.50, 4XL +$4.30 — Printinly sheet
- *  2026-07-31). Charged through, rounded to retail-clean steps, so net stays flat. */
+ *  2026-07-31). Charged through, rounded to retail-clean steps, so net stays flat.
+ *  GROSSED UP by /0.7 (2026-08-02): prices are anchor prices — the shop runs a permanent
+ *  store-wide 30% sale, so the buyer-effective upcharge lands back at +$2/+$4/+$5. */
 export const SIZE_UPCHARGE_CENTS: Record<string, number> = {
-  "2X": 200, "3X": 400, "4X": 500,
+  "2X": 286, "3X": 572, "4X": 715,
 };
 
 export async function updateInventory(

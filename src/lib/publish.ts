@@ -15,12 +15,16 @@
 import { q, one, logEvent } from "./db";
 import {
   createDraftListing,
+  setListingPersonalization,
   uploadListingImage,
   updateInventory,
   activateListing,
   setReturnPolicy,
   getListing,
 } from "./etsy";
+
+const PERSONALIZATION_INSTRUCTIONS =
+  "Type the exact text to print (names/year). Spelling & capitalization print exactly as typed. Text only, no photos.";
 
 export type DueRow = {
   schedule_id: number;
@@ -100,9 +104,8 @@ export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?
         personalization: p.personalised
           ? {
               required: true,
-              instructions:
-                "Type the exact wording to print (names / year). Spelling and capitalisation " +
-                "are printed exactly as you type them. Text only — no photos.",
+              // Etsy's dedicated personalization endpoint caps instructions at 120 chars
+              instructions: PERSONALIZATION_INSTRUCTIONS,
               charCountMax: 256,
             }
           : undefined,
@@ -141,6 +144,13 @@ export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?
       // have it null, and Etsy refuses to activate them. Repair it rather than failing the launch.
       if (!live.return_policy_id) {
         await setReturnPolicy(listingId, RETURN_POLICY_ID);
+      }
+      if (p.personalised) {
+        await setListingPersonalization(listingId, {
+          required: true,
+          instructions: PERSONALIZATION_INSTRUCTIONS,
+          charCountMax: 256,
+        });
       }
     }
 

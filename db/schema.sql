@@ -191,3 +191,20 @@ CREATE INDEX IF NOT EXISTS fulfillment_status_idx ON fulfillment_orders (status)
 DROP TRIGGER IF EXISTS fulfillment_touch ON fulfillment_orders;
 CREATE TRIGGER fulfillment_touch BEFORE UPDATE ON fulfillment_orders
   FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+-- personalizer agent (2026-08-02): agent-managed personalization rendering
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_state TEXT;
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS interpreted_text TEXT;
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_attempts INT NOT NULL DEFAULT 0;
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_log JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_claimed_at TIMESTAMPTZ;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS personalization_placeholder TEXT;
+
+CREATE TABLE IF NOT EXISTS hf_tokens (
+  id            INT PRIMARY KEY DEFAULT 1,
+  access_token  TEXT NOT NULL,
+  refresh_token TEXT NOT NULL,
+  client_id     TEXT NOT NULL,
+  expires_at    TIMESTAMPTZ NOT NULL,
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);

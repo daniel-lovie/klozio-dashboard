@@ -17,7 +17,9 @@
     "db:sync": "node --experimental-strip-types scripts/sync-state.mts",
     "db:plan": "node --experimental-strip-types scripts/seed-plan.mts",
     "db:attach": "node --experimental-strip-types scripts/attach-images.mts",
-    "orders:poll": "curl -s -X POST \"http://localhost:${PORT:-3010}/api/orders/poll?secret=$CRON_SECRET\""
+    "orders:poll": "curl -s -X POST \"http://localhost:${PORT:-3010}/api/orders/poll?secret=$CRON_SECRET\"",
+    "db:seed-hf": "node --experimental-strip-types scripts/seed-hf-tokens.mts",
+    "personalizer": "node --experimental-strip-types scripts/personalizer.mts"
   },
   "dependencies": {
     "image-size": "^2.0.2",

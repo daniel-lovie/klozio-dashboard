@@ -62,6 +62,12 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
         <span className="text-xs">{row.colorway ?? "?"} / {row.size ?? "?"} × {row.quantity}</span>
       </div>
 
+      {row.interpreted_text && (
+        <p className="mt-2 text-sm"><span className="font-semibold">Agent yorumu:</span>{" "}
+          <span className="font-mono">{row.interpreted_text}</span>{" "}
+          <a className="underline" href={`/api/orders/${row.id}/print`} target="_blank">baskıyı önizle</a>
+        </p>
+      )}
       {row.personalization && (
         <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm">
           <span className="font-semibold">Personalization (print EXACTLY):</span>{" "}

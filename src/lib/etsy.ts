@@ -138,6 +138,9 @@ export type DraftInput = {
 };
 
 export async function createDraftListing(inp: DraftInput): Promise<number> {
+  // NOTE: the legacy personalization fields (is_personalizable & friends) were
+  // removed from this call — Etsy started rejecting them with 400 on 2026-08-02.
+  // Personalization is now a separate POST, see setListingPersonalization().
   const json = await apiForm("POST", `/shops/${shopId()}/listings`, {
     quantity: inp.quantity,
     title: inp.title,
@@ -153,16 +156,33 @@ export async function createDraftListing(inp: DraftInput): Promise<number> {
     tags: inp.tags,
     materials: inp.materials,
     production_partner_ids: inp.productionPartnerIds,
-    is_personalizable: inp.personalization ? "true" : "false",
-    ...(inp.personalization
-      ? {
-          personalization_is_required: inp.personalization.required ? "true" : "false",
-          personalization_instructions: inp.personalization.instructions,
-          personalization_char_count_max: inp.personalization.charCountMax ?? 256,
-        }
-      : {}),
   });
-  return json.listing_id as number;
+  const listingId = json.listing_id as number;
+  if (inp.personalization) await setListingPersonalization(listingId, inp.personalization);
+  return listingId;
+}
+
+/** Dedicated personalization endpoint (replaces the deprecated legacy listing fields).
+ *  Must run against an EXISTING listing; the query flag is mandatory on writes. */
+export async function setListingPersonalization(
+  listingId: number,
+  p: NonNullable<DraftInput["personalization"]>
+) {
+  return apiJson(
+    "POST",
+    `/shops/${shopId()}/listings/${listingId}/personalization?supports_multiple_personalization_questions=true`,
+    {
+      personalization_questions: [
+        {
+          question_type: "text_input",
+          question_text: "Personalization",
+          instructions: p.instructions,
+          required: p.required,
+          max_allowed_characters: p.charCountMax ?? 256,
+        },
+      ],
+    }
+  );
 }
 
 export async function uploadListingImage(

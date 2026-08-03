@@ -114,10 +114,33 @@ export async function callTool(name: string, args: any): Promise<any> {
   try { return JSON.parse(joined); } catch { return { _raw: joined }; }
 }
 
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+/** Tool results may come back as human text instead of JSON — extract ids/urls robustly. */
+export function jobIdOf(gen: any): string | null {
+  return gen?.results?.[0]?.id ?? gen?.id ?? (typeof gen?._raw === "string" ? (gen._raw.match(UUID_RE)?.[0] ?? null) : null);
+}
+export function rawUrlOf(st: any): string | null {
+  const g = st?.generation ?? st;
+  return g?.results?.rawUrl ?? (typeof st?._raw === "string" ? (st._raw.match(/https:\/\/[^\s)"']+\.(png|svg|jpg|webp)/i)?.[0] ?? null) : null);
+}
+export function statusOf(st: any): string {
+  const g = st?.generation ?? st;
+  if (g?.status) return g.status;
+  const raw = typeof st?._raw === "string" ? st._raw.toLowerCase() : "";
+  if (raw.includes("completed")) return "completed";
+  for (const s of ["nsfw", "failed", "error", "in_progress", "pending", "queued"]) if (raw.includes(s)) return s;
+  return "unknown";
+}
+
 /** Upload a PNG buffer as generation input; returns media_id. */
 export async function uploadPng(buf: Buffer, filename: string): Promise<string> {
   const up = await callTool("media_upload", { filename, content_type: "image/png" });
-  const u = up.uploads?.[0] ?? up;
+  let u = up.uploads?.[0] ?? up;
+  if (!u.upload_url && typeof up._raw === "string") {
+    u = { upload_url: up._raw.match(/https:\/\/upload[^\s"']+/)?.[0], media_id: up._raw.match(UUID_RE)?.[0] };
+  }
+  if (!u.upload_url || !u.media_id) throw new Error("media_upload response unusable: " + JSON.stringify(up).slice(0, 200));
   const put = await fetch(u.upload_url, { method: "PUT", headers: { "content-type": "image/png" }, body: new Uint8Array(buf) });
   if (!put.ok) throw new Error(`presigned PUT ${put.status}`);
   await callTool("media_confirm", { type: "image", media_id: u.media_id });
@@ -132,18 +155,18 @@ export async function generateSwap(mediaId: string, prompt: string): Promise<str
       medias: [{ role: "image", value: mediaId }],
     },
   });
-  const jobId = gen.results?.[0]?.id ?? gen.id;
+  const jobId = jobIdOf(gen);
   if (!jobId) throw new Error("no job id from generate_image: " + JSON.stringify(gen).slice(0, 200));
   for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 8000));
     const st = await callTool("job_status", { jobId, sync: true });
-    const g = st.generation ?? st;
-    if (g.status === "completed") {
-      const url = g.results?.rawUrl;
+    const status = statusOf(st);
+    if (status === "completed") {
+      const url = rawUrlOf(st);
       if (!url) throw new Error("completed without rawUrl");
-      return url as string;
+      return url;
     }
-    if (["failed", "nsfw", "error"].includes(g.status)) throw new Error(`generation ${g.status}`);
+    if (["failed", "nsfw", "error"].includes(status)) throw new Error(`generation ${status}`);
   }
   throw new Error("generation timed out");
 }

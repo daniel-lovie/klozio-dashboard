@@ -208,3 +208,9 @@ CREATE TABLE IF NOT EXISTS hf_tokens (
   expires_at    TIMESTAMPTZ NOT NULL,
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- producer agent (2026-08-03): autonomous design/mockup generation after content approval
+ALTER TABLE products ADD COLUMN IF NOT EXISTS design_state TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS design_job_id TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS redo_note TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS agent_log JSONB NOT NULL DEFAULT '[]'::jsonb;

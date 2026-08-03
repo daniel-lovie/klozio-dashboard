@@ -10,6 +10,7 @@ import { spawnSync } from "child_process";
 import { writeFileSync, readFileSync, unlinkSync } from "fs";
 import { forcedJson } from "../worker/anthropic.ts";
 import { uploadPng, generateSwap } from "../worker/hf.ts";
+import { makeProducer } from "../worker/producer.ts";
 import {
   INTERPRET_SCHEMA, INTERPRET_SYSTEM, buildInterpretUser,
   DETECT_SCHEMA, DETECT_SYSTEM, buildSwapPrompt, QA_SCHEMA, QA_SYSTEM,
@@ -178,14 +179,19 @@ async function interpretTest() {
   process.exit(pass === cases.length ? 0 : 1);
 }
 
+const tickProducer = makeProducer(pool);
+
 const mode = process.argv[2] || "loop";
 if (mode === "interpret-test") await interpretTest();
 else if (mode === "once") { await tick(); await pool.end(); }
+else if (mode === "produce-once") { await tickProducer(); await pool.end(); }
 else {
   console.log("[personalizer] loop started, poll 60s, model", process.env.PERSONALIZER_MODEL || "claude-opus-5");
   while (true) {
-    try { while (await tick()) { /* drain queue */ } }
+    try { while (await tick()) { /* drain order queue */ } }
     catch (e) { console.error("[personalizer] tick failed:", e); }
+    try { while (await tickProducer()) { /* drain generation queue */ } }
+    catch (e) { console.error("[producer] tick failed:", e); }
     await new Promise((r) => setTimeout(r, 60_000));
   }
 }

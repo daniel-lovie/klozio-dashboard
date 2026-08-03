@@ -3,7 +3,7 @@
 FROM node:22-alpine
 
 # personalizer agent: chroma print processing runs in python
-RUN apk add --no-cache python3 py3-numpy py3-scipy py3-pillow
+RUN apk add --no-cache python3 py3-numpy py3-scipy py3-pillow librsvg
 
 WORKDIR /app
 

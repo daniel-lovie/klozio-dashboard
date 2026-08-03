@@ -225,6 +225,24 @@ export async function updateInventory(
 ) {
   const products = [];
   let variesBySize = false;
+  // One-size products (hats): colour is the only variation property.
+  if (opts.sizes.length === 1 && opts.sizes[0] === "OS") {
+    for (const color of opts.colorways.length ? opts.colorways : ["Default"]) {
+      products.push({
+        sku: `${opts.skuPrefix}-${color.toUpperCase().replace(/\s+/g, "")}-OS`,
+        property_values: [
+          { property_id: CUSTOM1_PROPERTY, property_name: "Color", values: [color] },
+        ],
+        offerings: [
+          { price: opts.priceCents / 100, quantity: opts.quantity, is_enabled: true,
+            readiness_state_id: opts.readinessStateId },
+        ],
+      });
+    }
+    return apiJson("PUT", `/listings/${listingId}/inventory`, {
+      products, price_on_property: [], quantity_on_property: [], sku_on_property: [CUSTOM1_PROPERTY],
+    });
+  }
   for (const color of opts.colorways.length ? opts.colorways : ["Default"]) {
     for (const size of opts.sizes) {
       const vid = SIZE_VALUE_IDS[size];

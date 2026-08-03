@@ -23,7 +23,7 @@ export function makeProducer(pool: pg.Pool) {
       UPDATE products p SET design_state='generating', updated_at=now()
       WHERE p.id = (
         SELECT pr.id FROM products pr
-        WHERE pr.design_prompt IS NOT NULL
+        WHERE (pr.design_prompt IS NOT NULL OR pr.mockup_prompt IS NOT NULL)
           AND pr.id NOT IN (SELECT product_id FROM schedule WHERE status='published')
           AND (
             (pr.content_status='approved' AND pr.design_state IS NULL
@@ -65,11 +65,10 @@ export function makeProducer(pool: pg.Pool) {
     throw new Error("design generation timeout");
   }
 
-  async function generateMockup(designJobId: string, prompt: string): Promise<Buffer> {
-    const gen = await callTool("generate_image", {
-      params: { model: "nano_banana_pro", prompt, aspect_ratio: "1:1", resolution: "2k",
-                medias: [{ role: "image", value: designJobId }] },
-    });
+  async function generateMockup(designJobId: string | null, prompt: string): Promise<Buffer> {
+    const params: any = { model: "nano_banana_pro", prompt, aspect_ratio: "1:1", resolution: "2k" };
+    if (designJobId) params.medias = [{ role: "image", value: designJobId }];
+    const gen = await callTool("generate_image", { params });
     const jobId = jobIdOf(gen);
     if (!jobId) throw new Error("no mockup job id");
     for (let i = 0; i < 40; i++) {
@@ -124,7 +123,7 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
     }
   }
 
-  async function attach(p: any, printPng: Buffer, mocks: Buffer[]): Promise<void> {
+  async function attach(p: any, printPng: Buffer | null, mocks: Buffer[]): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -137,23 +136,50 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
            VALUES ($1,$2,$3,$4,$5,'image/jpeg',$6,$7,$8)`,
           [p.id, i + 1, roles[i], p.hero_colorway, `mockup-${roles[i]}.jpg`, w, h, buf]);
       }
-      if (existsSync(CHART)) {
+      if (existsSync(CHART) && String(p.blank || "").includes("Comfort Colors")) {
         const chart = readFileSync(CHART);
         await client.query(
           `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
            VALUES ($1,4,'colorway-chart','All 22 colors','color-chart.jpeg','image/jpeg',2000,2000,$2)`,
           [p.id, chart]);
       }
-      const d = pngDims(printPng);
-      await client.query(
-        `UPDATE products SET print_file=$2, print_file_name=$3, print_file_w=$4, print_file_h=$5,
-                print_dpi=$6, design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`,
-        [p.id, printPng, `${p.slug}-print.png`, d.w, d.h, Math.round(d.w / 9.5)]);
+      if (printPng) {
+        const d = pngDims(printPng);
+        await client.query(
+          `UPDATE products SET print_file=$2, print_file_name=$3, print_file_w=$4, print_file_h=$5,
+                  print_dpi=$6, design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`,
+          [p.id, printPng, `${p.slug}-print.png`, d.w, d.h, Math.round(d.w / 9.5)]);
+      } else {
+        await client.query(
+          `UPDATE products SET design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`, [p.id]);
+      }
       await client.query("COMMIT");
     } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
   }
 
   async function produce(p: any): Promise<void> {
+    // design-less products (e.g. embroidered hats): mockup prompts fully describe the
+    // stitched result — no design generation, no print file, straight to mockups.
+    if (!p.design_prompt) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const mocks: Buffer[] = [];
+          for (const prompt of [p.mockup_prompt, p.mockup_prompt_hanging, p.mockup_prompt_model]) {
+            if (!prompt) throw new Error("missing mockup prompt");
+            const withNote = p.redo_note ? prompt + ` REVISION REQUEST from the reviewer — you MUST honor it: ${p.redo_note}` : prompt;
+            mocks.push(await generateMockup(null, withNote));
+          }
+          await attach(p, null, mocks);
+          await q(`INSERT INTO events (product_id, kind, detail) VALUES ($1,'agent_generated',$2)`,
+            [p.id, `3 mockups by producer agent (design-less)${p.redo_note ? " (redo)" : ""}`]);
+          return log(p.id, "ready", { slug: p.slug, designless: true });
+        } catch (e: any) {
+          await log(p.id, "produce-error", String(e).slice(0, 250));
+          if (attempt === 2) await q(`UPDATE products SET design_state='error', updated_at=now() WHERE id=$1`, [p.id]);
+        }
+      }
+      return;
+    }
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         await log(p.id, "design-gen", { model: p.design_model, attempt, redo: !!p.redo_note });

@@ -214,3 +214,7 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS design_state TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS design_job_id TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS redo_note TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS agent_log JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- embroidery line via Printful (2026-08-03)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS technique TEXT NOT NULL DEFAULT 'dtf';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS fulfillment TEXT NOT NULL DEFAULT 'printinly';

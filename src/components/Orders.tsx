@@ -41,6 +41,7 @@ export function PollButton() {
 export function OrderRow({ row, at }: { row: any; at: string }) {
   const [busy, setBusy] = useState(false);
   const [tracking, setTracking] = useState(row.tracking_code ?? "");
+  const [pfMsg, setPfMsg] = useState("");
 
   async function move(status: string) {
     setBusy(true);
@@ -50,6 +51,16 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
     });
     setBusy(false);
     if (res.ok) location.reload();
+  }
+
+  async function printful(action: "draft" | "confirm") {
+    if (action === "confirm" && !confirm("Printful siparişi onaylanacak ve ücret kesilecek. Emin misin?")) return;
+    setBusy(true);
+    const res = await fetch(`/api/orders/${row.id}/printful-${action}`, { method: "POST" });
+    const j = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (res.ok) location.reload();
+    else setPfMsg(j.error ?? "failed");
   }
 
   return (
@@ -81,6 +92,34 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
           {row.note && <p>note: {row.note}</p>}
         </div>
       </div>
+
+      {row.technique === "embroidery" && (
+        <div className="mt-2 rounded-lg bg-teal-50 px-3 py-2 text-sm">
+          <span className="font-semibold">Printful:</span>{" "}
+          {row.printful_status === "confirmed" ? (
+            <span>onaylandı · #{row.printful_order_id} üretimde 🧵</span>
+          ) : row.printful_status === "draft" ? (
+            <>
+              <span>draft hazır · #{row.printful_order_id} (varyant + adres + tasarım yüklü)</span>
+              <button disabled={busy} onClick={() => printful("confirm")}
+                className="ml-2 rounded-md bg-teal-700 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                Printful&apos;a Onayla (ücret kesilir)
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={row.printful_status === "failed" ? "text-red-700" : ""}>
+                {row.printful_status === "failed" ? `draft başarısız: ${row.printful_error}` : "draft yok"}
+              </span>
+              <button disabled={busy} onClick={() => printful("draft")}
+                className="ml-2 rounded-md border border-teal-700 px-2.5 py-1 text-xs text-teal-800 disabled:opacity-50">
+                Draft oluştur
+              </button>
+            </>
+          )}
+          {pfMsg && <span className="ml-2 text-xs text-red-700">{pfMsg}</span>}
+        </div>
+      )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {(NEXT[row.status] ?? []).map((n) => (

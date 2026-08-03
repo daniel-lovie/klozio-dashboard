@@ -7,6 +7,7 @@
  */
 import { q, one, logEvent } from "./db";
 import { getShopReceipts } from "./etsy";
+import { sendOrderToPrintful } from "./printful-fulfill";
 
 export async function pollOrders() {
   // look back 30 days on first run, else since the newest row we have (with 1h overlap)
@@ -24,8 +25,8 @@ export async function pollOrders() {
       .filter(Boolean).join("\n");
 
     for (const t of r.transactions ?? []) {
-      const p = await one<{ id: number }>(
-        `SELECT id FROM products WHERE etsy_listing_id=$1`, [t.listing_id]);
+      const p = await one<{ id: number; technique: string | null }>(
+        `SELECT id, technique FROM products WHERE etsy_listing_id=$1`, [t.listing_id]);
       if (!p) { unmatched++; continue; }
 
       // personalization + size/colour arrive in the variations array
@@ -40,19 +41,28 @@ export async function pollOrders() {
       const res = await q<{ id: number }>(
         `INSERT INTO fulfillment_orders
            (receipt_id, transaction_id, etsy_listing_id, product_id, quantity, sku,
-            size, colorway, personalization, buyer_name, ship_to, ordered_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, to_timestamp($12))
+            size, colorway, personalization, buyer_name, ship_to, ordered_at,
+            ship_name, ship_address1, ship_address2, ship_city, ship_state, ship_zip, ship_country)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, to_timestamp($12),
+                 $13,$14,$15,$16,$17,$18,$19)
          ON CONFLICT (transaction_id) DO NOTHING
          RETURNING id`,
         [r.receipt_id, t.transaction_id, t.listing_id, p.id, t.quantity ?? 1, t.sku ?? null,
          size, colorway, personalization, r.name ?? null, shipTo,
-         t.paid_timestamp ?? t.created_timestamp ?? r.created_timestamp]);
+         t.paid_timestamp ?? t.created_timestamp ?? r.created_timestamp,
+         r.name ?? null, r.first_line ?? null, r.second_line ?? null,
+         r.city ?? null, r.state ?? null, r.zip ?? null, r.country_iso ?? null]);
       if (res.length) {
         inserted++;
         await logEvent("order_queued", {
           productId: p.id,
           detail: `receipt ${r.receipt_id} tx ${t.transaction_id}${personalization ? " · personalised" : ""}`,
         });
+        // embroidery → auto-create a Printful DRAFT (never confirms; that stays manual)
+        if ((p.technique ?? "dtf") === "embroidery") {
+          try { await sendOrderToPrintful(res[0].id); }
+          catch (e) { console.error(`printful draft failed for order ${res[0].id}:`, e); }
+        }
       } else skipped++;
     }
   }

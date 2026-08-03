@@ -218,3 +218,18 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS agent_log JSONB NOT NULL DEFAULT '
 -- embroidery line via Printful (2026-08-03)
 ALTER TABLE products ADD COLUMN IF NOT EXISTS technique TEXT NOT NULL DEFAULT 'dtf';
 ALTER TABLE products ADD COLUMN IF NOT EXISTS fulfillment TEXT NOT NULL DEFAULT 'printinly';
+
+-- Printful auto-fulfillment (embroidery line): structured recipient + draft tracking
+ALTER TABLE fulfillment_orders
+  ADD COLUMN IF NOT EXISTS ship_name text,
+  ADD COLUMN IF NOT EXISTS ship_address1 text,
+  ADD COLUMN IF NOT EXISTS ship_address2 text,
+  ADD COLUMN IF NOT EXISTS ship_city text,
+  ADD COLUMN IF NOT EXISTS ship_state text,
+  ADD COLUMN IF NOT EXISTS ship_zip text,
+  ADD COLUMN IF NOT EXISTS ship_country text,
+  ADD COLUMN IF NOT EXISTS printful_order_id bigint,
+  ADD COLUMN IF NOT EXISTS printful_status text,
+  ADD COLUMN IF NOT EXISTS printful_error text;
+-- embroidery_chest_center | embroidery_chest_left (shirts) | default (hat front)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS printful_placement text;

@@ -9,7 +9,7 @@ export default async function OrdersPage() {
   if (!(await isLoggedIn())) redirect("/login");
 
   const rows = await q<any>(
-    `SELECT f.*, p.slug, p.title, p.personalised, p.hero_colorway, p.slot
+    `SELECT f.*, p.slug, p.title, p.personalised, p.hero_colorway, p.slot, p.technique
        FROM fulfillment_orders f LEFT JOIN products p ON p.id=f.product_id
       ORDER BY CASE WHEN f.status IN ('done','shipped') THEN 1 ELSE 0 END, f.ordered_at DESC NULLS LAST`);
 

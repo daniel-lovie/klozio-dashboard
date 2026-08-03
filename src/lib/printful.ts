@@ -1,14 +1,12 @@
 /**
- * Printful API client — embroidery line fulfillment (CC 1717, technique EMBROIDERY).
+ * Printful API client — embroidery line fulfillment (CC1717 shirts + Yupoong 6245CM hats).
  *
- * Activation: set PRINTFUL_API_KEY (Printful dashboard -> Settings -> Stores -> API).
- * Until the key exists every call throws a clear error; /orders shows these orders as
- * fulfillment='printful' so the operator places them manually in the meantime.
+ * Variant ids are resolved at runtime from GET /products/{id} and cached in-process —
+ * Printful ids are stable but the color/size naming is theirs, so we normalize ours first
+ * (Gray→Grey, 2X→2XL, hat Tan→Khaki: Printful has no Tan, Khaki is the same physical hat).
  *
- * Order shape (catalog order, no store sync needed):
- *   POST /orders  { recipient, items: [{ variant_id, quantity, files, options }] }
- * CC1717 catalog variant ids are resolved at runtime via GET /products/{id} once and cached
- * in printful_variants — Printful ids are stable but color/size mapping is theirs, not ours.
+ * Orders are created as DRAFTS (confirm:false) — confirming (= money) is a separate,
+ * operator-triggered call.
  */
 const BASE = "https://api.printful.com";
 
@@ -28,37 +26,67 @@ async function pf(path: string, init: RequestInit = {}) {
   return json.result ?? json;
 }
 
-/** CC1717 in Printful's catalog. */
 export const PRINTFUL_CC1717_PRODUCT_ID = 586;
+export const PRINTFUL_DADHAT_PRODUCT_ID = 206; // Yupoong 6245CM Classic Dad Hat
 
-export async function listCc1717Variants() {
-  return pf(`/products/${PRINTFUL_CC1717_PRODUCT_ID}`);
+const COLOR_FIX: Record<string, string> = { gray: "grey", tan: "khaki" };
+const SIZE_FIX: Record<string, string> = { "2x": "2xl", "3x": "3xl", "4x": "4xl", os: "one size" };
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+const variantCache = new Map<number, Map<string, number>>();
+
+/** color+size (our Etsy naming) -> Printful catalog variant_id. */
+export async function resolveVariant(productId: number, color: string, size: string): Promise<number> {
+  let map = variantCache.get(productId);
+  if (!map) {
+    const d = await pf(`/products/${productId}`);
+    map = new Map<string, number>();
+    for (const v of d.variants ?? []) map.set(`${norm(v.color)}|${norm(v.size)}`, v.id);
+    variantCache.set(productId, map);
+  }
+  const c = COLOR_FIX[norm(color)] ?? norm(color);
+  const s = SIZE_FIX[norm(size)] ?? norm(size);
+  const id = map.get(`${c}|${s}`);
+  if (!id) throw new Error(`no Printful variant for product ${productId} color='${color}' size='${size}' (normalized ${c}|${s})`);
+  return id;
 }
 
-export async function createEmbroideryOrder(opts: {
-  recipient: { name: string; address1: string; city: string; state_code: string; zip: string; country_code: string };
+export async function createEmbroideryDraft(opts: {
+  recipient: {
+    name: string; address1: string; address2?: string | null;
+    city: string; state_code?: string | null; zip: string; country_code: string;
+  };
   variantId: number;
   quantity: number;
-  /** Text-based embroidery: thread text config; file-based: file URL. */
-  embroideryText?: { text: string; font?: string; threadColor?: string };
-  fileUrl?: string;
+  /** publicly reachable design PNG — Printful digitizes it */
+  fileUrl: string;
+  /** embroidery_chest_center | embroidery_chest_left (shirt) | default (hat front) */
+  placement: string;
+  isHat: boolean;
   externalId: string; // our fulfillment_orders.id
 }) {
-  const item: any = { variant_id: opts.variantId, quantity: opts.quantity, options: [] };
-  if (opts.fileUrl) item.files = [{ type: "embroidery_chest_left", url: opts.fileUrl }];
-  if (opts.embroideryText) {
-    item.options.push(
-      { id: "embroidery_type", value: "flat" },
-      { id: "text", value: opts.embroideryText.text },
-      ...(opts.embroideryText.threadColor ? [{ id: "thread_colors", value: [opts.embroideryText.threadColor] }] : [])
-    );
-  }
+  const item: any = {
+    variant_id: opts.variantId,
+    quantity: opts.quantity,
+    files: [{ type: opts.placement, url: opts.fileUrl }],
+  };
+  if (opts.isHat) item.options = [{ id: "embroidery_type", value: "flat" }];
   return pf(`/orders`, {
     method: "POST",
-    body: JSON.stringify({ external_id: opts.externalId, recipient: opts.recipient, items: [item], confirm: false }),
+    body: JSON.stringify({
+      external_id: opts.externalId,
+      recipient: opts.recipient,
+      items: [item],
+      confirm: false,
+    }),
   });
 }
 
 export async function confirmOrder(printfulOrderId: number) {
   return pf(`/orders/${printfulOrderId}/confirm`, { method: "POST" });
+}
+
+export async function getOrder(printfulOrderId: number) {
+  return pf(`/orders/${printfulOrderId}`);
 }

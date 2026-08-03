@@ -34,14 +34,15 @@ async function claimOne(): Promise<any | null> {
     UPDATE fulfillment_orders f SET agent_state='interpreting', status='generating',
            agent_claimed_at=now()
     WHERE f.id = (
-      SELECT id FROM fulfillment_orders
-      WHERE personalization IS NOT NULL AND btrim(personalization) <> ''
+      SELECT f2.id FROM fulfillment_orders f2
+      JOIN products pp ON pp.id = f2.product_id AND COALESCE(pp.technique,'dtf') <> 'embroidery'
+      WHERE f2.personalization IS NOT NULL AND btrim(f2.personalization) <> ''
         AND (
-          (status='new' AND agent_state IS NULL)
-          OR (agent_state IN ('interpreting','rendering') AND agent_claimed_at < now() - interval '15 minutes')
+          (f2.status='new' AND f2.agent_state IS NULL)
+          OR (f2.agent_state IN ('interpreting','rendering') AND f2.agent_claimed_at < now() - interval '15 minutes')
         )
-        AND agent_attempts < 3
-      ORDER BY ordered_at LIMIT 1 FOR UPDATE SKIP LOCKED)
+        AND f2.agent_attempts < 3
+      ORDER BY f2.ordered_at LIMIT 1 FOR UPDATE OF f2 SKIP LOCKED)
     RETURNING f.*`);
   return rows[0] ?? null;
 }

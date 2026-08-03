@@ -50,7 +50,7 @@ function parseShipTo(blob: string | null) {
 export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOrderId: number }> {
   const o = await one<any>(
     `SELECT f.*, p.slug, p.slot, p.technique, p.fulfillment, p.concept_no,
-            p.printful_placement, octet_length(p.print_file) AS pf_bytes
+            p.printful_placement, p.thread_colors, octet_length(p.print_file) AS pf_bytes
        FROM fulfillment_orders f JOIN products p ON p.id = f.product_id
       WHERE f.id = $1`, [orderId]);
   if (!o) throw new Error(`order ${orderId} not found`);
@@ -79,6 +79,14 @@ export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOr
 
   const variantId = await resolveVariant(catalogId, o.colorway ?? "", o.size ?? (isHat ? "OS" : ""));
 
+  // thread colors live on the product (set at production time); black is a safe fallback
+  let threadColors: string[] = o.thread_colors ?? [];
+  if (!threadColors.length) {
+    const sib = await one<{ thread_colors: string[] | null }>(
+      `SELECT thread_colors FROM products WHERE id=$1`, [fileProductId]);
+    threadColors = sib?.thread_colors ?? ["#000000"];
+  }
+
   try {
     const draft = await createEmbroideryDraft({
       recipient: recipient as any,
@@ -86,6 +94,7 @@ export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOr
       quantity: o.quantity ?? 1,
       fileUrl: pfFileUrl(fileProductId),
       placement: o.printful_placement ?? (isHat ? "default" : "embroidery_chest_center"),
+      threadColors,
       isHat,
       externalId: `klz-${orderId}`,
     });

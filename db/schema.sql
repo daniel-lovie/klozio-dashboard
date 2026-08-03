@@ -233,3 +233,5 @@ ALTER TABLE fulfillment_orders
   ADD COLUMN IF NOT EXISTS printful_error text;
 -- embroidery_chest_center | embroidery_chest_left (shirts) | default (hat front)
 ALTER TABLE products ADD COLUMN IF NOT EXISTS printful_placement text;
+-- Printful embroidery: chosen thread colors (subset of Printful's allowed palette)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS thread_colors text[];

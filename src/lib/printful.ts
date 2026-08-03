@@ -84,15 +84,20 @@ export async function createEmbroideryDraft(opts: {
   fileUrl: string;
   /** embroidery_chest_center | embroidery_chest_left (shirt) | default (hat front) */
   placement: string;
+  /** subset of Printful's allowed thread palette, from products.thread_colors */
+  threadColors: string[];
   isHat: boolean;
   externalId: string; // our fulfillment_orders.id
 }) {
+  // option id is placement-scoped on shirts, plain thread_colors on flat hat fronts
+  const threadOption = opts.isHat ? "thread_colors" : `thread_colors_${opts.placement.replace("embroidery_", "")}`;
   const item: any = {
     variant_id: opts.variantId,
     quantity: opts.quantity,
     files: [{ type: opts.placement, url: opts.fileUrl }],
+    options: [{ id: threadOption, value: opts.threadColors }],
   };
-  if (opts.isHat) item.options = [{ id: "embroidery_type", value: "flat" }];
+  if (opts.isHat) item.options.push({ id: "embroidery_type", value: "flat" });
   return pfStore(`/orders`, {
     method: "POST",
     body: JSON.stringify({

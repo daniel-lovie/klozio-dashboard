@@ -16,14 +16,35 @@ function key(): string {
   return k;
 }
 
-async function pf(path: string, init: RequestInit = {}) {
+async function pf(path: string, init: RequestInit = {}, extraHeaders: Record<string, string> = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { Authorization: `Bearer ${key()}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+    headers: {
+      Authorization: `Bearer ${key()}`, "Content-Type": "application/json",
+      ...extraHeaders, ...(init.headers ?? {}),
+    },
   });
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`printful ${path} ${res.status}: ${JSON.stringify(json).slice(0, 300)}`);
   return json.result ?? json;
+}
+
+/** Account-scoped keys need X-PF-Store-Id on order endpoints. Env override, else the
+ *  account's first store, resolved once per process. Clear error while no store exists. */
+let cachedStoreId: number | null = null;
+async function storeId(): Promise<number> {
+  if (process.env.PRINTFUL_STORE_ID) return Number(process.env.PRINTFUL_STORE_ID);
+  if (cachedStoreId) return cachedStoreId;
+  const stores = await pf(`/stores`);
+  if (!Array.isArray(stores) || !stores.length) {
+    throw new Error("Printful account has NO store — create one in the Printful dashboard: Stores → Add store → 'Manual order platform / API'. Detection is automatic afterwards.");
+  }
+  cachedStoreId = stores[0].id;
+  return cachedStoreId!;
+}
+
+async function pfStore(path: string, init: RequestInit = {}) {
+  return pf(path, init, { "X-PF-Store-Id": String(await storeId()) });
 }
 
 export const PRINTFUL_CC1717_PRODUCT_ID = 586;
@@ -72,7 +93,7 @@ export async function createEmbroideryDraft(opts: {
     files: [{ type: opts.placement, url: opts.fileUrl }],
   };
   if (opts.isHat) item.options = [{ id: "embroidery_type", value: "flat" }];
-  return pf(`/orders`, {
+  return pfStore(`/orders`, {
     method: "POST",
     body: JSON.stringify({
       external_id: opts.externalId,
@@ -84,9 +105,9 @@ export async function createEmbroideryDraft(opts: {
 }
 
 export async function confirmOrder(printfulOrderId: number) {
-  return pf(`/orders/${printfulOrderId}/confirm`, { method: "POST" });
+  return pfStore(`/orders/${printfulOrderId}/confirm`, { method: "POST" });
 }
 
 export async function getOrder(printfulOrderId: number) {
-  return pf(`/orders/${printfulOrderId}`);
+  return pfStore(`/orders/${printfulOrderId}`);
 }

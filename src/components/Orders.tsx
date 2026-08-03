@@ -90,6 +90,11 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
         <div>
           {row.producer_order_id && <p>producer: {row.producer_order_id}</p>}
           {row.note && <p>note: {row.note}</p>}
+          <p className="mt-1">
+            <a className="underline" href={`/api/orders/${row.id}/print`} target="_blank">baskı PNG önizle</a>
+            {" · "}
+            <a className="underline font-medium" href={`/api/orders/${row.id}/print?download=1`}>PNG indir ⬇</a>
+          </p>
         </div>
       </div>
 

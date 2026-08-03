@@ -128,8 +128,14 @@ export function statusOf(st: any): string {
   const g = st?.generation ?? st;
   if (g?.status) return g.status;
   const raw = typeof st?._raw === "string" ? st._raw.toLowerCase() : "";
+  // Failure words only count when they are the STATUS — raw text can innocently
+  // contain "nsfw": false or the word "error" elsewhere (cost a real outage 2026-08-03).
+  const m = raw.match(/status['"\s:=]+(completed|nsfw|failed|error|in_progress|pending|queued|processing)/);
+  if (m) return m[1];
   if (raw.includes("completed")) return "completed";
-  for (const s of ["nsfw", "failed", "error", "in_progress", "pending", "queued"]) if (raw.includes(s)) return s;
+  for (const s of ["in_progress", "processing", "pending", "queued"]) if (raw.includes(s)) return s;
+  if (/\b(nsfw|moderat)/.test(raw) && !raw.includes("false")) return "nsfw";
+  if (raw.includes("failed")) return "failed";
   return "unknown";
 }
 

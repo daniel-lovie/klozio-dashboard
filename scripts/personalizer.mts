@@ -31,10 +31,12 @@ setUsageSink((u) => {
     [u.kind, u.model, u.input_tokens, u.output_tokens, cost.toFixed(5)]).catch(() => {});
 });
 setHfUsageSink((u) => {
+  // credit estimates per job (HF top-up $0.05/cr; subs ~$0.033-0.039): recraft ~2cr, nano ~4.5cr
+  const credits = u.model === "recraft_v4_1" ? 2 : 4.5;
   pool.query(
-    `INSERT INTO usage_events (shop_id, provider, kind, model, units)
-     VALUES (1,'higgsfield',$1,$2,1)`,
-    [u.tool, u.model ?? null]).catch(() => {});
+    `INSERT INTO usage_events (shop_id, provider, kind, model, units, cost_usd, meta)
+     VALUES (1,'higgsfield',$1,$2,$3,$4,'{"estimate":true}')`,
+    [u.tool, u.model ?? null, credits, (credits * 0.04).toFixed(5)]).catch(() => {});
 });
 const q = async (sql: string, params: any[] = []) => (await pool.query(sql, params)).rows;
 

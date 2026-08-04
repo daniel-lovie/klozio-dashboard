@@ -254,3 +254,13 @@ ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEF
 ALTER TABLE agent_chats ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
 ALTER TABLE events ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
 ALTER TABLE etsy_tokens ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
+
+-- per-shop provider usage metering (anthropic tokens, higgsfield jobs) — future credit billing
+CREATE TABLE IF NOT EXISTS usage_events (
+  id bigserial PRIMARY KEY,
+  shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id),
+  provider text NOT NULL, kind text NOT NULL, model text,
+  input_tokens int NOT NULL DEFAULT 0, output_tokens int NOT NULL DEFAULT 0,
+  units numeric NOT NULL DEFAULT 0, cost_usd numeric(10,5) NOT NULL DEFAULT 0,
+  meta jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now()
+);

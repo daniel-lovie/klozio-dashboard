@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/portfolio", label: "Portföy" },
   { href: "/chat", label: "Agent 🤖" },
   { href: "/orders", label: "Siparişler" },
+  { href: "/usage", label: "Kullanım" },
 ];
 
 function cookieShopId(): number {

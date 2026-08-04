@@ -13,7 +13,7 @@ export type AgentEvent =
   | { t: "done" };
 
 async function* streamOnce(messages: any[]): AsyncGenerator<
-  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string }
+  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number } }
 > {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -36,6 +36,7 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
   let buf = "";
   const content: any[] = [];
   let stopReason = "end_turn";
+  const usage = { input_tokens: 0, output_tokens: 0 };
   let cur: any = null;
   let curJson = "";
 
@@ -50,7 +51,9 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
       if (!line) continue;
       let ev: any;
       try { ev = JSON.parse(line.slice(6)); } catch { continue; }
-      if (ev.type === "content_block_start") {
+      if (ev.type === "message_start") {
+        usage.input_tokens += ev.message?.usage?.input_tokens ?? 0;
+      } else if (ev.type === "content_block_start") {
         cur = ev.content_block; curJson = "";
         if (cur.type === "tool_use") cur = { type: "tool_use", id: cur.id, name: cur.name, input: {} };
         else cur = { type: "text", text: "" };
@@ -62,12 +65,13 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
         // empty text blocks are rejected by the API when echoed back — drop them
         if (cur && !(cur.type === "text" && !cur.text)) content.push(cur);
         cur = null;
-      } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
-        stopReason = ev.delta.stop_reason;
+      } else if (ev.type === "message_delta") {
+        if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+        if (ev.usage?.output_tokens) usage.output_tokens = ev.usage.output_tokens;
       }
     }
   }
-  yield { kind: "assistant", content, stopReason };
+  yield { kind: "assistant", content, stopReason, usage };
 }
 
 export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Klozio"): AsyncGenerator<AgentEvent> {
@@ -87,6 +91,11 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
         else assistant = ev;
       }
       messages.push({ role: "assistant", content: assistant.content });
+      const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0 };
+      q(`INSERT INTO usage_events (shop_id, provider, kind, model, input_tokens, output_tokens, cost_usd)
+         VALUES ($1,'anthropic','chat',$2,$3,$4,$5)`,
+        [shopId, MODEL, u.input_tokens, u.output_tokens,
+         ((u.input_tokens * 15 + u.output_tokens * 75) / 1_000_000).toFixed(5)]).catch(() => {});
       if (assistant.stopReason !== "tool_use") break;
 
       const results: any[] = [];

@@ -9,6 +9,11 @@ type Content =
   | { type: "text"; text: string }
   | { type: "image"; source: { type: "url"; url: string } | { type: "base64"; media_type: string; data: string } };
 
+/** Optional metering hook — the agent loop registers a DB writer here (usage_events). */
+export type UsageSink = (u: { model: string; kind: string; input_tokens: number; output_tokens: number }) => void;
+let usageSink: UsageSink | null = null;
+export function setUsageSink(fn: UsageSink) { usageSink = fn; }
+
 export async function forcedJson(opts: {
   system: string;
   user: Content[];
@@ -36,6 +41,7 @@ export async function forcedJson(opts: {
   });
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`anthropic ${res.status}: ${JSON.stringify(json).slice(0, 400)}`);
+  try { usageSink?.({ model: MODEL, kind: opts.toolName, input_tokens: json.usage?.input_tokens ?? 0, output_tokens: json.usage?.output_tokens ?? 0 }); } catch {}
   const tu = (json.content || []).find((c: any) => c.type === "tool_use");
   if (!tu) throw new Error("no tool_use block in response");
   return tu.input;

@@ -103,7 +103,14 @@ async function init(tok: string) {
   await rpc("notifications/initialized", {}, tok).catch(() => null);
 }
 
+export type HfUsageSink = (u: { tool: string; model?: string }) => void;
+let hfSink: HfUsageSink | null = null;
+export function setHfUsageSink(fn: HfUsageSink) { hfSink = fn; }
+
 export async function callTool(name: string, args: any): Promise<any> {
+  if (arguments.length && (name === "generate_image" || name === "apps_invoke")) {
+    try { hfSink?.({ tool: name, model: (args as any)?.params?.model }); } catch {}
+  }
   const tok = await accessToken();
   if (!sessionId) await init(tok);
   const result = await rpc("tools/call", { name, arguments: args }, tok);

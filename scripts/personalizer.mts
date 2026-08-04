@@ -8,8 +8,8 @@
 import pg from "pg";
 import { spawnSync } from "child_process";
 import { writeFileSync, readFileSync, unlinkSync } from "fs";
-import { forcedJson } from "../worker/anthropic.ts";
-import { uploadPng, generateSwap } from "../worker/hf.ts";
+import { forcedJson, setUsageSink } from "../worker/anthropic.ts";
+import { uploadPng, generateSwap, setHfUsageSink } from "../worker/hf.ts";
 import { makeProducer } from "../worker/producer.ts";
 import {
   INTERPRET_SCHEMA, INTERPRET_SYSTEM, buildInterpretUser,
@@ -21,6 +21,21 @@ if (!url) { console.error("DATABASE_URL not set"); process.exit(1); }
 const isLocal = /localhost|127\.0\.0\.1/.test(url);
 const pool = new pg.Pool({ connectionString: url, ssl: isLocal ? undefined : { rejectUnauthorized: false }, max: 3 });
 
+
+// ---- usage metering (Faz 1: worker == shop 1; opus-5 varsayilan fiyat $15/$75 per MTok)
+setUsageSink((u) => {
+  const cost = (u.input_tokens * 15 + u.output_tokens * 75) / 1_000_000;
+  pool.query(
+    `INSERT INTO usage_events (shop_id, provider, kind, model, input_tokens, output_tokens, cost_usd)
+     VALUES (1,'anthropic',$1,$2,$3,$4,$5)`,
+    [u.kind, u.model, u.input_tokens, u.output_tokens, cost.toFixed(5)]).catch(() => {});
+});
+setHfUsageSink((u) => {
+  pool.query(
+    `INSERT INTO usage_events (shop_id, provider, kind, model, units)
+     VALUES (1,'higgsfield',$1,$2,1)`,
+    [u.tool, u.model ?? null]).catch(() => {});
+});
 const q = async (sql: string, params: any[] = []) => (await pool.query(sql, params)).rows;
 
 async function log(orderId: number, stage: string, detail: any) {

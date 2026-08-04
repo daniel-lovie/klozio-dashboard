@@ -76,7 +76,8 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
 
 export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Klozio"): AsyncGenerator<AgentEvent> {
   await q(`INSERT INTO agent_chats (id, shop_id) SELECT COALESCE(max(id),0)+1, $1 FROM agent_chats
-           WHERE NOT EXISTS (SELECT 1 FROM agent_chats WHERE shop_id=$1)`, [shopId]);
+           HAVING NOT EXISTS (SELECT 1 FROM agent_chats WHERE shop_id=$1)
+           ON CONFLICT (shop_id) DO NOTHING`, [shopId]);
   const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE shop_id=$1 ORDER BY id LIMIT 1`, [shopId]);
   let messages: any[] = (row?.messages ?? []).slice(-40);
   // a dangling tool_use without its result breaks the API — trim to a clean boundary

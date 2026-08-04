@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { q } from "@/lib/db";
-import { updateShopCreds } from "@/lib/shops";
+import { updateShopCreds, getShopCreds } from "@/lib/shops";
 
 export async function GET(req: Request) {
   const u = new URL(req.url);
@@ -15,6 +15,8 @@ export async function GET(req: Request) {
     return NextResponse.redirect(new URL("/shops/new?etsy=state_mismatch", u.origin));
   }
   const shopId = Number(state.split(".")[0]);
+  const creds = await getShopCreds(shopId);
+  const clientId = creds.etsy_api_key || process.env.ETSY_API_KEY || "";
   const base = process.env.PUBLIC_BASE_URL ?? "https://web-production-c9b31.up.railway.app";
 
   const tr = await fetch("https://api.etsy.com/v3/public/oauth/token", {
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       grant_type: "authorization_code",
-      client_id: process.env.ETSY_API_KEY,
+      client_id: clientId,
       redirect_uri: `${base}/api/etsy/callback`,
       code, code_verifier: verifier,
     }),
@@ -34,7 +36,7 @@ export async function GET(req: Request) {
   // etsy user id is the token prefix; resolve their shop
   const userId = String(tok.access_token).split(".")[0];
   const sr = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}/shops`, {
-    headers: { "x-api-key": process.env.ETSY_API_KEY ?? "", Authorization: `Bearer ${tok.access_token}` },
+    headers: { "x-api-key": clientId, Authorization: `Bearer ${tok.access_token}` },
   });
   const shopInfo: any = await sr.json().catch(() => ({}));
   const etsyShop = shopInfo?.shop_id ? shopInfo : (shopInfo?.results?.[0] ?? null);

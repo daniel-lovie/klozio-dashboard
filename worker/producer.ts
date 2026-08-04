@@ -104,6 +104,32 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
     return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
   }
 
+  /** Cover thumbnails are ads, not mood shots (see .claude/skills/listing-covers). */
+  function coverTexts(p: any): { banner: string; strip: string } {
+    const pers = !!p.personalised;
+    if (p.slot === "EMB") return {
+      banner: pers ? "CUSTOM EMBROIDERY · YOUR NAMES STITCHED" : "REAL EMBROIDERY · NOT A PRINT",
+      strip: "COMFORT COLORS 1717 · REAL STITCHING · S-4XL" };
+    if (p.slot === "EMBH") return {
+      banner: pers ? "CUSTOM EMBROIDERED DAD HAT" : "EMBROIDERED DAD HAT · NOT A PRINT",
+      strip: "YUPOONG 6245CM · 10 COLORS · ADJUSTABLE" };
+    return {
+      banner: pers ? "PERSONALIZED WITH YOUR NAMES" : "COMFORT COLORS GARMENT-DYED TEE",
+      strip: "COMFORT COLORS 1717 · 22 COLORS · S-4XL" };
+  }
+
+  function adStyleCover(jpeg: Buffer, p: any): Buffer {
+    const tin = `/tmp/prod-${p.id}-cov-in.jpg`, tout = `/tmp/prod-${p.id}-cov-out.jpg`;
+    writeFileSync(tin, jpeg);
+    const { banner, strip } = coverTexts(p);
+    const script = new URL("../scripts/make_cover.py", import.meta.url).pathname;
+    const r = spawnSync("python3", [script, tin, tout, "--banner", banner, "--strip", strip], { encoding: "utf8" });
+    if (r.status !== 0) { console.log(`[product ${p.id}] cover overlay failed, using plain:`, (r.stderr || "").slice(0, 120)); return jpeg; }
+    const out = readFileSync(tout);
+    unlinkSync(tin); unlinkSync(tout);
+    return out;
+  }
+
   async function visionQaDesign(p: any, printPng: Buffer): Promise<string | null> {
     // best-effort: skipped silently when Anthropic is unavailable/unfunded
     try {
@@ -131,10 +157,11 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
       const roles = ["cover", "hanging", "model"];
       for (let i = 0; i < 3; i++) {
         const { buf, w, h } = toJpeg(mocks[i], `${p.id}-${roles[i]}`);
+        const finalBuf = i === 0 ? adStyleCover(buf, p) : buf;
         await client.query(
           `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
            VALUES ($1,$2,$3,$4,$5,'image/jpeg',$6,$7,$8)`,
-          [p.id, i + 1, roles[i], p.hero_colorway, `mockup-${roles[i]}.jpg`, w, h, buf]);
+          [p.id, i + 1, roles[i], i === 0 ? "ad-style cover" : p.hero_colorway, `mockup-${roles[i]}.jpg`, w, h, finalBuf]);
       }
       if (existsSync(CHART) && String(p.blank || "").includes("Comfort Colors")) {
         const chart = readFileSync(CHART);
@@ -142,6 +169,13 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
           `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
            VALUES ($1,4,'colorway-chart','All 22 colors','color-chart.jpeg','image/jpeg',2000,2000,$2)`,
           [p.id, chart]);
+        const sizeChart = new URL("../assets/cc1717-size-chart.png", import.meta.url).pathname;
+        if (existsSync(sizeChart)) {
+          await client.query(
+            `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
+             VALUES ($1,5,'size-chart','CC1717 size chart','cc1717-size-chart.png','image/png',2000,2000,$2)`,
+            [p.id, readFileSync(sizeChart)]);
+        }
       }
       if (printPng) {
         const d = pngDims(printPng);

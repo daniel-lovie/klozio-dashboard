@@ -203,6 +203,19 @@ export async function uploadListingImage(
   return handle(res, `uploadListingImage rank ${rank}`);
 }
 
+/** One video per listing; re-upload replaces. Etsy: 5-15s, max 100MB. */
+export async function uploadListingVideo(listingId: number, filename: string, bytes: Buffer) {
+  const fd = new FormData();
+  fd.append("video", new Blob([new Uint8Array(bytes)], { type: "video/mp4" }), filename);
+  fd.append("name", filename);
+  const res = await fetch(`${BASE}/shops/${shopId()}/listings/${listingId}/videos`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: fd,
+  });
+  return handle(res, `uploadListingVideo`);
+}
+
 /** Size property/scale + value ids verified against the live taxonomy (node 482). */
 export const SIZE_PROPERTY = 62809790533;
 export const SIZE_SCALE = 51;

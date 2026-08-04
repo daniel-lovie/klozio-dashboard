@@ -12,11 +12,14 @@
  *     a month of backdated launches onto the shop at once
  *   - a crude DB lock (locked_at) stops two tickers double-publishing the same row
  */
+import fs from "fs";
+import path from "path";
 import { q, one, logEvent } from "./db";
 import {
   createDraftListing,
   setListingPersonalization,
   uploadListingImage,
+  uploadListingVideo,
   updateInventory,
   activateListing,
   setReturnPolicy,
@@ -119,6 +122,16 @@ export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?
       if (imgs.length === 0) throw new Error("product has no images — Etsy requires at least one to go active");
       for (const img of imgs) {
         await uploadListingImage(listingId, img.rank, img.filename, img.mime, img.bytes as Buffer);
+      }
+
+      // CC1717 shirts carry the try-on video (best-effort — a video failure must not block launch)
+      if (String(p.blank || "").includes("Comfort Colors")) {
+        try {
+          const vid = path.join(process.cwd(), "assets", "cc1717-tryon-720.mp4");
+          if (fs.existsSync(vid)) await uploadListingVideo(listingId, "cc1717-tryon.mp4", fs.readFileSync(vid));
+        } catch (e) {
+          console.error(`listing ${listingId}: video upload failed (non-fatal):`, String(e).slice(0, 150));
+        }
       }
 
       await updateInventory(listingId, {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { currentShopId } from "@/lib/shops";
 
 const MAX_SLOTS = Number(process.env.MAX_NICHE_SLOTS || 3);
 
@@ -15,10 +16,11 @@ const STAGE: Record<string, { bg: string; text: string; label: string }> = {
 export default async function Portfolio() {
   if (!(await isLoggedIn())) redirect("/login");
 
+  const shopId = await currentShopId();
   const niches = await q<any>(`
     SELECT n.*,
-           (SELECT count(*) FROM products p WHERE p.niche = n.slug) AS products,
-           (SELECT count(*) FROM products p WHERE p.niche = n.slug AND p.etsy_state='active') AS live
+           (SELECT count(*) FROM products p WHERE p.niche = n.slug AND p.shop_id=${shopId}) AS products,
+           (SELECT count(*) FROM products p WHERE p.niche = n.slug AND p.shop_id=${shopId} AND p.etsy_state='active') AS live
       FROM niches n
      ORDER BY CASE n.stage WHEN 'scaling' THEN 0 WHEN 'validating' THEN 1 WHEN 'candidate' THEN 2
                            WHEN 'harvesting' THEN 3 ELSE 4 END, n.family, n.slug`);

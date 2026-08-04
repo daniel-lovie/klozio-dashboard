@@ -56,6 +56,7 @@ export async function claimDue(limit = 5): Promise<DueRow[]> {
       WHERE s.id IN (
         SELECT id FROM schedule
          WHERE status = 'approved'
+           AND product_id IN (SELECT id FROM products WHERE shop_id = 1) /* Faz 2 */
            AND scheduled_at <= now()
            AND (locked_at IS NULL OR locked_at < now() - INTERVAL '15 minutes')
          ORDER BY scheduled_at

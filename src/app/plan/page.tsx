@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isLoggedIn } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { currentShopId } from "@/lib/shops";
 import { money, dayKeyTZ, timeInShopTZ, TZ_LABEL } from "@/lib/fmt";
 import { ContentApprove, BulkApprove } from "@/components/ContentApprove";
 
@@ -46,6 +47,7 @@ export default async function PlanPage({
                 BETWEEN $${params.length - 1}::date AND $${params.length}::date`);
   }
 
+  const shopId = await currentShopId();
   const rows = await q<Row>(
     `SELECT p.id AS pid, p.slug, p.slot, p.tree, p.niche, p.concept_no, p.variant,
             p.title, p.tags, p.description, p.hook, p.visual_idea, p.personalised,
@@ -55,15 +57,15 @@ export default async function PlanPage({
             s.scheduled_at, s.status AS sched_status,
             (SELECT count(*)::int FROM product_images i WHERE i.product_id = p.id) AS image_count
        FROM products p JOIN schedule s ON s.product_id = p.id
-      WHERE ${where.join(" AND ")}
+      WHERE p.shop_id=${shopId} AND ${where.join(" AND ")}
       ORDER BY s.scheduled_at, p.slot, p.concept_no, p.variant`, params);
 
   const totals = await q<{ content_status: string; n: number }>(
-    `SELECT content_status, count(*)::int AS n FROM products WHERE slot IS NOT NULL GROUP BY 1`);
+    `SELECT content_status, count(*)::int AS n FROM products WHERE slot IS NOT NULL AND shop_id=${shopId} GROUP BY 1`);
   const slots = await q<{ slot: string; niche: string; n: number; ok: number }>(
     `SELECT slot, min(niche) AS niche, count(*)::int AS n,
             count(*) FILTER (WHERE content_status='approved')::int AS ok
-       FROM products WHERE slot IS NOT NULL GROUP BY slot
+       FROM products WHERE slot IS NOT NULL AND shop_id=${shopId} GROUP BY slot
       ORDER BY left(slot,1), length(slot), slot`);
 
   const tally = Object.fromEntries(totals.map((t) => [t.content_status, t.n]));

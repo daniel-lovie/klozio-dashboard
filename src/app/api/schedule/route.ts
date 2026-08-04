@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { q, logEvent } from "@/lib/db";
 import { isLoggedIn } from "@/lib/auth";
+import { currentShopId } from "@/lib/shops";
 
 export async function GET(req: Request) {
   if (!(await isLoggedIn())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL(req.url);
   const month = url.searchParams.get("month"); // YYYY-MM
-  const params: any[] = [];
-  let where = "";
+  const shopId = await currentShopId();
+  const params: any[] = [shopId];
+  let where = "WHERE p.shop_id = $1";
   if (month) {
     params.push(`${month}-01`);
-    where = `WHERE s.scheduled_at >= $1::date AND s.scheduled_at < ($1::date + INTERVAL '1 month')`;
+    where += ` AND s.scheduled_at >= $2::date AND s.scheduled_at < ($2::date + INTERVAL '1 month')`;
   }
   const rows = await q(
     `SELECT s.id, s.scheduled_at, s.status, s.approved_at, s.published_at, s.last_error, s.attempts,

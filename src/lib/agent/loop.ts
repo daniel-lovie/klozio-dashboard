@@ -70,12 +70,14 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
   yield { kind: "assistant", content, stopReason };
 }
 
-export async function* runAgentTurn(userText: string): AsyncGenerator<AgentEvent> {
-  const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE id=1`);
+export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Klozio"): AsyncGenerator<AgentEvent> {
+  await q(`INSERT INTO agent_chats (id, shop_id) SELECT COALESCE(max(id),0)+1, $1 FROM agent_chats
+           WHERE NOT EXISTS (SELECT 1 FROM agent_chats WHERE shop_id=$1)`, [shopId]);
+  const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE shop_id=$1 ORDER BY id LIMIT 1`, [shopId]);
   let messages: any[] = (row?.messages ?? []).slice(-40);
   // a dangling tool_use without its result breaks the API — trim to a clean boundary
   while (messages.length && messages[0].role !== "user") messages.shift();
-  messages.push({ role: "user", content: userText });
+  messages.push({ role: "user", content: `[Aktif mağaza: ${shopName} (shop_id=${shopId}) — tüm SQL sorgularında bu mağazaya filtrele]\n${userText}` });
 
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
@@ -98,7 +100,7 @@ export async function* runAgentTurn(userText: string): AsyncGenerator<AgentEvent
   } catch (e: any) {
     yield { t: "error", d: String(e?.message ?? e).slice(0, 400) };
   } finally {
-    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=1`, [JSON.stringify(messages.slice(-60))]);
+    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE shop_id=$2`, [JSON.stringify(messages.slice(-60)), shopId]);
   }
   yield { t: "done" };
 }

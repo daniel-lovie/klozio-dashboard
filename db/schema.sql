@@ -242,3 +242,15 @@ CREATE TABLE IF NOT EXISTS agent_chats (
   messages jsonb NOT NULL DEFAULT '[]',
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- multi-shop (Faz 1): shops + shop_id scoping; Klozio = shop 1 (docs/multi-shop-spec.md)
+CREATE TABLE IF NOT EXISTS shops (
+  id serial PRIMARY KEY, slug text UNIQUE NOT NULL, name text NOT NULL,
+  creds jsonb NOT NULL DEFAULT '{}', settings jsonb NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
+ALTER TABLE agent_chats ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
+ALTER TABLE events ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);
+ALTER TABLE etsy_tokens ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1 REFERENCES shops(id);

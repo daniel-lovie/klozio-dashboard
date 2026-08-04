@@ -2,15 +2,18 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isLoggedIn } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { currentShopId } from "@/lib/shops";
 import { fmtDateTime } from "@/lib/fmt";
 import { OrderRow, PollButton } from "@/components/Orders";
 
 export default async function OrdersPage() {
   if (!(await isLoggedIn())) redirect("/login");
 
+  const shopId = await currentShopId();
   const rows = await q<any>(
     `SELECT f.*, p.slug, p.title, p.personalised, p.hero_colorway, p.slot, p.technique
        FROM fulfillment_orders f LEFT JOIN products p ON p.id=f.product_id
+      WHERE f.shop_id=${shopId}
       ORDER BY CASE WHEN f.status IN ('done','shipped') THEN 1 ELSE 0 END, f.ordered_at DESC NULLS LAST`);
 
   const active = rows.filter((r) => !["done", "shipped"].includes(r.status));

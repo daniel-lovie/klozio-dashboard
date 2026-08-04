@@ -23,7 +23,8 @@ export function makeProducer(pool: pg.Pool) {
       UPDATE products p SET design_state='generating', updated_at=now()
       WHERE p.id = (
         SELECT pr.id FROM products pr
-        WHERE (pr.design_prompt IS NOT NULL OR pr.mockup_prompt IS NOT NULL)
+        WHERE pr.shop_id = 1 /* Faz 2: per-shop creds */
+          AND (pr.design_prompt IS NOT NULL OR pr.mockup_prompt IS NOT NULL)
           AND pr.id NOT IN (SELECT product_id FROM schedule WHERE status='published')
           AND (
             (pr.content_status='approved' AND pr.design_state IS NULL

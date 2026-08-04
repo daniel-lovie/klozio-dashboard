@@ -4,7 +4,7 @@ import { useState } from "react";
 export default function ShopWizard() {
   const [shopId, setShopId] = useState<number | null>(null);
   const [name, setName] = useState("");
-  const [f, setF] = useState({ shopify_domain: "", shopify_client_id: "", shopify_client_secret: "", printful_api_key: "" });
+  const [f, setF] = useState({ shopify_domain: "", shopify_client_id: "", shopify_client_secret: "", printful_api_key: "", anthropic_api_key: "" });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -77,7 +77,17 @@ export default function ShopWizard() {
       </section>
 
       <section className={`rounded-xl border border-espresso/15 bg-white/60 p-5 ${!shopId ? "opacity-40 pointer-events-none" : ""}`}>
-        <h2 className="mb-1 font-semibold">4 · Printful (opsiyonel — nakış hattı)</h2>
+        <h2 className="mb-1 font-semibold">4 · Kendi AI anahtarların (opsiyonel — BYO)</h2>
+        <p className="mb-3 text-xs text-muted">
+          Boş bırakırsan platform kredisi kullanılır ve tüketim faturalanır. Kendi anahtarını girersen
+          maliyet doğrudan sana yazar. (Higgsfield bağlantısı: yakında — şimdilik platform üzerinden.)
+        </p>
+        <input className={input} placeholder="Anthropic API key (sk-ant-..., opsiyonel)" value={f.anthropic_api_key}
+          onChange={(e) => setF({ ...f, anthropic_api_key: e.target.value })} />
+      </section>
+
+      <section className={`rounded-xl border border-espresso/15 bg-white/60 p-5 ${!shopId ? "opacity-40 pointer-events-none" : ""}`}>
+        <h2 className="mb-1 font-semibold">5 · Printful (opsiyonel — nakış hattı)</h2>
         <input className={input} placeholder="Printful API key" value={f.printful_api_key}
           onChange={(e) => setF({ ...f, printful_api_key: e.target.value })} />
       </section>

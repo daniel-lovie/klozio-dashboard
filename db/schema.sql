@@ -264,3 +264,6 @@ CREATE TABLE IF NOT EXISTS usage_events (
   units numeric NOT NULL DEFAULT 0, cost_usd numeric(10,5) NOT NULL DEFAULT 0,
   meta jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now()
 );
+-- cache token cols + hf per-shop
+ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS cache_read int NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS cache_write int NOT NULL DEFAULT 0;
+ALTER TABLE hf_tokens ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1;

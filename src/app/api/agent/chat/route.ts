@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const ev of runAgentTurn(String(message), shopId, shop?.name ?? "Klozio")) {
+        for await (const ev of runAgentTurn(String(message), shopId, shop?.name ?? "Klozio", shop?.creds?.anthropic_api_key)) {
           controller.enqueue(enc.encode(`data: ${JSON.stringify(ev)}\n\n`));
         }
       } catch (e: any) {

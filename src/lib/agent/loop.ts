@@ -12,19 +12,21 @@ export type AgentEvent =
   | { t: "error"; d: string }
   | { t: "done" };
 
-async function* streamOnce(messages: any[]): AsyncGenerator<
-  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number } }
+async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
+  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number } }
 > {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
-      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+      "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
     body: JSON.stringify({
       model: MODEL, max_tokens: 4096, stream: true,
-      system: AGENT_SYSTEM, tools: TOOL_DEFS, messages,
+      // cache breakpoint on the system block caches tools+system (~90% input cost cut)
+      system: [{ type: "text", text: AGENT_SYSTEM, cache_control: { type: "ephemeral" } }],
+      tools: TOOL_DEFS, messages,
     }),
   });
   if (!res.ok || !res.body) {
@@ -36,7 +38,7 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
   let buf = "";
   const content: any[] = [];
   let stopReason = "end_turn";
-  const usage = { input_tokens: 0, output_tokens: 0 };
+  const usage = { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 };
   let cur: any = null;
   let curJson = "";
 
@@ -53,6 +55,8 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
       try { ev = JSON.parse(line.slice(6)); } catch { continue; }
       if (ev.type === "message_start") {
         usage.input_tokens += ev.message?.usage?.input_tokens ?? 0;
+        usage.cache_read += ev.message?.usage?.cache_read_input_tokens ?? 0;
+        usage.cache_write += ev.message?.usage?.cache_creation_input_tokens ?? 0;
       } else if (ev.type === "content_block_start") {
         cur = ev.content_block; curJson = "";
         if (cur.type === "tool_use") cur = { type: "tool_use", id: cur.id, name: cur.name, input: {} };
@@ -74,7 +78,9 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
   yield { kind: "assistant", content, stopReason, usage };
 }
 
-export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Klozio"): AsyncGenerator<AgentEvent> {
+export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Klozio", byoKey?: string): AsyncGenerator<AgentEvent> {
+  const apiKey = byoKey || process.env.ANTHROPIC_API_KEY || "";
+  const byo = !!byoKey;
   await q(`INSERT INTO agent_chats (id, shop_id) SELECT COALESCE(max(id),0)+1, $1 FROM agent_chats
            HAVING NOT EXISTS (SELECT 1 FROM agent_chats WHERE shop_id=$1)
            ON CONFLICT (shop_id) DO NOTHING`, [shopId]);
@@ -87,16 +93,18 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
       let assistant: any = null;
-      for await (const ev of streamOnce(messages)) {
+      for await (const ev of streamOnce(messages, apiKey)) {
         if (ev.kind === "text") yield { t: "text", d: ev.text };
         else assistant = ev;
       }
       messages.push({ role: "assistant", content: assistant.content });
-      const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0 };
-      q(`INSERT INTO usage_events (shop_id, provider, kind, model, input_tokens, output_tokens, cost_usd)
-         VALUES ($1,'anthropic','chat',$2,$3,$4,$5)`,
-        [shopId, MODEL, u.input_tokens, u.output_tokens,
-         ((u.input_tokens * 15 + u.output_tokens * 75) / 1_000_000).toFixed(5)]).catch(() => {});
+      const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 };
+      // opus per MTok: in $15, cache write $18.75, cache read $1.50, out $75; BYO key -> their bill
+      const cost = byo ? 0 : (u.input_tokens * 15 + u.cache_write * 18.75 + u.cache_read * 1.5 + u.output_tokens * 75) / 1_000_000;
+      q(`INSERT INTO usage_events (shop_id, provider, kind, model, input_tokens, output_tokens, cache_read, cache_write, cost_usd, meta)
+         VALUES ($1,'anthropic','chat',$2,$3,$4,$5,$6,$7,$8)`,
+        [shopId, MODEL, u.input_tokens, u.output_tokens, u.cache_read, u.cache_write,
+         cost.toFixed(5), JSON.stringify({ byo })]).catch(() => {});
       if (assistant.stopReason !== "tool_use") break;
 
       const results: any[] = [];

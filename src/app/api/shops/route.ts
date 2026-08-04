@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
   if (!b.name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
   const creds: Record<string, string> = {};
-  for (const k of ["shopify_domain", "shopify_client_id", "shopify_client_secret", "printful_api_key"]) {
+  for (const k of ["shopify_domain", "shopify_client_id", "shopify_client_secret", "printful_api_key", "anthropic_api_key"]) {
     if (b[k]?.trim()) creds[k] = String(b[k]).trim();
   }
   const shop = await createShop({ name: b.name, creds });
@@ -28,7 +28,7 @@ export async function PATCH(req: Request) {
   const b = await req.json().catch(() => ({}));
   if (!b.id) return NextResponse.json({ error: "id required" }, { status: 400 });
   const patch: Record<string, string> = {};
-  for (const k of ["shopify_domain", "shopify_client_id", "shopify_client_secret", "printful_api_key"]) {
+  for (const k of ["shopify_domain", "shopify_client_id", "shopify_client_secret", "printful_api_key", "anthropic_api_key"]) {
     if (b[k] !== undefined) patch[k] = String(b[k]).trim();
   }
   await updateShopCreds(Number(b.id), patch);

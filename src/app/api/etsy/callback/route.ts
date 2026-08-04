@@ -1,23 +1,25 @@
 /** Etsy OAuth callback: exchange code, store per-shop tokens, pull shop defaults. */
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { q } from "@/lib/db";
+import { q, logEvent } from "@/lib/db";
 import { updateShopCreds, getShopCreds } from "@/lib/shops";
 
 export async function GET(req: Request) {
   const u = new URL(req.url);
+  // behind Railway's proxy req.url origin is localhost:8080 — never redirect to it
+  const base = process.env.PUBLIC_BASE_URL ?? "https://web-production-c9b31.up.railway.app";
   const code = u.searchParams.get("code");
   const state = u.searchParams.get("state") ?? "";
   const c = await cookies();
   const pkce = c.get("etsy_pkce")?.value ?? "";
   const [savedState, verifier] = pkce.split(":");
   if (!code || !verifier || savedState !== state) {
-    return NextResponse.redirect(new URL("/shops/new?etsy=state_mismatch", u.origin));
+    await logEvent("etsy_oauth_fail", { detail: `state mismatch (code=${!!code}, cookie=${!!verifier})` });
+    return NextResponse.redirect(`${base}/shops/new?etsy=state_mismatch`);
   }
   const shopId = Number(state.split(".")[0]);
   const creds = await getShopCreds(shopId);
   const clientId = creds.etsy_api_key || process.env.ETSY_API_KEY || "";
-  const base = process.env.PUBLIC_BASE_URL ?? "https://web-production-c9b31.up.railway.app";
 
   const tr = await fetch("https://api.etsy.com/v3/public/oauth/token", {
     method: "POST",
@@ -31,7 +33,8 @@ export async function GET(req: Request) {
   });
   const tok: any = await tr.json().catch(() => ({}));
   if (!tr.ok || !tok.access_token) {
-    return NextResponse.redirect(new URL(`/shops/new?etsy=token_fail`, u.origin));
+    await logEvent("etsy_oauth_fail", { detail: `token exchange ${tr.status}: ${JSON.stringify(tok).slice(0, 200)}` });
+    return NextResponse.redirect(`${base}/shops/new?etsy=token_fail`);
   }
   // etsy user id is the token prefix; resolve their shop
   const userId = String(tok.access_token).split(".")[0];
@@ -49,5 +52,5 @@ export async function GET(req: Request) {
   if (etsyShop?.shop_id) {
     await updateShopCreds(shopId, { etsy_shop_id: String(etsyShop.shop_id), etsy_shop_name: etsyShop.shop_name });
   }
-  return NextResponse.redirect(new URL(`/shops/new?etsy=connected&shop=${shopId}`, u.origin));
+  return NextResponse.redirect(`${base}/shops/new?etsy=connected&shop=${shopId}`);
 }

@@ -15,6 +15,15 @@ export type AgentEvent =
 async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
   { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number } }
 > {
+  // request-time copy: cache breakpoint on the last message caches the whole conversation prefix
+  const send = messages.map((m, i) => {
+    if (i !== messages.length - 1) return m;
+    const content = typeof m.content === "string"
+      ? [{ type: "text", text: m.content, cache_control: { type: "ephemeral" } }]
+      : m.content.map((b: any, j: number) =>
+          j === m.content.length - 1 ? { ...b, cache_control: { type: "ephemeral" } } : b);
+    return { ...m, content };
+  });
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -26,7 +35,7 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
       model: MODEL, max_tokens: 4096, stream: true,
       // cache breakpoint on the system block caches tools+system (~90% input cost cut)
       system: [{ type: "text", text: AGENT_SYSTEM, cache_control: { type: "ephemeral" } }],
-      tools: TOOL_DEFS, messages,
+      tools: TOOL_DEFS, messages: send,
     }),
   });
   if (!res.ok || !res.body) {

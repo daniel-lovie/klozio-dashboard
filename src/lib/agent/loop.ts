@@ -59,7 +59,8 @@ async function* streamOnce(messages: any[]): AsyncGenerator<
         else if (ev.delta.type === "input_json_delta") curJson += ev.delta.partial_json;
       } else if (ev.type === "content_block_stop") {
         if (cur?.type === "tool_use") { try { cur.input = curJson ? JSON.parse(curJson) : {}; } catch { cur.input = {}; } }
-        if (cur) content.push(cur);
+        // empty text blocks are rejected by the API when echoed back — drop them
+        if (cur && !(cur.type === "text" && !cur.text)) content.push(cur);
         cur = null;
       } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
         stopReason = ev.delta.stop_reason;

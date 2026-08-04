@@ -6,6 +6,7 @@ const LINKS = [
   { href: "/", label: "Takvim" },
   { href: "/plan", label: "Plan" },
   { href: "/portfolio", label: "Portföy" },
+  { href: "/chat", label: "Agent 🤖" },
   { href: "/orders", label: "Siparişler" },
 ];
 

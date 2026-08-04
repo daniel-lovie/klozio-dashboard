@@ -109,6 +109,12 @@ export async function createEmbroideryDraft(opts: {
   });
 }
 
+/** Generic store-scoped Printful call — used by the web agent's `printful` tool. */
+export async function printfulRaw(method: string, path: string, body?: unknown) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return pfStore(p, { method, body: body !== undefined ? JSON.stringify(body) : undefined });
+}
+
 export async function confirmOrder(printfulOrderId: number) {
   return pfStore(`/orders/${printfulOrderId}/confirm`, { method: "POST" });
 }

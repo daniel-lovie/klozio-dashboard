@@ -1,0 +1,103 @@
+/** Anthropic tool-use loop with streaming. Yields UI events; persists the thread. */
+import { q, one } from "../db";
+import { AGENT_SYSTEM } from "./prompt";
+import { TOOL_DEFS, execTool } from "./tools";
+
+const MODEL = process.env.PERSONALIZER_MODEL || "claude-opus-5";
+const MAX_STEPS = 25;
+
+export type AgentEvent =
+  | { t: "text"; d: string }
+  | { t: "tool"; d: string }
+  | { t: "error"; d: string }
+  | { t: "done" };
+
+async function* streamOnce(messages: any[]): AsyncGenerator<
+  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string }
+> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: MODEL, max_tokens: 4096, stream: true,
+      system: AGENT_SYSTEM, tools: TOOL_DEFS, messages,
+    }),
+  });
+  if (!res.ok || !res.body) {
+    const err = await res.text().catch(() => "");
+    throw new Error(`Anthropic ${res.status}: ${err.slice(0, 300)}`);
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  const content: any[] = [];
+  let stopReason = "end_turn";
+  let cur: any = null;
+  let curJson = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let idx;
+    while ((idx = buf.indexOf("\n\n")) >= 0) {
+      const chunk = buf.slice(0, idx); buf = buf.slice(idx + 2);
+      const line = chunk.split("\n").find((l) => l.startsWith("data: "));
+      if (!line) continue;
+      let ev: any;
+      try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+      if (ev.type === "content_block_start") {
+        cur = ev.content_block; curJson = "";
+        if (cur.type === "tool_use") cur = { type: "tool_use", id: cur.id, name: cur.name, input: {} };
+        else cur = { type: "text", text: "" };
+      } else if (ev.type === "content_block_delta") {
+        if (ev.delta.type === "text_delta") { cur.text += ev.delta.text; yield { kind: "text", text: ev.delta.text }; }
+        else if (ev.delta.type === "input_json_delta") curJson += ev.delta.partial_json;
+      } else if (ev.type === "content_block_stop") {
+        if (cur?.type === "tool_use") { try { cur.input = curJson ? JSON.parse(curJson) : {}; } catch { cur.input = {}; } }
+        if (cur) content.push(cur);
+        cur = null;
+      } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
+        stopReason = ev.delta.stop_reason;
+      }
+    }
+  }
+  yield { kind: "assistant", content, stopReason };
+}
+
+export async function* runAgentTurn(userText: string): AsyncGenerator<AgentEvent> {
+  const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE id=1`);
+  let messages: any[] = (row?.messages ?? []).slice(-40);
+  // a dangling tool_use without its result breaks the API — trim to a clean boundary
+  while (messages.length && messages[0].role !== "user") messages.shift();
+  messages.push({ role: "user", content: userText });
+
+  try {
+    for (let step = 0; step < MAX_STEPS; step++) {
+      let assistant: any = null;
+      for await (const ev of streamOnce(messages)) {
+        if (ev.kind === "text") yield { t: "text", d: ev.text };
+        else assistant = ev;
+      }
+      messages.push({ role: "assistant", content: assistant.content });
+      if (assistant.stopReason !== "tool_use") break;
+
+      const results: any[] = [];
+      for (const block of assistant.content.filter((b: any) => b.type === "tool_use")) {
+        const { result, summary } = await execTool(block.name, block.input);
+        yield { t: "tool", d: summary };
+        results.push({ type: "tool_result", tool_use_id: block.id, content: result });
+      }
+      messages.push({ role: "user", content: results });
+    }
+  } catch (e: any) {
+    yield { t: "error", d: String(e?.message ?? e).slice(0, 400) };
+  } finally {
+    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=1`, [JSON.stringify(messages.slice(-60))]);
+  }
+  yield { t: "done" };
+}

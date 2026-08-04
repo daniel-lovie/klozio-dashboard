@@ -103,6 +103,17 @@ async function apiForm(method: "POST" | "PUT" | "PATCH", path: string, fields: R
   return handle(res, `${method} ${path}`);
 }
 
+/** Generic authenticated Etsy call — used by the web agent's `etsy` tool. */
+export async function etsyRaw(method: string, path: string, payload?: unknown) {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const res = await fetch(`${BASE}${p}`, {
+    method,
+    headers: await authHeaders(payload !== undefined ? { "Content-Type": "application/json" } : {}),
+    body: payload !== undefined ? JSON.stringify(payload) : undefined,
+  });
+  return handle(res, `${method} ${p}`);
+}
+
 async function apiJson(method: "PUT" | "POST", path: string, payload: unknown) {
   const res = await fetch(`${BASE}${path}`, {
     method,

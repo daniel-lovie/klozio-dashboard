@@ -235,3 +235,10 @@ ALTER TABLE fulfillment_orders
 ALTER TABLE products ADD COLUMN IF NOT EXISTS printful_placement text;
 -- Printful embroidery: chosen thread colors (subset of Printful's allowed palette)
 ALTER TABLE products ADD COLUMN IF NOT EXISTS thread_colors text[];
+
+-- web chat agent conversation persistence (single operator thread)
+CREATE TABLE IF NOT EXISTS agent_chats (
+  id int PRIMARY KEY,
+  messages jsonb NOT NULL DEFAULT '[]',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);

@@ -267,3 +267,6 @@ CREATE TABLE IF NOT EXISTS usage_events (
 -- cache token cols + hf per-shop
 ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS cache_read int NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS cache_write int NOT NULL DEFAULT 0;
 ALTER TABLE hf_tokens ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1;
+-- multi-shop: drop single-row check on etsy_tokens; one token row per shop
+ALTER TABLE etsy_tokens DROP CONSTRAINT IF EXISTS etsy_tokens_id_check;
+CREATE UNIQUE INDEX IF NOT EXISTS etsy_tokens_shop_uidx ON etsy_tokens(shop_id);

@@ -14,6 +14,7 @@ export async function POST(req: Request) {
   if (!(await isLoggedIn())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const b = await req.json().catch(() => ({}));
   if (!b.name?.trim()) return NextResponse.json({ error: "name required" }, { status: 400 });
+  if (/https?:\/\//i.test(b.name) || b.name.length > 60) return NextResponse.json({ error: "bu bir mağaza adı gibi görünmüyor" }, { status: 400 });
   const creds: Record<string, string> = {};
   for (const k of ["shopify_domain", "shopify_client_id", "shopify_client_secret", "printful_api_key", "anthropic_api_key"]) {
     if (b[k]?.trim()) creds[k] = String(b[k]).trim();

@@ -47,7 +47,9 @@ export async function GET(req: Request) {
   await q(
     `INSERT INTO etsy_tokens (id, shop_id, access_token, refresh_token, expires_at)
      VALUES ((SELECT COALESCE(max(id),0)+1 FROM etsy_tokens), $1, $2, $3, now() + make_interval(secs => $4))
-     ON CONFLICT DO NOTHING`,
+     ON CONFLICT (shop_id) DO UPDATE
+       SET access_token=EXCLUDED.access_token, refresh_token=EXCLUDED.refresh_token,
+           expires_at=EXCLUDED.expires_at, updated_at=now()`,
     [shopId, tok.access_token, tok.refresh_token, tok.expires_in ?? 3600]);
   if (etsyShop?.shop_id) {
     await updateShopCreds(shopId, { etsy_shop_id: String(etsyShop.shop_id), etsy_shop_name: etsyShop.shop_name });

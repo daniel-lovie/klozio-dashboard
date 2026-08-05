@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 import { currentShopId, getShop } from "@/lib/shops";
 import { shopPerformance } from "@/lib/analytics";
-import { SnapshotButton } from "@/components/Analytics";
+import { SnapshotButton, ManualStats } from "@/components/Analytics";
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1)}%` : "—");
@@ -11,7 +11,7 @@ export default async function AnalyticsPage() {
   if (!(await isLoggedIn())) redirect("/login");
   const shopId = await currentShopId();
   const shop = await getShop(shopId);
-  const { rows, totals, history } = await shopPerformance(shopId);
+  const { rows, totals, history, manual } = await shopPerformance(shopId);
 
   const maxDaily = Math.max(1, ...history.map((h) => Number(h.views)));
 
@@ -21,8 +21,11 @@ export default async function AnalyticsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Analytics — {shop?.name ?? "?"}</h1>
           <p className="mt-1 text-sm text-muted">
-            Etsy&apos;nin mağaza analitiği API&apos;si yok; bu tablo listing bazında görüntülenme ve
-            favorileri günlük fotoğraflayıp siparişlerle birleştirir. Gelir efektif fiyattan (%30 indirimli).
+            Etsy API&apos;si mağaza istatistiği (Visits/Views) <strong>vermiyor</strong> — sadece listing
+            başına <em>yaşam boyu</em> görüntülenme ve favori. O sayaç Etsy tarafında gecikmeli dolar, bu
+            yüzden yeni listinglerde 0 görebilirsin ve sayılar Etsy panelindeki &quot;Visits&quot; ile
+            birebir tutmaz. Panel rakamlarını aşağıdaki forma girersen gerçek huni de burada durur.
+            Sipariş ve ciro rakamları API&apos;den kesin gelir (efektif fiyat, %30 indirimli).
           </p>
         </div>
         <SnapshotButton />
@@ -31,7 +34,7 @@ export default async function AnalyticsPage() {
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           ["Canlı listing", String(totals.listings)],
-          ["Toplam görüntülenme", totals.views.toLocaleString("en-US")],
+          ["Görüntülenme (API)", totals.views.toLocaleString("en-US")],
           ["Favori", totals.favorites.toLocaleString("en-US")],
           ["Sipariş", String(totals.orders)],
           ["Ciro", money(totals.revenue)],
@@ -59,7 +62,16 @@ export default async function AnalyticsPage() {
         </section>
       )}
 
-      <h2 className="mb-2 font-semibold">Listing performansı</h2>
+      <section className="mb-8">
+        <h2 className="mb-2 font-semibold">Etsy panel verisi (elle)</h2>
+        <p className="mb-3 text-sm text-muted">
+          Shop Manager → Stats&apos;taki günlük sayıları buraya gir (API bunları vermiyor). Aynı gün
+          tekrar girersen üzerine yazar.
+        </p>
+        <ManualStats rows={JSON.parse(JSON.stringify(manual))} />
+      </section>
+
+      <h2 className="mb-2 font-semibold">Listing performansı (API verisi)</h2>
       {rows.length === 0 ? (
         <p className="rounded-xl border border-espresso/15 bg-white/60 p-6 text-sm text-muted">
           Henüz veri yok — &quot;Şimdi güncelle&quot; ile ilk fotoğrafı çek (canlı listing gerekir).
@@ -70,7 +82,7 @@ export default async function AnalyticsPage() {
             <thead>
               <tr className="text-left text-xs text-muted">
                 <th className="p-3">Ürün</th><th className="p-3">Slot</th>
-                <th className="p-3">Görüntülenme</th><th className="p-3">7 gün</th>
+                <th className="p-3">Görüntülenme*</th><th className="p-3">7 gün</th>
                 <th className="p-3">Favori</th><th className="p-3">Fav %</th>
                 <th className="p-3">Sipariş</th><th className="p-3">Dönüşüm</th>
                 <th className="p-3">Ciro</th>
@@ -85,7 +97,7 @@ export default async function AnalyticsPage() {
                     <span className="ml-2 text-xs text-muted">{r.title?.slice(0, 44)}…</span>
                   </td>
                   <td className="p-3 text-xs">{r.slot}</td>
-                  <td className="p-3 font-medium">{Number(r.views).toLocaleString("en-US")}</td>
+                  <td className="p-3 font-medium">{Number(r.views) > 0 ? Number(r.views).toLocaleString("en-US") : "—"}</td>
                   <td className="p-3 text-xs">{r.views_7d == null ? "—" : `+${r.views_7d}`}</td>
                   <td className="p-3">{r.favorites}</td>
                   <td className="p-3 text-xs">{pct(Number(r.favorites), Number(r.views))}</td>
@@ -98,6 +110,10 @@ export default async function AnalyticsPage() {
           </table>
         </div>
       )}
+      <p className="mt-2 text-[11px] text-muted">
+        * Etsy&apos;nin listing sayacı (yaşam boyu, gecikmeli güncellenir). Panel &quot;Visits&quot;
+        rakamıyla aynı şey değildir.
+      </p>
     </main>
   );
 }

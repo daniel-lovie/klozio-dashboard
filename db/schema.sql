@@ -284,3 +284,15 @@ CREATE TABLE IF NOT EXISTS listing_stats (
   captured_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS listing_stats_daily_uidx ON listing_stats(etsy_listing_id, captured_on);
+
+-- Etsy dashboard Visits/Views are NOT exposed by the API (open-api discussion #1386), so the
+-- operator can paste the real funnel numbers here; the API-derived listing_stats stay separate.
+CREATE TABLE IF NOT EXISTS shop_daily_stats (
+  id bigserial PRIMARY KEY,
+  shop_id int NOT NULL REFERENCES shops(id),
+  day date NOT NULL,
+  visits int, page_views int, orders int, revenue_cents int, favorites int,
+  source text NOT NULL DEFAULT 'manual',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS shop_daily_stats_uidx ON shop_daily_stats(shop_id, day);

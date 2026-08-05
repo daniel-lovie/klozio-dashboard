@@ -96,9 +96,13 @@ export async function shopPerformance(shopId: number) {
     revenue: a.revenue + Number(r.revenue_cents),
   }), { listings: 0, views: 0, favorites: 0, orders: 0, revenue: 0 });
 
+  const manual = await q<any>(
+    `SELECT day::text, visits, page_views, orders, revenue_cents, favorites
+       FROM shop_daily_stats WHERE shop_id=$1 ORDER BY day DESC LIMIT 14`, [shopId]);
+
   const history = await q<{ captured_on: string; views: number; favorites: number }>(
     `SELECT captured_on::text, sum(views)::int AS views, sum(favorites)::int AS favorites
        FROM listing_stats WHERE shop_id=$1 GROUP BY 1 ORDER BY 1 DESC LIMIT 14`, [shopId]);
 
-  return { rows, totals, history };
+  return { rows, totals, history, manual };
 }

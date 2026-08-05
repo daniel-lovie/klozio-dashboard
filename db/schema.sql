@@ -270,3 +270,17 @@ ALTER TABLE hf_tokens ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1;
 -- multi-shop: drop single-row check on etsy_tokens; one token row per shop
 ALTER TABLE etsy_tokens DROP CONSTRAINT IF EXISTS etsy_tokens_id_check;
 CREATE UNIQUE INDEX IF NOT EXISTS etsy_tokens_shop_uidx ON etsy_tokens(shop_id);
+
+-- Etsy has NO shop-analytics API; listings expose views + num_favorers. Daily snapshots here
+-- give us deltas (daily views), favourite rates and conversion when joined with orders.
+CREATE TABLE IF NOT EXISTS listing_stats (
+  id bigserial PRIMARY KEY,
+  shop_id int NOT NULL REFERENCES shops(id),
+  product_id int REFERENCES products(id),
+  etsy_listing_id bigint NOT NULL,
+  views int NOT NULL DEFAULT 0,
+  favorites int NOT NULL DEFAULT 0,
+  captured_on date NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')::date,
+  captured_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS listing_stats_daily_uidx ON listing_stats(etsy_listing_id, captured_on);

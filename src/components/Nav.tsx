@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/portfolio", label: "Portföy" },
   { href: "/chat", label: "Agent 🤖" },
   { href: "/orders", label: "Siparişler" },
+  { href: "/analytics", label: "Analytics 📊" },
   { href: "/usage", label: "Kullanım" },
 ];
 

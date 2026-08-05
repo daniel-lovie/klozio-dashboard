@@ -5,12 +5,15 @@
  */
 import { runDue } from "./publish";
 import { pollOrders } from "./orders";
+import { snapshotAllShops } from "./analytics";
 
 declare global {
   // eslint-disable-next-line no-var
   var __klozioTicker: NodeJS.Timeout | undefined;
   // eslint-disable-next-line no-var
   var __klozioOrderTicker: NodeJS.Timeout | undefined;
+  // eslint-disable-next-line no-var
+  var __klozioStatsTicker: NodeJS.Timeout | undefined;
 }
 
 export function startScheduler() {
@@ -46,4 +49,21 @@ export function startScheduler() {
   global.__klozioOrderTicker = setInterval(orderTick, orderInterval);
   global.__klozioOrderTicker.unref?.();
   console.log(`[orders] polling every ${orderInterval}ms`);
+
+  // Listing views/favourites: one snapshot per day is the useful resolution (Etsy updates
+  // view counts lazily), so a 6h cadence just keeps today's row fresh — the unique index
+  // on (listing, day) means extra runs overwrite instead of piling up.
+  const statsInterval = Number(process.env.STATS_INTERVAL_MS || 6 * 3600 * 1000);
+  const statsTick = async () => {
+    try {
+      const out = await snapshotAllShops();
+      console.log("[stats]", JSON.stringify(out));
+    } catch (e) {
+      console.error("[stats] snapshot failed:", e);
+    }
+  };
+  setTimeout(statsTick, 90_000).unref?.();   // first run shortly after boot
+  global.__klozioStatsTicker = setInterval(statsTick, statsInterval);
+  global.__klozioStatsTicker.unref?.();
+  console.log(`[stats] snapshot every ${statsInterval}ms`);
 }

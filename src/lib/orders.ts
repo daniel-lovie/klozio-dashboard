@@ -7,11 +7,25 @@
  */
 import { q, one, logEvent } from "./db";
 import { getShopReceipts } from "./etsy";
+import { runWithShop } from "./shop-context";
 import { sendOrderToPrintful } from "./printful-fulfill";
 
 export async function pollOrders() {
+  const shops = await q<{ shop_id: number }>(`SELECT DISTINCT shop_id FROM etsy_tokens`);
+  const totals = { receipts: 0, inserted: 0, skipped: 0, unmatched: 0 };
+  for (const s of shops) {
+    try {
+      const r = await runWithShop(s.shop_id, () => pollShopOrders(s.shop_id));
+      totals.receipts += r.receipts; totals.inserted += r.inserted;
+      totals.skipped += r.skipped; totals.unmatched += r.unmatched;
+    } catch (e) { console.error(`pollOrders shop ${s.shop_id}:`, String(e).slice(0, 200)); }
+  }
+  return totals;
+}
+
+async function pollShopOrders(shopId: number) {
   // look back 30 days on first run, else since the newest row we have (with 1h overlap)
-  const last = await one<{ m: string | null }>(`SELECT max(ordered_at)::text AS m FROM fulfillment_orders`);
+  const last = await one<{ m: string | null }>(`SELECT max(ordered_at)::text AS m FROM fulfillment_orders WHERE shop_id=$1`, [shopId]);
   const since = last?.m ? Math.floor(new Date(last.m).getTime() / 1000) - 3600
                         : Math.floor(Date.now() / 1000) - 30 * 86400;
 
@@ -26,7 +40,7 @@ export async function pollOrders() {
 
     for (const t of r.transactions ?? []) {
       const p = await one<{ id: number; technique: string | null }>(
-        `SELECT id, technique FROM products WHERE etsy_listing_id=$1`, [t.listing_id]);
+        `SELECT id, technique FROM products WHERE etsy_listing_id=$1 AND shop_id=$2`, [t.listing_id, shopId]);
       if (!p) { unmatched++; continue; }
 
       // personalization + size/colour arrive in the variations array
@@ -42,16 +56,16 @@ export async function pollOrders() {
         `INSERT INTO fulfillment_orders
            (receipt_id, transaction_id, etsy_listing_id, product_id, quantity, sku,
             size, colorway, personalization, buyer_name, ship_to, ordered_at,
-            ship_name, ship_address1, ship_address2, ship_city, ship_state, ship_zip, ship_country)
+            ship_name, ship_address1, ship_address2, ship_city, ship_state, ship_zip, ship_country, shop_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, to_timestamp($12),
-                 $13,$14,$15,$16,$17,$18,$19)
+                 $13,$14,$15,$16,$17,$18,$19,$20)
          ON CONFLICT (transaction_id) DO NOTHING
          RETURNING id`,
         [r.receipt_id, t.transaction_id, t.listing_id, p.id, t.quantity ?? 1, t.sku ?? null,
          size, colorway, personalization, r.name ?? null, shipTo,
          t.paid_timestamp ?? t.created_timestamp ?? r.created_timestamp,
          r.name ?? null, r.first_line ?? null, r.second_line ?? null,
-         r.city ?? null, r.state ?? null, r.zip ?? null, r.country_iso ?? null]);
+         r.city ?? null, r.state ?? null, r.zip ?? null, r.country_iso ?? null, shopId]);
       if (res.length) {
         inserted++;
         await logEvent("order_queued", {

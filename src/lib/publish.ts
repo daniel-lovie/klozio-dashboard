@@ -15,6 +15,7 @@
 import fs from "fs";
 import path from "path";
 import { q, one, logEvent } from "./db";
+import { runWithShop, shopCtx } from "./shop-context";
 import {
   createDraftListing,
   setListingPersonalization,
@@ -36,13 +37,7 @@ export type DueRow = {
   attempts: number;
 };
 
-const SHIPPING_PROFILE_ID = Number(process.env.ETSY_SHIPPING_PROFILE_ID || 312066804390);
-const READINESS_STATE_ID = Number(process.env.ETSY_READINESS_STATE_ID || 1504534157129);
-const RETURN_POLICY_ID = Number(process.env.ETSY_RETURN_POLICY_ID || 1503311217104);
-const PRODUCTION_PARTNER_IDS = (process.env.ETSY_PRODUCTION_PARTNER_IDS || "5739954")
-  .split(",")
-  .map((s) => Number(s.trim()))
-  .filter(Boolean);
+
 
 function graceMs() {
   return Number(process.env.PUBLISH_GRACE_MINUTES || 180) * 60 * 1000;
@@ -56,7 +51,6 @@ export async function claimDue(limit = 5): Promise<DueRow[]> {
       WHERE s.id IN (
         SELECT id FROM schedule
          WHERE status = 'approved'
-           AND product_id IN (SELECT id FROM products WHERE shop_id = 1) /* Faz 2 */
            AND scheduled_at <= now()
            AND (locked_at IS NULL OR locked_at < now() - INTERVAL '15 minutes')
          ORDER BY scheduled_at
@@ -70,6 +64,12 @@ export async function claimDue(limit = 5): Promise<DueRow[]> {
 }
 
 export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?: number; error?: string }> {
+  const { schedule_id, product_id } = row;
+  const shopRow = await one<{ shop_id: number }>(`SELECT shop_id FROM products WHERE id=$1`, [product_id]);
+  return runWithShop(shopRow?.shop_id ?? 1, () => publishOneInner(row));
+}
+
+async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: number; error?: string }> {
   const { schedule_id, product_id } = row;
   await logEvent("publish_start", { scheduleId: schedule_id, productId: product_id });
 
@@ -99,10 +99,10 @@ export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?
         taxonomyId: p.taxonomy_id,
         tags: p.tags ?? [],
         materials: p.materials ?? ["cotton"],
-        shippingProfileId: SHIPPING_PROFILE_ID,
-        readinessStateId: READINESS_STATE_ID,
-        productionPartnerIds: PRODUCTION_PARTNER_IDS,
-        returnPolicyId: RETURN_POLICY_ID,
+        shippingProfileId: shopCtx().shippingProfileId,
+        readinessStateId: shopCtx().readinessStateId,
+        productionPartnerIds: shopCtx().productionPartnerIds,
+        returnPolicyId: shopCtx().returnPolicyId,
         // 60 of the August-plan products are text-personalised; publishing them without
         // the personalisation box would ship a broken product page.
         personalization: p.personalised
@@ -140,7 +140,7 @@ export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?
         sizes: p.sizes ?? ["S", "M", "L", "XL", "2X", "3X"],
         priceCents: p.price_cents,
         quantity: p.quantity,
-        readinessStateId: READINESS_STATE_ID,
+        readinessStateId: shopCtx().readinessStateId,
         skuPrefix: (p.slug || "SKU").slice(0, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
       });
     } else {
@@ -157,7 +157,7 @@ export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?
       // Drafts created before return_policy_id was wired in (or created by hand in Shop Manager)
       // have it null, and Etsy refuses to activate them. Repair it rather than failing the launch.
       if (!live.return_policy_id) {
-        await setReturnPolicy(listingId, RETURN_POLICY_ID);
+        await setReturnPolicy(listingId, shopCtx().returnPolicyId);
       }
       if (p.personalised) {
         await setListingPersonalization(listingId, {

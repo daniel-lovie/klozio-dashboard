@@ -15,37 +15,36 @@
  *  - there is NO endpoint to buy shipping labels
  */
 import { q, one } from "./db";
+import { shopCtx } from "./shop-context";
 
 const BASE = "https://openapi.etsy.com/v3/application";
 const TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token";
 const REFRESH_MARGIN_MS = 10 * 60 * 1000;
 
 function apiKeyHeader(): string {
-  const full = process.env.ETSY_API_KEY;
-  if (full) return full;
-  const id = process.env.ETSY_CLIENT_ID;
-  const secret = process.env.ETSY_CLIENT_SECRET;
-  if (!id || !secret) throw new Error("ETSY_API_KEY or ETSY_CLIENT_ID+ETSY_CLIENT_SECRET must be set");
-  return `${id}:${secret}`;
+  const k = shopCtx().apiKey || process.env.ETSY_API_KEY || "";
+  if (!k) throw new Error("Etsy api key missing for the active shop");
+  return k;
 }
 
 export function shopId(): number {
-  return Number(process.env.ETSY_SHOP_ID || 67236031);
+  return shopCtx().etsyShopId;
 }
 
 type TokenRow = { access_token: string; refresh_token: string; expires_at: string };
 
 /** Load the token, refreshing (and persisting the rotation) when it's close to expiry. */
 export async function accessToken(): Promise<string> {
-  const row = await one<TokenRow>(`SELECT access_token, refresh_token, expires_at FROM etsy_tokens WHERE id=1`);
-  if (!row) throw new Error("No Etsy token in the database. Run: npm run db:seed");
+  const sid = shopCtx().dbShopId;
+  const row = await one<TokenRow>(`SELECT access_token, refresh_token, expires_at FROM etsy_tokens WHERE shop_id=$1`, [sid]);
+  if (!row) throw new Error(`No Etsy token for shop ${sid} — connect Etsy from /shops/new`);
 
   const expiresAt = new Date(row.expires_at).getTime();
   if (expiresAt - Date.now() >= REFRESH_MARGIN_MS) return row.access_token;
 
   const body = new URLSearchParams({
     grant_type: "refresh_token",
-    client_id: process.env.ETSY_CLIENT_ID || apiKeyHeader().split(":")[0],
+    client_id: shopCtx().clientId || apiKeyHeader().split(":")[0],
     refresh_token: row.refresh_token,
   });
   const res = await fetch(TOKEN_URL, {
@@ -62,8 +61,8 @@ export async function accessToken(): Promise<string> {
   }
   const newExpiry = new Date(Date.now() + (json.expires_in ?? 3600) * 1000);
   await q(
-    `UPDATE etsy_tokens SET access_token=$1, refresh_token=$2, expires_at=$3, updated_at=now() WHERE id=1`,
-    [json.access_token, json.refresh_token, newExpiry.toISOString()]
+    `UPDATE etsy_tokens SET access_token=$1, refresh_token=$2, expires_at=$3, updated_at=now() WHERE shop_id=$4`,
+    [json.access_token, json.refresh_token, newExpiry.toISOString(), sid]
   );
   return json.access_token as string;
 }

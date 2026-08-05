@@ -14,6 +14,9 @@ export type ShopCtx = {
   readinessStateId: number;
   returnPolicyId: number;
   productionPartnerIds: number[];
+  /** platform key by default — shops may BYO via creds.printful_api_key */
+  printfulApiKey: string;
+  printfulStoreId: string;
 };
 
 const als = new AsyncLocalStorage<ShopCtx>();
@@ -29,6 +32,8 @@ function envCtx(): ShopCtx {
     returnPolicyId: Number(process.env.ETSY_RETURN_POLICY_ID || 0),
     productionPartnerIds: (process.env.ETSY_PRODUCTION_PARTNER_IDS || "")
       .split(",").map((s) => Number(s.trim())).filter(Boolean),
+    printfulApiKey: process.env.PRINTFUL_API_KEY || "",
+    printfulStoreId: process.env.PRINTFUL_STORE_ID || "",
   };
 }
 
@@ -51,6 +56,8 @@ export async function runWithShop<T>(dbShopId: number, fn: () => Promise<T>): Pr
     returnPolicyId: Number(c.etsy_return_policy_id || 0),
     productionPartnerIds: String(c.etsy_production_partner_ids || "")
       .split(",").map((s: string) => Number(s.trim())).filter(Boolean),
+    printfulApiKey: c.printful_api_key || process.env.PRINTFUL_API_KEY || "",
+    printfulStoreId: c.printful_store_id || process.env.PRINTFUL_STORE_ID || "",
   };
   if (!ctx.etsyShopId || !ctx.apiKey.includes(":"))
     throw new Error(`shop ${dbShopId}: Etsy credentials incomplete (shop_id/api key)`);

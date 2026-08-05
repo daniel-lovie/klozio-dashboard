@@ -8,11 +8,13 @@
  * Orders are created as DRAFTS (confirm:false) — confirming (= money) is a separate,
  * operator-triggered call.
  */
+import { shopCtx } from "./shop-context";
+
 const BASE = "https://api.printful.com";
 
 function key(): string {
-  const k = process.env.PRINTFUL_API_KEY;
-  if (!k) throw new Error("PRINTFUL_API_KEY not set — connect the Printful account first");
+  const k = shopCtx().printfulApiKey || process.env.PRINTFUL_API_KEY;
+  if (!k) throw new Error("Printful API key missing for the active shop");
   return k;
 }
 
@@ -31,16 +33,19 @@ async function pf(path: string, init: RequestInit = {}, extraHeaders: Record<str
 
 /** Account-scoped keys need X-PF-Store-Id on order endpoints. Env override, else the
  *  account's first store, resolved once per process. Clear error while no store exists. */
-let cachedStoreId: number | null = null;
+const storeCache = new Map<string, number>();
 async function storeId(): Promise<number> {
-  if (process.env.PRINTFUL_STORE_ID) return Number(process.env.PRINTFUL_STORE_ID);
-  if (cachedStoreId) return cachedStoreId;
+  const ctx = shopCtx();
+  if (ctx.printfulStoreId) return Number(ctx.printfulStoreId);
+  const k = key();
+  const hit = storeCache.get(k);
+  if (hit) return hit;
   const stores = await pf(`/stores`);
   if (!Array.isArray(stores) || !stores.length) {
     throw new Error("Printful account has NO store — create one in the Printful dashboard: Stores → Add store → 'Manual order platform / API'. Detection is automatic afterwards.");
   }
-  cachedStoreId = stores[0].id;
-  return cachedStoreId!;
+  storeCache.set(k, stores[0].id);
+  return stores[0].id;
 }
 
 async function pfStore(path: string, init: RequestInit = {}) {

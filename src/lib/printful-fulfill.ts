@@ -13,6 +13,7 @@
  */
 import crypto from "crypto";
 import { one, q, logEvent } from "./db";
+import { runWithShop } from "./shop-context";
 import {
   resolveVariant, createEmbroideryDraft, confirmOrder,
   PRINTFUL_CC1717_PRODUCT_ID, PRINTFUL_DADHAT_PRODUCT_ID,
@@ -48,6 +49,11 @@ function parseShipTo(blob: string | null) {
 }
 
 export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOrderId: number }> {
+  const row = await one<{ shop_id: number }>(`SELECT shop_id FROM fulfillment_orders WHERE id=$1`, [orderId]);
+  return runWithShop(row?.shop_id ?? 1, () => sendOrderToPrintfulInner(orderId));
+}
+
+async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrderId: number }> {
   const o = await one<any>(
     `SELECT f.*, p.slug, p.slot, p.technique, p.fulfillment, p.concept_no,
             p.printful_placement, p.thread_colors, octet_length(p.print_file) AS pf_bytes
@@ -65,8 +71,8 @@ export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOr
   let fileProductId = o.product_id;
   if (!o.pf_bytes) {
     const sib = await one<{ id: number }>(
-      `SELECT id FROM products WHERE slot='EMB' AND concept_no=$1 AND print_file IS NOT NULL`,
-      [o.concept_no]);
+      `SELECT id FROM products WHERE slot='EMB' AND concept_no=$1 AND shop_id=$2 AND print_file IS NOT NULL`,
+      [o.concept_no, o.shop_id]);
     if (!sib) throw new Error(`no design file: product ${o.slug} has none and no EMB sibling found`);
     fileProductId = sib.id;
   }
@@ -111,6 +117,11 @@ export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOr
 }
 
 export async function confirmPrintfulOrder(orderId: number) {
+  const row = await one<{ shop_id: number }>(`SELECT shop_id FROM fulfillment_orders WHERE id=$1`, [orderId]);
+  return runWithShop(row?.shop_id ?? 1, () => confirmPrintfulOrderInner(orderId));
+}
+
+async function confirmPrintfulOrderInner(orderId: number) {
   const o = await one<any>(`SELECT * FROM fulfillment_orders WHERE id=$1`, [orderId]);
   if (!o?.printful_order_id) throw new Error(`order ${orderId} has no Printful draft`);
   const res = await confirmOrder(Number(o.printful_order_id));

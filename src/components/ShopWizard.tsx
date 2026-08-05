@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ShopWizard() {
   const [shopId, setShopId] = useState<number | null>(null);
@@ -7,6 +7,14 @@ export default function ShopWizard() {
   const [f, setF] = useState({ shopify_domain: "", shopify_client_id: "", shopify_client_secret: "", printful_api_key: "", anthropic_api_key: "" });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const p = new URLSearchParams(location.search);
+    const e = p.get("etsy");
+    if (e === "connected") setMsg("✅ Etsy bağlandı! Mağaza bilgileri kaydedildi.");
+    else if (e) setMsg(`⚠️ Etsy bağlantı hatası: ${e} — tekrar dene ya da bana yaz.`);
+    const sid = p.get("shop");
+    if (sid) setShopId(Number(sid));
+  }, []);
 
   async function createShop() {
     if (!name.trim()) { setMsg("Mağaza adı gerekli"); return; }

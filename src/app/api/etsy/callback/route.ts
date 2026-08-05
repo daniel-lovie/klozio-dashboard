@@ -20,6 +20,8 @@ export async function GET(req: Request) {
   const shopId = Number(state.split(".")[0]);
   const creds = await getShopCreds(shopId);
   const clientId = creds.etsy_api_key || process.env.ETSY_API_KEY || "";
+  // new-style Etsy apps require "keystring:sharedsecret" in x-api-key for API calls
+  const apiKey = creds.etsy_shared_secret ? `${clientId}:${creds.etsy_shared_secret}` : clientId;
 
   const tr = await fetch("https://api.etsy.com/v3/public/oauth/token", {
     method: "POST",
@@ -39,7 +41,7 @@ export async function GET(req: Request) {
   // etsy user id is the token prefix; resolve their shop
   const userId = String(tok.access_token).split(".")[0];
   const sr = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}/shops`, {
-    headers: { "x-api-key": clientId, Authorization: `Bearer ${tok.access_token}` },
+    headers: { "x-api-key": apiKey, Authorization: `Bearer ${tok.access_token}` },
   });
   const shopInfo: any = await sr.json().catch(() => ({}));
   const etsyShop = shopInfo?.shop_id ? shopInfo : (shopInfo?.results?.[0] ?? null);

@@ -9,12 +9,14 @@ const NEXT: Record<string, { to: string; label: string }[]> = {
   sent_to_producer: [{ to: "shipped", label: "Shipped (tracking below)" }],
   shipped:          [{ to: "done", label: "Done" }],
   problem:          [{ to: "new", label: "Reopen" }],
+  cancelled:        [],
 };
 const PILL: Record<string, string> = {
   new: "bg-amber-100 text-amber-900", generating: "bg-blue-100 text-blue-900",
   qa: "bg-purple-100 text-purple-900", ready: "bg-emerald-100 text-emerald-900",
   sent_to_producer: "bg-teal-100 text-teal-900", shipped: "bg-espresso/10",
   done: "bg-neutral-100 text-neutral-600", problem: "bg-red-100 text-red-900",
+  cancelled: "bg-neutral-200 text-neutral-700",
 };
 
 export function PollButton() {

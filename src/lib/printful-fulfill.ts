@@ -158,6 +158,9 @@ export async function confirmPrintfulOrder(orderId: number) {
 async function confirmPrintfulOrderInner(orderId: number) {
   const o = await one<any>(`SELECT * FROM fulfillment_orders WHERE id=$1`, [orderId]);
   if (!o?.printful_order_id) throw new Error(`order ${orderId} has no Printful draft`);
+  if (o.status === "cancelled" || ["Canceled", "Cancelled", "Refunded"].includes(String(o.etsy_status ?? "")))
+    throw new Error(`order ${orderId} Etsy'de iptal/iade edilmiş (${o.etsy_status}) — Printful'a onay verilmez`);
+  if (o.is_paid === false) throw new Error(`order ${orderId} ödemesi henüz onaylanmadı — üretime gönderilmez`);
   const res = await confirmOrder(Number(o.printful_order_id));
   await q(`UPDATE fulfillment_orders
               SET printful_status='confirmed', status='sent_to_producer',

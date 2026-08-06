@@ -64,7 +64,14 @@ async function pollShopOrders(shopId: number) {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, to_timestamp($12),
                  $13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
          ON CONFLICT (transaction_id) DO UPDATE
-           SET etsy_status = EXCLUDED.etsy_status, is_paid = EXCLUDED.is_paid
+           SET etsy_status = EXCLUDED.etsy_status, is_paid = EXCLUDED.is_paid,
+               -- Etsy can void an order (risk checks, refund): stop the line, don't produce
+               status = CASE
+                 WHEN EXCLUDED.etsy_status IN ('Canceled','Cancelled','Refunded')
+                      AND fulfillment_orders.status NOT IN ('shipped','done') THEN 'cancelled'
+                 WHEN fulfillment_orders.status = 'cancelled'
+                      AND EXCLUDED.etsy_status NOT IN ('Canceled','Cancelled','Refunded') THEN 'new'
+                 ELSE fulfillment_orders.status END
          RETURNING id, (xmax = 0) AS inserted, is_paid`,
         [r.receipt_id, t.transaction_id, t.listing_id, p.id, t.quantity ?? 1, t.sku ?? null,
          size, colorway, personalization, r.name ?? null, shipTo,
@@ -83,7 +90,8 @@ async function pollShopOrders(shopId: number) {
       } else skipped++;
 
       // embroidery → Printful DRAFT once the payment clears (draft is free, confirm stays manual)
-      if (row?.is_paid && (p.technique ?? "dtf") === "embroidery") {
+      const voided = ["Canceled", "Cancelled", "Refunded"].includes(String(r.status ?? ""));
+      if (!voided && row?.is_paid && (p.technique ?? "dtf") === "embroidery") {
         const has = await one<{ n: string }>(
           `SELECT printful_order_id::text AS n FROM fulfillment_orders WHERE id=$1`, [row.id]);
         if (!has?.n) {

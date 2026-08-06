@@ -61,6 +61,11 @@ agent_chats(id=1, messages) — kendi hafızan, dokunma.
 - Shopify: price = efektif, compareAtPrice = anchor. EMB tee $42.99/$61.99. Kişiselleştirilmiş ürünlerde
   templateSuffix='personalized' + tag 'personalized' ŞART (Personalization alanı ancak öyle çıkar).
 - COGS: DTF Printinly $15.00; Printful EMB tişört $24.84; Printful şapka $19.14.
+- ⚠️ KİŞİSELLEŞTİRİLMİŞ nakışta her siparişte $6.50 digitization çıkar (isim değişince yeni dosya).
+  Bu yüzden anchor'lar: kişiselleştirilmiş EMB 5999, EMBH 4999; sabit tasarımlı nakış 4999 kalır.
+  Yeni nakış ürünü fiyatlarken COGS'a digitization'ı DAİMA ekle.
+- Reklam ölçümü: Etsy'ye Pixel konulamaz. ad_spend tablosuna günlük harcama girilir, shop_daily_stats
+  (elle Etsy panel verisi) ve listing_stats ile eşleşip CAC/ROAS çıkar. Başabaş CAC nakış tişörtte $21.45.
 
 # PLATFORM TUZAKLARI
 - Etsy görsel upload: rank verilmezse 1 sayılır ve KAPAĞI EZER. Ek görselde rank'i açıkça ver.

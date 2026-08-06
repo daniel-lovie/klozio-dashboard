@@ -42,13 +42,17 @@ export type AdRow = {
   impressions: number; clicks: number; spend: number; reach: number; ctr: number; cpc: number;
 };
 
-/** Per-ad insights for a date range (default: today + yesterday). */
-export async function adInsights(datePreset = "yesterday_and_today"): Promise<AdRow[]> {
+/** Per-ad insights for the last N days INCLUDING today — Meta's `last_7d` preset silently
+ *  excludes the current day, which hides a campaign launched today. */
+export async function adInsights(days = 7): Promise<AdRow[]> {
+  const until = new Date();
+  const since = new Date(until.getTime() - days * 86400_000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const j = await get(`/${account()}/insights`, {
     level: "ad",
     fields: "campaign_name,adset_name,ad_name,impressions,clicks,spend,reach,ctr,cpc",
     time_increment: "1",
-    date_preset: datePreset,
+    time_range: JSON.stringify({ since: fmt(since), until: fmt(until) }),
     limit: "200",
   });
   return (j.data ?? []).map((r: any) => ({

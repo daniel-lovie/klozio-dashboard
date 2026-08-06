@@ -77,7 +77,7 @@ export function startScheduler() {
   const metaTick = async () => {
     if (!process.env.META_SYSTEM_TOKEN) return;
     try {
-      const rows = await adInsights("last_7d");
+      const rows = await adInsights(7);
       for (const r of rows) {
         await q(
           `INSERT INTO meta_ad_stats (day, campaign_name, adset_name, ad_name, impressions, clicks,

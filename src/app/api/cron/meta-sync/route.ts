@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   if (!authed) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   try {
-    const rows = await adInsights(new URL(req.url).searchParams.get("preset") ?? "last_7d");
+    const rows = await adInsights(Number(new URL(req.url).searchParams.get("days") ?? 7));
     for (const r of rows) {
       await q(
         `INSERT INTO meta_ad_stats (day, campaign_name, adset_name, ad_name, impressions, clicks,

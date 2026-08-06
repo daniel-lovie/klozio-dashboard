@@ -30,19 +30,23 @@ export function pfFileUrl(productId: number): string {
   return `${PUBLIC_BASE}/api/pf-file/${productId}?sig=${pfFileSig(productId)}`;
 }
 
-/** Printful bills $6.50 digitization per embroidery FILE, and its file hash is the content MD5 —
- *  so the same design reused by id costs nothing extra, across shops too (one Printful account).
+/** Printful bills $6.50 digitization ONCE per embroidery design; once a design has actually been
+ *  digitized (i.e. a real order was CONFIRMED) reusing the same file id is free — including from the
+ *  other shop, since both use one Printful account. Drafts still quote the fee until that first
+ *  confirm happens, so a draft cost of $6.50 is not proof of double billing.
+ *  Caveat: switching embroidery type (shirt <-> hat/3D) triggers an adjustment fee — a hat needs its
+ *  own digitized file, so cache the id per (design, placement-family), never mix shirt and hat ids.
  *  We cache design-md5 -> file_id and harvest the id from the first order that uploads it. */
-async function cachedFileId(designMd5: string): Promise<number | null> {
+async function cachedFileId(designMd5: string, isHat: boolean): Promise<number | null> {
   const r = await one<{ file_id: string }>(
-    `SELECT file_id::text FROM printful_files WHERE design_md5=$1`, [designMd5]);
+    `SELECT file_id::text FROM printful_files WHERE design_md5=$1 AND is_hat=$2`, [designMd5, isHat]);
   return r ? Number(r.file_id) : null;
 }
 
-async function rememberFileId(designMd5: string, fileId: number, placement: string, note: string) {
-  await q(`INSERT INTO printful_files (design_md5, file_id, placement, note)
-           VALUES ($1,$2,$3,$4) ON CONFLICT (design_md5) DO NOTHING`,
-          [designMd5, fileId, placement, note]);
+async function rememberFileId(designMd5: string, isHat: boolean, fileId: number, placement: string, note: string) {
+  await q(`INSERT INTO printful_files (design_md5, is_hat, file_id, placement, note)
+           VALUES ($1,$2,$3,$4,$5) ON CONFLICT (design_md5, is_hat) DO NOTHING`,
+          [designMd5, isHat, fileId, placement, note]);
 }
 
 /** Fallback for rows created before the structured ship_* columns existed. */
@@ -111,7 +115,7 @@ async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrde
     threadColors = sib?.thread_colors ?? ["#000000"];
   }
 
-  const knownFileId = designMd5 ? await cachedFileId(designMd5) : null;
+  const knownFileId = designMd5 ? await cachedFileId(designMd5, isHat) : null;
 
   try {
     const draft = await createEmbroideryDraft({
@@ -131,7 +135,7 @@ async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrde
     // first upload of this design: cache the id so no shop pays digitization for it again
     if (!knownFileId && designMd5) {
       const f = (draft.items?.[0]?.files ?? []).find((x: any) => x.type !== "preview" && x.id);
-      if (f?.id) await rememberFileId(designMd5, Number(f.id), String(f.type), `first: order ${orderId}`);
+      if (f?.id) await rememberFileId(designMd5, isHat, Number(f.id), String(f.type), `first: order ${orderId}`);
     }
     await logEvent("printful_draft", {
       productId: o.product_id,

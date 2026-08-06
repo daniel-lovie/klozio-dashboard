@@ -53,7 +53,7 @@ async function claimOne(): Promise<any | null> {
     WHERE f.id = (
       SELECT f2.id FROM fulfillment_orders f2
       JOIN products pp ON pp.id = f2.product_id AND COALESCE(pp.technique,'dtf') <> 'embroidery'
-      WHERE f2.personalization IS NOT NULL AND btrim(f2.personalization) <> ''
+      WHERE f2.is_paid AND f2.personalization IS NOT NULL AND btrim(f2.personalization) <> ''
         AND (
           (f2.status='new' AND f2.agent_state IS NULL)
           OR (f2.agent_state IN ('interpreting','rendering') AND f2.agent_claimed_at < now() - interval '15 minutes')

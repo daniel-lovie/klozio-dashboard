@@ -56,28 +56,38 @@ async function pollShopOrders(shopId: number) {
         `INSERT INTO fulfillment_orders
            (receipt_id, transaction_id, etsy_listing_id, product_id, quantity, sku,
             size, colorway, personalization, buyer_name, ship_to, ordered_at,
-            ship_name, ship_address1, ship_address2, ship_city, ship_state, ship_zip, ship_country, shop_id)
+            ship_name, ship_address1, ship_address2, ship_city, ship_state, ship_zip, ship_country, shop_id,
+            etsy_status, is_paid)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, to_timestamp($12),
-                 $13,$14,$15,$16,$17,$18,$19,$20)
-         ON CONFLICT (transaction_id) DO NOTHING
-         RETURNING id`,
+                 $13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+         ON CONFLICT (transaction_id) DO UPDATE
+           SET etsy_status = EXCLUDED.etsy_status, is_paid = EXCLUDED.is_paid
+         RETURNING id, (xmax = 0) AS inserted, is_paid`,
         [r.receipt_id, t.transaction_id, t.listing_id, p.id, t.quantity ?? 1, t.sku ?? null,
          size, colorway, personalization, r.name ?? null, shipTo,
          t.paid_timestamp ?? t.created_timestamp ?? r.created_timestamp,
          r.name ?? null, r.first_line ?? null, r.second_line ?? null,
-         r.city ?? null, r.state ?? null, r.zip ?? null, r.country_iso ?? null, shopId]);
-      if (res.length) {
+         r.city ?? null, r.state ?? null, r.zip ?? null, r.country_iso ?? null, shopId,
+         r.status ?? null, r.is_paid !== false]);
+      const row: any = res[0];
+      if (row?.inserted) {
         inserted++;
         await logEvent("order_queued", {
           productId: p.id,
-          detail: `receipt ${r.receipt_id} tx ${t.transaction_id}${personalization ? " · personalised" : ""}`,
+          detail: `receipt ${r.receipt_id} tx ${t.transaction_id}` +
+                  `${personalization ? " · personalised" : ""}${row.is_paid ? "" : " · ÖDEME BEKLİYOR"}`,
         });
-        // embroidery → auto-create a Printful DRAFT (never confirms; that stays manual)
-        if ((p.technique ?? "dtf") === "embroidery") {
-          try { await sendOrderToPrintful(res[0].id); }
-          catch (e) { console.error(`printful draft failed for order ${res[0].id}:`, e); }
-        }
       } else skipped++;
+
+      // embroidery → Printful DRAFT once the payment clears (draft is free, confirm stays manual)
+      if (row?.is_paid && (p.technique ?? "dtf") === "embroidery") {
+        const has = await one<{ n: string }>(
+          `SELECT printful_order_id::text AS n FROM fulfillment_orders WHERE id=$1`, [row.id]);
+        if (!has?.n) {
+          try { await sendOrderToPrintful(row.id); }
+          catch (e) { console.error(`printful draft failed for order ${row.id}:`, e); }
+        }
+      }
     }
   }
   return { receipts: receipts.length, inserted, skipped, unmatched };

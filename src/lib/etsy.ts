@@ -328,8 +328,11 @@ export async function getProductionPartners() {
 }
 
 /** Paid receipts, newest first, transactions included. min_created is epoch seconds. */
+/** No was_paid filter on purpose: Etsy parks fresh orders in "Payment Processing" (is_paid=false)
+ *  and every integration that filters on paid goes blind until the card clears. We ingest them and
+ *  gate production on is_paid instead. */
 export async function getShopReceipts(minCreated?: number) {
-  const qs = new URLSearchParams({ was_paid: "true", limit: "50", sort_on: "created", sort_order: "desc" });
+  const qs = new URLSearchParams({ limit: "50", sort_on: "created", sort_order: "desc" });
   if (minCreated) qs.set("min_created", String(minCreated));
   return apiGet(`/shops/${shopId()}/receipts?${qs}`);
 }

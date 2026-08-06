@@ -71,6 +71,12 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
         <span className="rounded bg-espresso/10 px-1.5 py-0.5 text-[11px]">{row.slot ?? "?"} · {row.slug ?? row.etsy_listing_id}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.title ?? "(unknown listing)"}</span>
         <span className="text-xs">{row.colorway ?? "?"} / {row.size ?? "?"} × {row.quantity}</span>
+        {row.is_paid === false && (
+          <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900"
+            title="Etsy ödemeyi onaylayana kadar üretim başlamaz">
+            ⏳ {row.etsy_status ?? "ödeme bekliyor"}
+          </span>
+        )}
       </div>
 
       {row.interpreted_text && (

@@ -296,3 +296,5 @@ CREATE TABLE IF NOT EXISTS shop_daily_stats (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS shop_daily_stats_uidx ON shop_daily_stats(shop_id, day);
+-- unpaid orders are ingested too (Etsy 'Payment Processing' hides them from was_paid=true queries)
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS etsy_status text, ADD COLUMN IF NOT EXISTS is_paid boolean NOT NULL DEFAULT true;

@@ -304,3 +304,13 @@ CREATE TABLE IF NOT EXISTS printful_files (
   design_md5 text PRIMARY KEY, file_id bigint NOT NULL, placement text, note text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Etsy listings can't host a Meta Pixel, so paid tests are measured by pairing daily ad spend with
+-- Etsy-side visits/orders: CAC = spend / orders, ROAS = revenue / spend.
+CREATE TABLE IF NOT EXISTS ad_spend (
+  id bigserial PRIMARY KEY,
+  shop_id int NOT NULL REFERENCES shops(id), day date NOT NULL, channel text NOT NULL,
+  campaign text, spend_cents int NOT NULL DEFAULT 0, impressions int, clicks int, note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ad_spend_uidx ON ad_spend(shop_id, day, channel, COALESCE(campaign,''));

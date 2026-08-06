@@ -100,9 +100,29 @@ export async function shopPerformance(shopId: number) {
     `SELECT day::text, visits, page_views, orders, revenue_cents, favorites
        FROM shop_daily_stats WHERE shop_id=$1 ORDER BY day DESC LIMIT 14`, [shopId]);
 
+  // Etsy can't host a Pixel: pair daily spend with Etsy-side visits/orders to get CAC/ROAS
+  const paid = await q<any>(`
+    WITH s AS (
+      SELECT day, channel, sum(spend_cents)::int AS spend_cents,
+             sum(clicks)::int AS clicks, sum(impressions)::int AS impressions
+        FROM ad_spend WHERE shop_id=$1 GROUP BY day, channel
+    ), d AS (
+      SELECT day, visits, orders, revenue_cents FROM shop_daily_stats WHERE shop_id=$1
+    )
+    SELECT s.day::text, s.channel, s.spend_cents, s.clicks, s.impressions,
+           d.visits, d.orders, d.revenue_cents
+      FROM s LEFT JOIN d ON d.day = s.day
+     ORDER BY s.day DESC, s.channel LIMIT 30`, [shopId]);
+  const paidTotals = paid.reduce((a: any, r: any) => ({
+    spend: a.spend + Number(r.spend_cents || 0),
+    clicks: a.clicks + Number(r.clicks || 0),
+    orders: a.orders + Number(r.orders || 0),
+    revenue: a.revenue + Number(r.revenue_cents || 0),
+  }), { spend: 0, clicks: 0, orders: 0, revenue: 0 });
+
   const history = await q<{ captured_on: string; views: number; favorites: number }>(
     `SELECT captured_on::text, sum(views)::int AS views, sum(favorites)::int AS favorites
        FROM listing_stats WHERE shop_id=$1 GROUP BY 1 ORDER BY 1 DESC LIMIT 14`, [shopId]);
 
-  return { rows, totals, history, manual };
+  return { rows, totals, history, manual, paid, paidTotals };
 }

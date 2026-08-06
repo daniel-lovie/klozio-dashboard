@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 import { currentShopId, getShop } from "@/lib/shops";
 import { shopPerformance } from "@/lib/analytics";
-import { SnapshotButton, ManualStats } from "@/components/Analytics";
+import { SnapshotButton, ManualStats, AdSpend } from "@/components/Analytics";
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 const pct = (n: number, d: number) => (d > 0 ? `${((n / d) * 100).toFixed(1)}%` : "—");
@@ -11,7 +11,7 @@ export default async function AnalyticsPage() {
   if (!(await isLoggedIn())) redirect("/login");
   const shopId = await currentShopId();
   const shop = await getShop(shopId);
-  const { rows, totals, history, manual } = await shopPerformance(shopId);
+  const { rows, totals, history, manual, paid, paidTotals } = await shopPerformance(shopId);
 
   const maxDaily = Math.max(1, ...history.map((h) => Number(h.views)));
 
@@ -61,6 +61,22 @@ export default async function AnalyticsPage() {
           </p>
         </section>
       )}
+
+      <section className="mb-8">
+        <h2 className="mb-2 font-semibold">Reklam harcaması → sonuç (Pixel yok, elle eşleştirme)</h2>
+        <p className="mb-3 text-sm text-muted">
+          Etsy listing&apos;e Pixel konamıyor. Günlük reklam harcamasını gir, sistem aynı günün Etsy
+          verisiyle eşleştirip <strong>CAC ve ROAS</strong> hesaplar.
+          {paidTotals.spend > 0 && (
+            <>
+              {" "}Şimdiye kadar: harcama <strong>${(paidTotals.spend / 100).toFixed(2)}</strong>
+              {paidTotals.orders > 0 && <> · CAC <strong>${(paidTotals.spend / 100 / paidTotals.orders).toFixed(2)}</strong></>}
+              {paidTotals.revenue > 0 && <> · ROAS <strong>{(paidTotals.revenue / paidTotals.spend).toFixed(2)}</strong></>}
+            </>
+          )}
+        </p>
+        <AdSpend rows={JSON.parse(JSON.stringify(paid))} />
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-2 font-semibold">Etsy panel verisi (elle)</h2>

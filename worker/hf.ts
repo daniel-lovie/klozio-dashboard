@@ -128,6 +128,11 @@ export function jobIdOf(gen: any): string | null {
   return gen?.results?.[0]?.id ?? gen?.id ?? (typeof gen?._raw === "string" ? (gen._raw.match(UUID_RE)?.[0] ?? null) : null);
 }
 export function rawUrlOf(st: any): string | null {
+  // video jobs come back as plain text with just the CDN link — grab any media URL first
+  if (typeof st?._raw === "string") {
+    const m = st._raw.match(/https:\/\/\S+?\.(mp4|webm|png|jpg|jpeg|svg)/i);
+    if (m) return m[0];
+  }
   const g = st?.generation ?? st;
   return g?.results?.rawUrl ?? (typeof st?._raw === "string" ? (st._raw.match(/https:\/\/[^\s)"']+\.(png|svg|jpg|webp)/i)?.[0] ?? null) : null);
 }

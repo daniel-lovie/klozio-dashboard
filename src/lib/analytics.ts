@@ -124,5 +124,13 @@ export async function shopPerformance(shopId: number) {
     `SELECT captured_on::text, sum(views)::int AS views, sum(favorites)::int AS favorites
        FROM listing_stats WHERE shop_id=$1 GROUP BY 1 ORDER BY 1 DESC LIMIT 14`, [shopId]);
 
-  return { rows, totals, history, manual, paid, paidTotals };
+  const creatives = await q<any>(`
+    SELECT ad_name, adset_name, sum(impressions)::int AS impressions, sum(clicks)::int AS clicks,
+           sum(spend_cents)::int AS spend_cents,
+           CASE WHEN sum(impressions) > 0 THEN round(100.0*sum(clicks)/sum(impressions), 2) END AS ctr,
+           CASE WHEN sum(clicks) > 0 THEN round(sum(spend_cents)/100.0/sum(clicks), 2) END AS cpc
+      FROM meta_ad_stats WHERE day >= (now() AT TIME ZONE 'UTC')::date - 7
+     GROUP BY ad_name, adset_name ORDER BY sum(spend_cents) DESC`);
+
+  return { rows, totals, history, manual, paid, paidTotals, creatives };
 }

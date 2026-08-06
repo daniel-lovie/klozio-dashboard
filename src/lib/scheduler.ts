@@ -6,6 +6,8 @@
 import { runDue } from "./publish";
 import { pollOrders } from "./orders";
 import { snapshotAllShops } from "./analytics";
+import { adInsights } from "./meta";
+import { q } from "./db";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -14,6 +16,8 @@ declare global {
   var __klozioOrderTicker: NodeJS.Timeout | undefined;
   // eslint-disable-next-line no-var
   var __klozioStatsTicker: NodeJS.Timeout | undefined;
+  // eslint-disable-next-line no-var
+  var __klozioMetaTicker: NodeJS.Timeout | undefined;
 }
 
 export function startScheduler() {
@@ -66,4 +70,39 @@ export function startScheduler() {
   global.__klozioStatsTicker = setInterval(statsTick, statsInterval);
   global.__klozioStatsTicker.unref?.();
   console.log(`[stats] snapshot every ${statsInterval}ms`);
+
+  // Meta spend/clicks: hourly is plenty (Meta itself reports with a lag) and it keeps /analytics
+  // CAC current without the operator typing anything.
+  const metaInterval = Number(process.env.META_INTERVAL_MS || 3600 * 1000);
+  const metaTick = async () => {
+    if (!process.env.META_SYSTEM_TOKEN) return;
+    try {
+      const rows = await adInsights("last_7d");
+      for (const r of rows) {
+        await q(
+          `INSERT INTO meta_ad_stats (day, campaign_name, adset_name, ad_name, impressions, clicks,
+                                      spend_cents, reach, ctr, cpc, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
+           ON CONFLICT (day, COALESCE(adset_name,''), COALESCE(ad_name,'')) DO UPDATE
+             SET impressions=EXCLUDED.impressions, clicks=EXCLUDED.clicks, spend_cents=EXCLUDED.spend_cents,
+                 reach=EXCLUDED.reach, ctr=EXCLUDED.ctr, cpc=EXCLUDED.cpc, updated_at=now()`,
+          [r.day, r.campaign_name, r.adset_name, r.ad_name, r.impressions, r.clicks,
+           Math.round(r.spend * 100), r.reach, r.ctr, r.cpc]);
+      }
+      await q(`
+        INSERT INTO ad_spend (shop_id, day, channel, campaign, spend_cents, clicks, impressions)
+        SELECT 2, day, 'meta', campaign_name, sum(spend_cents)::int, sum(clicks)::int, sum(impressions)::int
+          FROM meta_ad_stats WHERE day >= (now() AT TIME ZONE 'UTC')::date - 7
+         GROUP BY day, campaign_name
+        ON CONFLICT (shop_id, day, channel, COALESCE(campaign,'')) DO UPDATE
+          SET spend_cents=EXCLUDED.spend_cents, clicks=EXCLUDED.clicks, impressions=EXCLUDED.impressions`);
+      if (rows.length) console.log(`[meta] synced ${rows.length} ad-day rows`);
+    } catch (e) {
+      console.error("[meta] sync failed:", String(e).slice(0, 200));
+    }
+  };
+  setTimeout(metaTick, 120_000).unref?.();
+  global.__klozioMetaTicker = setInterval(metaTick, metaInterval);
+  global.__klozioMetaTicker.unref?.();
+  console.log(`[meta] insights sync every ${metaInterval}ms`);
 }

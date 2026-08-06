@@ -314,3 +314,14 @@ CREATE TABLE IF NOT EXISTS ad_spend (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ad_spend_uidx ON ad_spend(shop_id, day, channel, COALESCE(campaign,''));
+
+-- Meta insights pulled per ad per day (Marketing API): the creative-level truth for kill/scale
+-- decisions, and the automatic feed for ad_spend (no more manual entry).
+CREATE TABLE IF NOT EXISTS meta_ad_stats (
+  id bigserial PRIMARY KEY, shop_id int NOT NULL DEFAULT 2 REFERENCES shops(id), day date NOT NULL,
+  campaign_name text, adset_name text, ad_name text,
+  impressions int NOT NULL DEFAULT 0, clicks int NOT NULL DEFAULT 0,
+  spend_cents int NOT NULL DEFAULT 0, reach int, ctr numeric(6,3), cpc numeric(8,3),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS meta_ad_stats_uidx ON meta_ad_stats(day, COALESCE(adset_name,''), COALESCE(ad_name,''));

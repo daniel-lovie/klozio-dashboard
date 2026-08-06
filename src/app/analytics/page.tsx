@@ -11,7 +11,7 @@ export default async function AnalyticsPage() {
   if (!(await isLoggedIn())) redirect("/login");
   const shopId = await currentShopId();
   const shop = await getShop(shopId);
-  const { rows, totals, history, manual, paid, paidTotals } = await shopPerformance(shopId);
+  const { rows, totals, history, manual, paid, paidTotals, creatives } = await shopPerformance(shopId);
 
   const maxDaily = Math.max(1, ...history.map((h) => Number(h.views)));
 
@@ -62,8 +62,52 @@ export default async function AnalyticsPage() {
         </section>
       )}
 
+      {creatives.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-2 font-semibold">Meta kreatif performansı (son 7 gün, otomatik)</h2>
+          <p className="mb-3 text-sm text-muted">
+            Marketing API&apos;den saatlik çekiliyor. Kural: $15 harcamada CTR &lt; %1 → kapat ·
+            CPC &gt; $0.70 → kapat · CPC ≤ $0.45 → bütçeyi artır.
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-espresso/15 bg-white/60">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs text-muted">
+                <th className="p-3">Kreatif</th><th className="p-3">Ad set</th>
+                <th className="p-3">Gösterim</th><th className="p-3">Tık</th>
+                <th className="p-3">CTR</th><th className="p-3">CPC</th><th className="p-3">Harcama</th>
+                <th className="p-3">Karar</th>
+              </tr></thead>
+              <tbody>
+                {creatives.map((c: any, i: number) => {
+                  const spend = Number(c.spend_cents) / 100;
+                  const ctr = c.ctr == null ? null : Number(c.ctr);
+                  const cpc = c.cpc == null ? null : Number(c.cpc);
+                  const verdict =
+                    spend >= 15 && ctr != null && ctr < 1 ? "❌ kapat (CTR)"
+                    : cpc != null && cpc > 0.7 ? "⚠️ CPC yüksek"
+                    : cpc != null && cpc <= 0.45 && spend >= 5 ? "✅ ölçekle"
+                    : "⏳ veri az";
+                  return (
+                    <tr key={i} className="border-t border-espresso/10">
+                      <td className="p-3 font-medium">{c.ad_name}</td>
+                      <td className="p-3 text-xs">{c.adset_name}</td>
+                      <td className="p-3">{Number(c.impressions).toLocaleString("en-US")}</td>
+                      <td className="p-3">{c.clicks}</td>
+                      <td className="p-3">{ctr == null ? "—" : `${ctr.toFixed(2)}%`}</td>
+                      <td className="p-3">{cpc == null ? "—" : `$${cpc.toFixed(2)}`}</td>
+                      <td className="p-3">${spend.toFixed(2)}</td>
+                      <td className="p-3 text-xs">{verdict}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="mb-8">
-        <h2 className="mb-2 font-semibold">Reklam harcaması → sonuç (Pixel yok, elle eşleştirme)</h2>
+        <h2 className="mb-2 font-semibold">Reklam harcaması → sonuç (Meta&apos;dan otomatik + Etsy elle)</h2>
         <p className="mb-3 text-sm text-muted">
           Etsy listing&apos;e Pixel konamıyor. Günlük reklam harcamasını gir, sistem aynı günün Etsy
           verisiyle eşleştirip <strong>CAC ve ROAS</strong> hesaplar.

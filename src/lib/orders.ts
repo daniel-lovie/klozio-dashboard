@@ -48,7 +48,10 @@ async function pollShopOrders(shopId: number) {
       for (const v of t.variations ?? []) {
         const name = String(v.formatted_name ?? "").toLowerCase();
         if (name.includes("personal")) personalization = v.formatted_value ?? null;
-        else if (name.includes("size")) size = v.formatted_value ?? null;
+        else if (name.includes("size")) {
+          // Etsy formats sizes per locale: "L US letter", "2X US letter" → keep our own label
+          size = (v.formatted_value ?? "").replace(/\s*\b(US|UK|EU|AU)\b.*$/i, "").trim() || null;
+        }
         else if (name.includes("color") || name.includes("colour")) colorway = v.formatted_value ?? null;
       }
 

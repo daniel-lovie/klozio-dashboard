@@ -58,7 +58,9 @@ export const PRINTFUL_DADHAT_PRODUCT_ID = 206; // Yupoong 6245CM Classic Dad Hat
 const COLOR_FIX: Record<string, string> = { gray: "grey", tan: "khaki" };
 const SIZE_FIX: Record<string, string> = { "2x": "2xl", "3x": "3xl", "4x": "4xl", os: "one size" };
 
-const norm = (s: string) => s.trim().toLowerCase();
+/** Etsy hands back locale-decorated labels ("L US letter"); Printful wants bare sizes. */
+const norm = (s: string) =>
+  s.replace(/\s*\b(US|UK|EU|AU)\b.*$/i, "").trim().toLowerCase();
 
 const variantCache = new Map<number, Map<string, number>>();
 

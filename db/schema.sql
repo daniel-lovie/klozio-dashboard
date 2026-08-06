@@ -298,3 +298,9 @@ CREATE TABLE IF NOT EXISTS shop_daily_stats (
 CREATE UNIQUE INDEX IF NOT EXISTS shop_daily_stats_uidx ON shop_daily_stats(shop_id, day);
 -- unpaid orders are ingested too (Etsy 'Payment Processing' hides them from was_paid=true queries)
 ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS etsy_status text, ADD COLUMN IF NOT EXISTS is_paid boolean NOT NULL DEFAULT true;
+-- Printful digitizes each embroidery file ONCE ($6.50). Reusing the file id avoids paying
+-- again — including across shops, since both use the same Printful account. Keyed by design bytes.
+CREATE TABLE IF NOT EXISTS printful_files (
+  design_md5 text PRIMARY KEY, file_id bigint NOT NULL, placement text, note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

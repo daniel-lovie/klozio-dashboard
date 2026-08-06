@@ -30,6 +30,21 @@ export function pfFileUrl(productId: number): string {
   return `${PUBLIC_BASE}/api/pf-file/${productId}?sig=${pfFileSig(productId)}`;
 }
 
+/** Printful bills $6.50 digitization per embroidery FILE, and its file hash is the content MD5 —
+ *  so the same design reused by id costs nothing extra, across shops too (one Printful account).
+ *  We cache design-md5 -> file_id and harvest the id from the first order that uploads it. */
+async function cachedFileId(designMd5: string): Promise<number | null> {
+  const r = await one<{ file_id: string }>(
+    `SELECT file_id::text FROM printful_files WHERE design_md5=$1`, [designMd5]);
+  return r ? Number(r.file_id) : null;
+}
+
+async function rememberFileId(designMd5: string, fileId: number, placement: string, note: string) {
+  await q(`INSERT INTO printful_files (design_md5, file_id, placement, note)
+           VALUES ($1,$2,$3,$4) ON CONFLICT (design_md5) DO NOTHING`,
+          [designMd5, fileId, placement, note]);
+}
+
 /** Fallback for rows created before the structured ship_* columns existed. */
 function parseShipTo(blob: string | null) {
   const lines = (blob ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
@@ -56,7 +71,8 @@ export async function sendOrderToPrintful(orderId: number): Promise<{ printfulOr
 async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrderId: number }> {
   const o = await one<any>(
     `SELECT f.*, p.slug, p.slot, p.technique, p.fulfillment, p.concept_no,
-            p.printful_placement, p.thread_colors, octet_length(p.print_file) AS pf_bytes
+            p.printful_placement, p.thread_colors, octet_length(p.print_file) AS pf_bytes,
+            md5(p.print_file) AS design_md5
        FROM fulfillment_orders f JOIN products p ON p.id = f.product_id
       WHERE f.id = $1`, [orderId]);
   if (!o) throw new Error(`order ${orderId} not found`);
@@ -76,6 +92,8 @@ async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrde
     if (!sib) throw new Error(`no design file: product ${o.slug} has none and no EMB sibling found`);
     fileProductId = sib.id;
   }
+  const designMd5: string = o.design_md5 ?? (await one<{ m: string }>(
+    `SELECT md5(print_file) AS m FROM products WHERE id=$1`, [fileProductId]))?.m ?? "";
 
   const recipient = o.ship_address1
     ? { name: o.ship_name ?? o.buyer_name ?? "", address1: o.ship_address1, address2: o.ship_address2,
@@ -93,12 +111,15 @@ async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrde
     threadColors = sib?.thread_colors ?? ["#000000"];
   }
 
+  const knownFileId = designMd5 ? await cachedFileId(designMd5) : null;
+
   try {
     const draft = await createEmbroideryDraft({
       recipient: recipient as any,
       variantId,
       quantity: o.quantity ?? 1,
       fileUrl: pfFileUrl(fileProductId),
+      fileId: knownFileId,
       placement: o.printful_placement ?? (isHat ? "default" : "embroidery_chest_center"),
       threadColors,
       isHat,
@@ -107,7 +128,16 @@ async function sendOrderToPrintfulInner(orderId: number): Promise<{ printfulOrde
     await q(`UPDATE fulfillment_orders
                 SET printful_order_id=$2, printful_status='draft', printful_error=NULL
               WHERE id=$1`, [orderId, draft.id]);
-    await logEvent("printful_draft", { productId: o.product_id, detail: `order #${orderId} → printful draft ${draft.id}` });
+    // first upload of this design: cache the id so no shop pays digitization for it again
+    if (!knownFileId && designMd5) {
+      const f = (draft.items?.[0]?.files ?? []).find((x: any) => x.type !== "preview" && x.id);
+      if (f?.id) await rememberFileId(designMd5, Number(f.id), String(f.type), `first: order ${orderId}`);
+    }
+    await logEvent("printful_draft", {
+      productId: o.product_id,
+      detail: `order #${orderId} → printful draft ${draft.id}` +
+              `${knownFileId ? ` (dosya #${knownFileId} yeniden kullanıldı, digitization yok)` : ""}`,
+    });
     return { printfulOrderId: draft.id };
   } catch (e: any) {
     await q(`UPDATE fulfillment_orders SET printful_status='failed', printful_error=$2 WHERE id=$1`,

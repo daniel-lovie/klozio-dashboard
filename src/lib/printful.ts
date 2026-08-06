@@ -87,8 +87,10 @@ export async function createEmbroideryDraft(opts: {
   };
   variantId: number;
   quantity: number;
-  /** publicly reachable design PNG — Printful digitizes it */
+  /** publicly reachable design PNG — Printful digitizes it on first use */
   fileUrl: string;
+  /** already-digitized Printful file id for this exact design (skips the $6.50 fee) */
+  fileId?: number | null;
   /** embroidery_chest_center | embroidery_chest_left (shirt) | default (hat front) */
   placement: string;
   /** subset of Printful's allowed thread palette, from products.thread_colors */
@@ -101,7 +103,8 @@ export async function createEmbroideryDraft(opts: {
   const item: any = {
     variant_id: opts.variantId,
     quantity: opts.quantity,
-    files: [{ type: opts.placement, url: opts.fileUrl }],
+    files: [opts.fileId ? { type: opts.placement, id: opts.fileId }
+                        : { type: opts.placement, url: opts.fileUrl }],
     options: [{ id: threadOption, value: opts.threadColors }],
   };
   if (opts.isHat) item.options.push({ id: "embroidery_type", value: "flat" });

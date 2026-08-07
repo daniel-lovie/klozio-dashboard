@@ -55,12 +55,13 @@ export async function GET(req: Request) {
        AND f.ordered_at >= (now() AT TIME ZONE 'UTC')::date - $1::int`, [days]);
 
   // Real landings: a row here means the browser actually followed the redirect, unlike Meta's
-  // inline_link_clicks which counts taps that never finish loading. Bots are filtered crudely
-  // by user agent — good enough to keep curl/crawler hits out of the human count.
+  // inline_link_clicks which counts taps that never finish loading.
+  // facebookexternalhit is the big one — Meta re-crawls the destination of every ad, which on our
+  // first day was 214 of 237 hits. Counting those as people would have inflated the landing rate
+  // past 100% and made the whole measurement useless.
   const goHits = await q<{ n: string; humans: string }>(`
     SELECT count(*)::text AS n,
-           count(*) FILTER (WHERE user_agent NOT ILIKE '%bot%' AND user_agent NOT ILIKE '%curl%'
-                              AND user_agent NOT ILIKE '%crawler%' AND user_agent NOT ILIKE '%spider%')::text AS humans
+           count(*) FILTER (WHERE user_agent !~* '(bot|crawler|spider|curl|wget|python-requests|okhttp|headless|facebookexternalhit|facebookcatalog|preview)')::text AS humans
       FROM short_links_clicks
      WHERE clicked_at >= (now() AT TIME ZONE 'UTC')::date - $1::int`, [days]);
 

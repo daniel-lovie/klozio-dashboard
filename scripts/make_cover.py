@@ -46,14 +46,19 @@ def main():
 
     W, H = im.size
     d = ImageDraw.Draw(im)
+    # Etsy crops the main listing image to a portrait frame, cutting roughly 10% off EACH side, so
+    # banner text laid out across 93% of the width comes out clipped ("CUSTOM EMBROIDERY" read as
+    # "STOM EMBROIDERY ... STI" on a live listing until it was caught). Keep type inside the centre
+    # 74% — the bands themselves still run full width, only the words are constrained.
+    SAFE = 0.74
     bh = int(W * 0.082)
     d.rectangle([0, 0, W, bh], fill=BRICK)
-    f1 = fit_font(d, a.banner, W * 0.93, int(bh * 0.52))
+    f1 = fit_font(d, a.banner, W * SAFE, int(bh * 0.52))
     d.text(((W - d.textlength(a.banner, font=f1)) / 2, (bh - f1.size) / 2 - int(bh*0.03)), a.banner, font=f1, fill="white")
 
     sh = int(W * 0.062)
     d.rectangle([0, H - sh, W, H], fill=DARK)
-    f2 = fit_font(d, a.strip, W * 0.93, int(sh * 0.5))
+    f2 = fit_font(d, a.strip, W * SAFE, int(sh * 0.5))
     d.text(((W - d.textlength(a.strip, font=f2)) / 2, H - sh + (sh - f2.size) / 2), a.strip, font=f2, fill=CREAM)
 
     im.save(a.dst, quality=92)

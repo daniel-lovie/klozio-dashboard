@@ -30,6 +30,15 @@ import {
 const PERSONALIZATION_INSTRUCTIONS =
   "Type the exact text to print (names/year). Spelling & capitalization print exactly as typed. Text only, no photos.";
 
+/** Per-product wording when it exists, the generic line otherwise. The generic line says "print"
+ *  and "names/year", which is wrong on an embroidered product and meaningless on one that asks for
+ *  something other than a name — a stitched character crest, for instance. Etsy caps this field at
+ *  120 characters, so an over-long placeholder is truncated rather than allowed to fail the call. */
+function personalizationText(p: { personalization_placeholder?: string | null }): string {
+  const custom = (p.personalization_placeholder ?? "").trim();
+  return custom ? custom.slice(0, 120) : PERSONALIZATION_INSTRUCTIONS;
+}
+
 export type DueRow = {
   schedule_id: number;
   product_id: number;
@@ -109,7 +118,7 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
           ? {
               required: true,
               // Etsy's dedicated personalization endpoint caps instructions at 120 chars
-              instructions: PERSONALIZATION_INSTRUCTIONS,
+              instructions: personalizationText(p),
               charCountMax: 256,
             }
           : undefined,
@@ -162,7 +171,7 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
       if (p.personalised) {
         await setListingPersonalization(listingId, {
           required: true,
-          instructions: PERSONALIZATION_INSTRUCTIONS,
+          instructions: personalizationText(p),
           charCountMax: 256,
         });
       }

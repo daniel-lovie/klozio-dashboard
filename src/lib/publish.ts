@@ -34,8 +34,10 @@ const PERSONALIZATION_INSTRUCTIONS =
  *  and "names/year", which is wrong on an embroidered product and meaningless on one that asks for
  *  something other than a name — a stitched character crest, for instance. Etsy caps this field at
  *  120 characters, so an over-long placeholder is truncated rather than allowed to fail the call. */
-function personalizationText(p: { personalization_placeholder?: string | null }): string {
-  const custom = (p.personalization_placeholder ?? "").trim();
+function personalizationText(p: { personalization_instructions?: string | null }): string {
+  // NOT personalization_placeholder: that column holds the token the personalizer swaps out of the
+  // design (e.g. "KAELEN"), which would be nonsense shown to a buyer as instructions.
+  const custom = (p.personalization_instructions ?? "").trim();
   return custom ? custom.slice(0, 120) : PERSONALIZATION_INSTRUCTIONS;
 }
 

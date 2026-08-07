@@ -39,7 +39,8 @@ async function post(path: string, body: Record<string, string>) {
 
 export type AdRow = {
   day: string; campaign_name: string; adset_name: string; ad_name: string;
-  impressions: number; clicks: number; spend: number; reach: number; ctr: number; cpc: number;
+  impressions: number; clicks: number; all_clicks: number;
+  spend: number; reach: number; ctr: number; cpc: number;
 };
 
 /** Per-ad insights for the last N days INCLUDING today — Meta's `last_7d` preset silently
@@ -50,18 +51,26 @@ export async function adInsights(days = 7): Promise<AdRow[]> {
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const j = await get(`/${account()}/insights`, {
     level: "ad",
-    fields: "campaign_name,adset_name,ad_name,impressions,clicks,spend,reach,ctr,cpc",
+    fields: "campaign_name,adset_name,ad_name,impressions,clicks,inline_link_clicks,spend,reach",
     time_increment: "1",
     time_range: JSON.stringify({ since: fmt(since), until: fmt(until) }),
     limit: "200",
   });
-  return (j.data ?? []).map((r: any) => ({
-    day: r.date_start,
-    campaign_name: r.campaign_name ?? "", adset_name: r.adset_name ?? "", ad_name: r.ad_name ?? "",
-    impressions: Number(r.impressions ?? 0), clicks: Number(r.clicks ?? 0),
-    spend: Number(r.spend ?? 0), reach: Number(r.reach ?? 0),
-    ctr: Number(r.ctr ?? 0), cpc: Number(r.cpc ?? 0),
-  }));
+  // `clicks` is Meta's "clicks (all)" — likes, comments, profile taps included. Only
+  // inline_link_clicks are people actually sent to the listing, so CPC/CTR are computed from those.
+  return (j.data ?? []).map((r: any) => {
+    const impressions = Number(r.impressions ?? 0);
+    const link = Number(r.inline_link_clicks ?? 0);
+    const spend = Number(r.spend ?? 0);
+    return {
+      day: r.date_start,
+      campaign_name: r.campaign_name ?? "", adset_name: r.adset_name ?? "", ad_name: r.ad_name ?? "",
+      impressions, clicks: link, all_clicks: Number(r.clicks ?? 0),
+      spend, reach: Number(r.reach ?? 0),
+      ctr: impressions ? (link / impressions) * 100 : 0,
+      cpc: link ? spend / link : 0,
+    };
+  });
 }
 
 export async function listCampaigns() {
@@ -81,6 +90,27 @@ export async function listAds() {
 /** Pause/resume a single ad — the kill switch for a creative that fails its CTR gate. */
 export async function setAdStatus(adId: string, status: "ACTIVE" | "PAUSED") {
   return post(`/${adId}`, { status });
+}
+
+/** Placement breakdown — where the impressions (and the accidental taps) actually happen. */
+export async function placementBreakdown(days = 2) {
+  const until = new Date(); const since = new Date(until.getTime() - days * 86400_000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const j = await get(`/${account()}/insights`, {
+    level: "campaign", breakdowns: "publisher_platform,platform_position",
+    fields: "spend,impressions,clicks,inline_link_clicks",
+    time_range: JSON.stringify({ since: fmt(since), until: fmt(until) }), limit: "100",
+  });
+  return (j.data ?? []).map((r: any) => ({
+    platform: r.publisher_platform, position: r.platform_position,
+    spend: Number(r.spend ?? 0), impressions: Number(r.impressions ?? 0),
+    link_clicks: Number(r.inline_link_clicks ?? 0), all_clicks: Number(r.clicks ?? 0),
+  }));
+}
+
+/** Exclude placements (e.g. Audience Network) on an ad set. */
+export async function excludePlacements(adSetId: string, publisherPlatforms: string[]) {
+  return post(`/${adSetId}`, { targeting: JSON.stringify({ publisher_platforms: publisherPlatforms }) });
 }
 
 /** Change an ad set's daily budget (cents, Meta expects minor units as a string). */

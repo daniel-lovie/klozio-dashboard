@@ -47,9 +47,14 @@ export async function GET(req: Request) {
        AND l.captured_on >= (now() AT TIME ZONE 'UTC')::date - $1::int
      GROUP BY p.slug`, [days]);
 
-  const orders = await q<{ n: string; revenue: string }>(`
+  // Split the advertised listing from the rest of the shop. Lumping them together credited the
+  // campaign with orders for completely different products and made CAC look near breakeven.
+  const orders = await q<{ n: string; revenue: string; ad_n: string; ad_revenue: string }>(`
     SELECT count(*)::text AS n,
-           COALESCE(sum(round(p.price_cents * 0.7) * f.quantity), 0)::text AS revenue
+           COALESCE(sum(round(p.price_cents * 0.7) * f.quantity), 0)::text AS revenue,
+           count(*) FILTER (WHERE p.etsy_listing_id = 4550083352)::text AS ad_n,
+           COALESCE(sum(round(p.price_cents * 0.7) * f.quantity)
+                    FILTER (WHERE p.etsy_listing_id = 4550083352), 0)::text AS ad_revenue
       FROM fulfillment_orders f JOIN products p ON p.id = f.product_id
      WHERE f.shop_id = 2 AND f.status <> 'cancelled'
        AND f.ordered_at >= (now() AT TIME ZONE 'UTC')::date - $1::int`, [days]);
@@ -92,9 +97,14 @@ export async function GET(req: Request) {
              `gerçek iniş ${metaLandings}` +
              (metaLandings ? ` (iniş başına $${(spend / 100 / metaLandings).toFixed(2)})` : "") +
              (clicks ? ` · tıkların %${Math.round((metaLandings / clicks) * 100)}'i sayfayı açıyor` : ""));
-  lines.push(`🛒 HillsByElgin siparişleri: ${orderCount}` +
-             (orderCount ? ` · ciro ${money(revenue)} · CAC $${(spend / 100 / orderCount).toFixed(2)} ` +
-              `(başabaş $21.45 — ${spend / 100 / orderCount <= 21.45 ? "KÂRLI ✅" : "henüz üstünde"})` : ""));
+  const adOrders = Number(orders[0]?.ad_n ?? 0);
+  const adRevenue = Number(orders[0]?.ad_revenue ?? 0);
+  lines.push(`🛒 Reklam verilen listing (mama tee): ${adOrders} sipariş` +
+             (adOrders ? ` · ciro ${money(adRevenue)} · CAC $${(spend / 100 / adOrders).toFixed(2)} ` +
+              `(başabaş $21.45 — ${spend / 100 / adOrders <= 21.45 ? "KÂRLI ✅" : "henüz üstünde"})`
+                       : " — kampanya henüz sipariş getirmedi"));
+  if (orderCount > adOrders)
+    lines.push(`   (dükkanın tamamı: ${orderCount} sipariş · ${money(revenue)} — reklamla ilişkisiz, CAC'a katılmıyor)`);
   // The ratio is only meaningful once the ads actually point at /go — before that the handful of
   // manual test hits would read as a catastrophic 1% follow-through and invite a bad decision.
   const humanLandings = Number(goHits[0]?.humans ?? 0);
@@ -122,7 +132,8 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    summary: { spend_cents: spend, clicks, landings: metaLandings, orders: orderCount, revenue_cents: revenue },
+    summary: { spend_cents: spend, clicks, landings: metaLandings, orders: orderCount,
+               ad_orders: Number(orders[0]?.ad_n ?? 0), revenue_cents: revenue },
     adsets: sets, ads: ads.map((a) => ({ ...a, verdict: verdict(a) })),
     listing: listing[0] ?? null,
     report_tr: lines.join("\n"),

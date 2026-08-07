@@ -105,16 +105,12 @@ export async function GET(req: Request) {
                        : " — kampanya henüz sipariş getirmedi"));
   if (orderCount > adOrders)
     lines.push(`   (dükkanın tamamı: ${orderCount} sipariş · ${money(revenue)} — reklamla ilişkisiz, CAC'a katılmıyor)`);
-  // The ratio is only meaningful once the ads actually point at /go — before that the handful of
-  // manual test hits would read as a catastrophic 1% follow-through and invite a bad decision.
+  // Count only, never a ratio against total clicks: just a few ads carry the /go link, so dividing
+  // by campaign-wide clicks understates it badly. Meta's landing_page_view is the ratio metric;
+  // this is an independent, non-Meta-reported sanity check on it.
   const humanLandings = Number(goHits[0]?.humans ?? 0);
-  if (humanLandings >= 10 && clicks) {
-    lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings} — Meta'nın saydığı ${clicks} tıkın ` +
-               `%${Math.round((humanLandings / clicks) * 100)}'i sayfayı gerçekten açtı`);
-  } else {
-    lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings} — reklamlar henüz /go linkine ` +
-               `yönlendirilmedi, bu sayı sadece manuel testler (oran anlamlı değil)`);
-  }
+  lines.push(`🔗 /go linkli reklamlardan gerçek varış: ${humanLandings} kişi ` +
+             `(botlar ayıklandı — bağımsız doğrulama)`);
   if (listing[0]) lines.push(`👀 Mama listing: +${listing[0].view_delta} görüntülenme, +${listing[0].fav_delta} favori (Etsy API'si gecikmeli)`);
   lines.push("");
   lines.push("Ad set karşılaştırması (iniş başına maliyete göre, ucuzdan pahalıya):");

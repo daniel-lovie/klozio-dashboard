@@ -77,11 +77,15 @@ export async function GET(req: Request) {
   lines.push(`🛒 HillsByElgin siparişleri: ${orderCount}` +
              (orderCount ? ` · ciro ${money(revenue)} · CAC $${(spend / 100 / orderCount).toFixed(2)} ` +
               `(başabaş $21.45 — ${spend / 100 / orderCount <= 21.45 ? "KÂRLI ✅" : "henüz üstünde"})` : ""));
+  // The ratio is only meaningful once the ads actually point at /go — before that the handful of
+  // manual test hits would read as a catastrophic 1% follow-through and invite a bad decision.
   const humanLandings = Number(landings[0]?.humans ?? 0);
-  if (clicks || humanLandings) {
-    const rate = clicks ? Math.round((humanLandings / clicks) * 100) : null;
-    lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings}` +
-               (rate != null ? ` — Meta'nın saydığı ${clicks} tıkın %${rate}'i sayfayı gerçekten açtı` : ""));
+  if (humanLandings >= 10 && clicks) {
+    lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings} — Meta'nın saydığı ${clicks} tıkın ` +
+               `%${Math.round((humanLandings / clicks) * 100)}'i sayfayı gerçekten açtı`);
+  } else {
+    lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings} — reklamlar henüz /go linkine ` +
+               `yönlendirilmedi, bu sayı sadece manuel testler (oran anlamlı değil)`);
   }
   if (listing[0]) lines.push(`👀 Mama listing: +${listing[0].view_delta} görüntülenme, +${listing[0].fav_delta} favori (Etsy API'si gecikmeli)`);
   lines.push("");

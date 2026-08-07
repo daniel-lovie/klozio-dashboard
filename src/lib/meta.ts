@@ -108,9 +108,14 @@ export async function placementBreakdown(days = 2) {
   }));
 }
 
-/** Exclude placements (e.g. Audience Network) on an ad set. */
-export async function excludePlacements(adSetId: string, publisherPlatforms: string[]) {
-  return post(`/${adSetId}`, { targeting: JSON.stringify({ publisher_platforms: publisherPlatforms }) });
+/** Restrict an ad set to given publisher platforms (e.g. drop Audience Network).
+ *  ⚠️ Meta REPLACES the whole targeting object on write — read it first and merge, otherwise
+ *  age/gender/geo are silently wiped. */
+export async function setPublisherPlatforms(adSetId: string, platforms: string[]) {
+  const cur = await get(`/${adSetId}`, { fields: "targeting" });
+  const targeting = { ...(cur.targeting ?? {}), publisher_platforms: platforms };
+  delete (targeting as any).audience_network_positions;
+  return post(`/${adSetId}`, { targeting: JSON.stringify(targeting) });
 }
 
 /** Change an ad set's daily budget (cents, Meta expects minor units as a string). */

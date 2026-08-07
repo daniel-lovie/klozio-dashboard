@@ -46,6 +46,16 @@ export async function GET(req: Request) {
      WHERE f.shop_id = 2 AND f.status <> 'cancelled'
        AND f.ordered_at >= (now() AT TIME ZONE 'UTC')::date - $1::int`, [days]);
 
+  // Real landings: a row here means the browser actually followed the redirect, unlike Meta's
+  // inline_link_clicks which counts taps that never finish loading. Bots are filtered crudely
+  // by user agent — good enough to keep curl/crawler hits out of the human count.
+  const landings = await q<{ n: string; humans: string }>(`
+    SELECT count(*)::text AS n,
+           count(*) FILTER (WHERE user_agent NOT ILIKE '%bot%' AND user_agent NOT ILIKE '%curl%'
+                              AND user_agent NOT ILIKE '%crawler%' AND user_agent NOT ILIKE '%spider%')::text AS humans
+      FROM short_links_clicks
+     WHERE clicked_at >= (now() AT TIME ZONE 'UTC')::date - $1::int`, [days]);
+
   const spend = ads.reduce((a, r) => a + Number(r.spend_cents), 0);
   const clicks = ads.reduce((a, r) => a + Number(r.clicks), 0);
   const orderCount = Number(orders[0]?.n ?? 0);
@@ -67,7 +77,13 @@ export async function GET(req: Request) {
   lines.push(`🛒 HillsByElgin siparişleri: ${orderCount}` +
              (orderCount ? ` · ciro ${money(revenue)} · CAC $${(spend / 100 / orderCount).toFixed(2)} ` +
               `(başabaş $21.45 — ${spend / 100 / orderCount <= 21.45 ? "KÂRLI ✅" : "henüz üstünde"})` : ""));
-  if (listing[0]) lines.push(`👀 Mama listing: +${listing[0].view_delta} görüntülenme, +${listing[0].fav_delta} favori`);
+  const humanLandings = Number(landings[0]?.humans ?? 0);
+  if (clicks || humanLandings) {
+    const rate = clicks ? Math.round((humanLandings / clicks) * 100) : null;
+    lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings}` +
+               (rate != null ? ` — Meta'nın saydığı ${clicks} tıkın %${rate}'i sayfayı gerçekten açtı` : ""));
+  }
+  if (listing[0]) lines.push(`👀 Mama listing: +${listing[0].view_delta} görüntülenme, +${listing[0].fav_delta} favori (Etsy API'si gecikmeli)`);
   lines.push("");
   lines.push("Ad set karşılaştırması (ucuzdan pahalıya):");
   for (const s of sets) lines.push(`  · ${s.adset_name}: ${money(s.spend_cents)} · ${s.clicks} tık · CPC ${s.cpc ? `$${s.cpc}` : "—"}`);

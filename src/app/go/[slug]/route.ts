@@ -11,13 +11,18 @@ import { createHash } from "crypto";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, ctx: { params: Promise<{ slug: string }> }) {
-  const { slug } = await ctx.params;
+  const { slug: raw } = await ctx.params;
   const url = new URL(req.url);
+
+  // Trailing punctuation gets pasted in with the URL more often than not — all four ads in the first
+  // TTRPG batch went live pointing at "/go/crest-emb," because a comma came along from the copy.
+  // A 404 there means every paid click is wasted, so tolerate it rather than being strict.
+  const slug = decodeURIComponent(raw).trim().replace(/[),.;:'"]+$/, "");
 
   const dest = await q<{ target_url: string }>(
     `SELECT target_url FROM short_links WHERE slug = $1`, [slug],
   );
-  if (!dest[0]) return NextResponse.json({ error: "unknown link" }, { status: 404 });
+  if (!dest[0]) return NextResponse.json({ error: "unknown link", slug }, { status: 404 });
 
   // Carry any campaign params the ad platform appended onto the Etsy URL.
   const target = new URL(dest[0].target_url);

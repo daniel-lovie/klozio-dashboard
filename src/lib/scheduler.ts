@@ -81,13 +81,13 @@ export function startScheduler() {
       for (const r of rows) {
         await q(
           `INSERT INTO meta_ad_stats (day, campaign_name, adset_name, ad_name, impressions, clicks,
-                                      spend_cents, reach, ctr, cpc, all_clicks, updated_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
+                                      spend_cents, reach, ctr, cpc, all_clicks, landings, updated_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
            ON CONFLICT (day, COALESCE(adset_name,''), COALESCE(ad_name,'')) DO UPDATE
              SET impressions=EXCLUDED.impressions, clicks=EXCLUDED.clicks, spend_cents=EXCLUDED.spend_cents,
-                 reach=EXCLUDED.reach, ctr=EXCLUDED.ctr, cpc=EXCLUDED.cpc, all_clicks=EXCLUDED.all_clicks, updated_at=now()`,
+                 reach=EXCLUDED.reach, ctr=EXCLUDED.ctr, cpc=EXCLUDED.cpc, all_clicks=EXCLUDED.all_clicks, landings=EXCLUDED.landings, updated_at=now()`,
           [r.day, r.campaign_name, r.adset_name, r.ad_name, r.impressions, r.clicks,
-           Math.round(r.spend * 100), r.reach, r.ctr, r.cpc, r.all_clicks]);
+           Math.round(r.spend * 100), r.reach, r.ctr, r.cpc, r.all_clicks, r.landings]);
       }
       await q(`
         INSERT INTO ad_spend (shop_id, day, channel, campaign, spend_cents, clicks, impressions)

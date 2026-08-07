@@ -39,7 +39,7 @@ async function post(path: string, body: Record<string, string>) {
 
 export type AdRow = {
   day: string; campaign_name: string; adset_name: string; ad_name: string;
-  impressions: number; clicks: number; all_clicks: number;
+  impressions: number; clicks: number; all_clicks: number; landings: number;
   spend: number; reach: number; ctr: number; cpc: number;
 };
 
@@ -51,21 +51,26 @@ export async function adInsights(days = 7): Promise<AdRow[]> {
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
   const j = await get(`/${account()}/insights`, {
     level: "ad",
-    fields: "campaign_name,adset_name,ad_name,impressions,clicks,inline_link_clicks,spend,reach",
+    fields: "campaign_name,adset_name,ad_name,impressions,clicks,inline_link_clicks,spend,reach,actions",
     time_increment: "1",
     time_range: JSON.stringify({ since: fmt(since), until: fmt(until) }),
     limit: "200",
   });
   // `clicks` is Meta's "clicks (all)" — likes, comments, profile taps included. Only
   // inline_link_clicks are people actually sent to the listing, so CPC/CTR are computed from those.
+  // `landing_page_view` goes one step further: the page actually finished loading. Meta reports it
+  // without a Pixel (its in-app browser sees the load), so we get real landings on an Etsy
+  // destination — that is the metric worth optimising, not clicks.
   return (j.data ?? []).map((r: any) => {
     const impressions = Number(r.impressions ?? 0);
     const link = Number(r.inline_link_clicks ?? 0);
     const spend = Number(r.spend ?? 0);
+    const lpv = (r.actions ?? []).find((a: any) => a.action_type === "landing_page_view");
     return {
       day: r.date_start,
       campaign_name: r.campaign_name ?? "", adset_name: r.adset_name ?? "", ad_name: r.ad_name ?? "",
       impressions, clicks: link, all_clicks: Number(r.clicks ?? 0),
+      landings: Math.round(Number(lpv?.value ?? 0)),
       spend, reach: Number(r.reach ?? 0),
       ctr: impressions ? (link / impressions) * 100 : 0,
       cpc: link ? spend / link : 0,

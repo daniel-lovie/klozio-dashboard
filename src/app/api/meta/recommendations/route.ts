@@ -14,22 +14,30 @@ export async function GET(req: Request) {
 
   const days = Number(new URL(req.url).searchParams.get("days") ?? 2);
 
+  // Judged on landings, not clicks: a click that never finishes loading buys us nothing, and the
+  // gap between the two is large enough on some placements to flip a verdict.
   const ads = await q<any>(`
     SELECT ad_name, adset_name,
            sum(impressions)::int AS impressions, sum(clicks)::int AS clicks,
-           sum(spend_cents)::int AS spend_cents,
+           sum(COALESCE(landings, 0))::int AS landings, sum(spend_cents)::int AS spend_cents,
            CASE WHEN sum(impressions) > 0 THEN round(100.0*sum(clicks)/sum(impressions), 2) END AS ctr,
-           CASE WHEN sum(clicks) > 0 THEN round(sum(spend_cents)/100.0/sum(clicks), 2) END AS cpc
+           CASE WHEN sum(clicks) > 0 THEN round(sum(spend_cents)/100.0/sum(clicks), 2) END AS cpc,
+           CASE WHEN sum(COALESCE(landings,0)) > 0
+                THEN round(sum(spend_cents)/100.0/sum(COALESCE(landings,0)), 2) END AS cost_per_landing,
+           CASE WHEN sum(clicks) > 0
+                THEN round(100.0*sum(COALESCE(landings,0))/sum(clicks)) END AS landing_rate
       FROM meta_ad_stats
      WHERE day >= (now() AT TIME ZONE 'UTC')::date - $1::int
      GROUP BY ad_name, adset_name ORDER BY sum(spend_cents) DESC`, [days]);
 
   const sets = await q<any>(`
     SELECT adset_name, sum(spend_cents)::int AS spend_cents, sum(clicks)::int AS clicks,
-           CASE WHEN sum(clicks) > 0 THEN round(sum(spend_cents)/100.0/sum(clicks), 2) END AS cpc
+           sum(COALESCE(landings, 0))::int AS landings,
+           CASE WHEN sum(COALESCE(landings,0)) > 0
+                THEN round(sum(spend_cents)/100.0/sum(COALESCE(landings,0)), 2) END AS cost_per_landing
       FROM meta_ad_stats
      WHERE day >= (now() AT TIME ZONE 'UTC')::date - $1::int
-     GROUP BY adset_name ORDER BY 4 NULLS LAST`, [days]);
+     GROUP BY adset_name ORDER BY 5 NULLS LAST`, [days]);
 
   // Etsy tarafı: reklamın gittiği listing'in görüntülenme artışı + siparişler
   const listing = await q<any>(`
@@ -49,7 +57,7 @@ export async function GET(req: Request) {
   // Real landings: a row here means the browser actually followed the redirect, unlike Meta's
   // inline_link_clicks which counts taps that never finish loading. Bots are filtered crudely
   // by user agent — good enough to keep curl/crawler hits out of the human count.
-  const landings = await q<{ n: string; humans: string }>(`
+  const goHits = await q<{ n: string; humans: string }>(`
     SELECT count(*)::text AS n,
            count(*) FILTER (WHERE user_agent NOT ILIKE '%bot%' AND user_agent NOT ILIKE '%curl%'
                               AND user_agent NOT ILIKE '%crawler%' AND user_agent NOT ILIKE '%spider%')::text AS humans
@@ -62,24 +70,33 @@ export async function GET(req: Request) {
   const revenue = Number(orders[0]?.revenue ?? 0);
 
   const verdict = (r: any) => {
-    const s = Number(r.spend_cents) / 100, ctr = r.ctr == null ? null : Number(r.ctr),
-          cpc = r.cpc == null ? null : Number(r.cpc);
+    const s = Number(r.spend_cents) / 100;
+    const ctr = r.ctr == null ? null : Number(r.ctr);
+    const cpl = r.cost_per_landing == null ? null : Number(r.cost_per_landing);
+    const rate = r.landing_rate == null ? null : Number(r.landing_rate);
     if (s < 3) return { tag: "bekle", why: "veri az (<$3 harcama)" };
+    // A creative can look fine on CTR while almost nobody actually reaches the page.
+    if (rate != null && rate < 40 && Number(r.clicks) >= 20)
+      return { tag: "KAPAT", why: `tıkların yalnızca %${rate}'i sayfayı açıyor` };
     if (s >= 15 && ctr != null && ctr < 1) return { tag: "KAPAT", why: `$${s.toFixed(2)} harcandı, CTR %${ctr} (<%1)` };
-    if (cpc != null && cpc > 0.7) return { tag: "KAPAT", why: `CPC $${cpc} (>$0.70)` };
-    if (cpc != null && cpc <= 0.45) return { tag: "ÖLÇEKLE", why: `CPC $${cpc} (≤$0.45) — bütçe +%20` };
-    return { tag: "izle", why: cpc != null ? `CPC $${cpc}` : "tık yok" };
+    if (cpl != null && cpl > 0.9) return { tag: "KAPAT", why: `iniş başına $${cpl} (>$0.90)` };
+    if (cpl != null && cpl <= 0.5) return { tag: "ÖLÇEKLE", why: `iniş başına $${cpl} (≤$0.50) — bütçe +%20` };
+    return { tag: "izle", why: cpl != null ? `iniş başına $${cpl}` : "iniş yok" };
   };
+
+  const metaLandings = ads.reduce((a, r) => a + Number(r.landings ?? 0), 0);
 
   const lines: string[] = [];
   lines.push(`📊 Son ${days} gün — harcama ${money(spend)}, tık ${clicks}, ` +
-             `ort. CPC ${clicks ? `$${(spend / 100 / clicks).toFixed(2)}` : "—"}`);
+             `gerçek iniş ${metaLandings}` +
+             (metaLandings ? ` (iniş başına $${(spend / 100 / metaLandings).toFixed(2)})` : "") +
+             (clicks ? ` · tıkların %${Math.round((metaLandings / clicks) * 100)}'i sayfayı açıyor` : ""));
   lines.push(`🛒 HillsByElgin siparişleri: ${orderCount}` +
              (orderCount ? ` · ciro ${money(revenue)} · CAC $${(spend / 100 / orderCount).toFixed(2)} ` +
               `(başabaş $21.45 — ${spend / 100 / orderCount <= 21.45 ? "KÂRLI ✅" : "henüz üstünde"})` : ""));
   // The ratio is only meaningful once the ads actually point at /go — before that the handful of
   // manual test hits would read as a catastrophic 1% follow-through and invite a bad decision.
-  const humanLandings = Number(landings[0]?.humans ?? 0);
+  const humanLandings = Number(goHits[0]?.humans ?? 0);
   if (humanLandings >= 10 && clicks) {
     lines.push(`🔗 Gerçek varış (/go linki): ${humanLandings} — Meta'nın saydığı ${clicks} tıkın ` +
                `%${Math.round((humanLandings / clicks) * 100)}'i sayfayı gerçekten açtı`);
@@ -89,19 +106,22 @@ export async function GET(req: Request) {
   }
   if (listing[0]) lines.push(`👀 Mama listing: +${listing[0].view_delta} görüntülenme, +${listing[0].fav_delta} favori (Etsy API'si gecikmeli)`);
   lines.push("");
-  lines.push("Ad set karşılaştırması (ucuzdan pahalıya):");
-  for (const s of sets) lines.push(`  · ${s.adset_name}: ${money(s.spend_cents)} · ${s.clicks} tık · CPC ${s.cpc ? `$${s.cpc}` : "—"}`);
+  lines.push("Ad set karşılaştırması (iniş başına maliyete göre, ucuzdan pahalıya):");
+  for (const s of sets)
+    lines.push(`  · ${s.adset_name}: ${money(s.spend_cents)} · ${s.clicks} tık · ${s.landings} iniş · ` +
+               `iniş başına ${s.cost_per_landing ? `$${s.cost_per_landing}` : "—"}`);
   lines.push("");
   lines.push("Kreatif kararları:");
   for (const a of ads) {
     const v = verdict(a);
     lines.push(`  · [${v.tag}] ${a.ad_name} (${a.adset_name}) — ${money(a.spend_cents)}, ` +
-               `${a.impressions} gösterim, ${a.clicks} tık, CTR ${a.ctr ?? "—"}% — ${v.why}`);
+               `${a.impressions} gösterim, ${a.clicks} tık, ${a.landings} iniş` +
+               `${a.landing_rate != null ? ` (%${a.landing_rate})` : ""}, CTR ${a.ctr ?? "—"}% — ${v.why}`);
   }
 
   return NextResponse.json({
     ok: true,
-    summary: { spend_cents: spend, clicks, orders: orderCount, revenue_cents: revenue },
+    summary: { spend_cents: spend, clicks, landings: metaLandings, orders: orderCount, revenue_cents: revenue },
     adsets: sets, ads: ads.map((a) => ({ ...a, verdict: verdict(a) })),
     listing: listing[0] ?? null,
     report_tr: lines.join("\n"),

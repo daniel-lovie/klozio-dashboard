@@ -206,9 +206,11 @@ add("h-a1-c14-v1", "rpg", "dtf", True, 14, 3142, "Sandstone",
 # ---------------------------------------------------------------- FPS
 add("h-emb-c14-v1", "fps", "embroidery", True, 14, 5999, "Black",
     "A callsign name tape patch, stitched like the real thing.",
+    # The detector finds the banner as a light band, and a name tape drawn dark leaves it nothing:
+    # this concept came back three times with no light area at all in the lower half.
     "a rectangular military-style name tape patch emblem with a thick stitched border and clipped "
-    "corners, a small five-pointed star at each end of the strip, the centre of the strip left "
-    "completely empty with no writing",
+    "corners, a small five-pointed star at each end of the strip, the centre of the strip a large "
+    "SOLID FILLED WHITE panel, plain and completely empty with no writing",
     "Custom Embroidered Callsign Tee, Personalized Gamer Gift, Your Callsign Stitched, Comfort Colors "
     "Shooter Shirt, Gaming Gift",
     ["custom gamer shirt", "callsign tee", "personalized gamer", "fps shirt", "embroidered tee",

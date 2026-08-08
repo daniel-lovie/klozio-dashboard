@@ -66,7 +66,15 @@ MAKE_COVER = HERE / "make_cover.py"
 MAKE_CARDS = HERE / "make_info_cards.py"
 
 # --- economics -------------------------------------------------------------------------------
-HF_COST_PER_CALL = 0.18          # one Higgsfield job; matches the credit estimate in personalizer.mts
+# Measured off the credit balance, not estimated: gpt_image_2 low costs 0.75 credits against
+# nano_banana_pro's 2.00 at 2k and 4.00 at 4k — the setting we shipped the first batch with. Side by
+# side on our own prompts gpt_image_2 drew the cleaner crest, and once the cutout stopped eating white
+# ribbons it produced a bigger, better banner than the model costing five times as much.
+DEFAULT_MODEL = "gpt_image_2"
+DEFAULT_QUALITY = "low"
+HF_CREDITS_PER_CALL = 0.75
+HF_COST_PER_CREDIT = 0.035       # ultra plan; top-up is $0.05/cr, subscription $0.033-0.039
+HF_COST_PER_CALL = HF_CREDITS_PER_CALL * HF_COST_PER_CREDIT
 PRINTFUL_COST_PER_MOCKUP = 0.0   # mockup generator is free — this is the entire cost fix
 
 # --- Printful --------------------------------------------------------------------------------
@@ -227,7 +235,14 @@ def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool) -> Path 
         return None
     raw.parent.mkdir(parents=True, exist_ok=True)
     out = hf({"op": "generate", "prompt": prompt, "out": str(raw),
-              "model": c.get("model", "nano_banana_pro"), "resolution": c.get("resolution", "4k")})
+              "model": c.get("model", DEFAULT_MODEL),
+              "quality": c.get("quality", DEFAULT_QUALITY),
+              # 2k, not 4k: the cutout downsamples to 2048 either way, and 2048 is already well over
+              # what both placements need (embroidery chest-left is a 1200px printfile, the DTF front
+              # 1800px). Compared side by side the 4k output has no visible advantage after the
+              # resize. recraft_v4_1 is half the credits but could not draw the concepts — it
+              # returned an unrecognisable dice tower — so the saving is resolution, not model.
+              "resolution": c.get("resolution", "2k")})
     if not out.get("ok"):
         r.error = f"generate: {out.get('error')}"
         return None
@@ -264,13 +279,22 @@ def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
     bgish = np.logical_or.reduce(masks)
     lab, n = ndimage.label(bgish)
     keep = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
-    for idx in range(1, n + 1):
-        if idx in keep:
-            continue
-        blob = lab == idx
-        hits = sum(1 for m in masks if (m & blob).sum() > blob.sum() * 0.15)
-        if hits >= 2:                                # two tones inside -> painted checker, not art
-            keep.add(idx)
+
+    # The enclosed-pocket rule only means anything when the background really is TWO tones. On a
+    # plain white background all three sampled tones are the same white, every test passes, and the
+    # white interior of a personalisation ribbon gets reclaimed as background — which is exactly how
+    # a perfectly good banner came back measuring 1px. Distinct tones, or no reclaim.
+    distinct = [t for i, t in enumerate(tones)
+                if all(np.abs(t.astype(int) - u.astype(int)).max() > tol * 2 for u in tones[:i])]
+    if len(distinct) >= 2:
+        dmasks = [np.abs(a - t).max(axis=2) <= tol for t in distinct]
+        for idx in range(1, n + 1):
+            if idx in keep:
+                continue
+            blob = lab == idx
+            hits = sum(1 for m in dmasks if (m & blob).sum() > blob.sum() * 0.15)
+            if hits >= 2:                            # two distinct tones inside -> painted checker
+                keep.add(idx)
     alpha = np.where(np.isin(lab, list(keep)), 0, 255).astype(np.uint8)
     alpha = np.asarray(Image.fromarray(alpha).filter(ImageFilter.MedianFilter(3)))
     out.parent.mkdir(parents=True, exist_ok=True)

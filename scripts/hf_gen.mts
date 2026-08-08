@@ -18,7 +18,7 @@ import { dirname } from "node:path";
 type Args = {
   op: "generate" | "remove_bg";
   prompt?: string; out: string; src?: string; ref?: string;
-  model?: string; aspect_ratio?: string; resolution?: string;
+  model?: string; aspect_ratio?: string; resolution?: string; quality?: string;
   poll_ms?: number; poll_max?: number;
 };
 
@@ -57,6 +57,8 @@ try {
   if (a.op === "generate") {
     if (!a.prompt) throw new Error("prompt required");
     const params: any = { model, prompt: a.prompt, aspect_ratio: a.aspect_ratio ?? "1:1", resolution: a.resolution ?? "4k" };
+    // gpt_image_2 prices by quality tier (low/medium/high), so it has to be reachable from the spec
+    if (a.quality) params.quality = a.quality;
     if (a.ref) params.medias = [{ role: "image", value: await uploadPng(await readFile(a.ref), "ref.png") }];
     const job = await callTool("generate_image", { params });
     calls++;

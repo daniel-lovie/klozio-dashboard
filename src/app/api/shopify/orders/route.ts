@@ -106,7 +106,9 @@ export async function POST(req: Request) {
           shop_id, is_paid, status)
        VALUES ('shopify',$1,$2,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
                $12,$13,$14,$15,$16,$17,$18,$19,true,'new')
-       ON CONFLICT (shopify_line_id) DO NOTHING
+       -- the index is PARTIAL (WHERE shopify_line_id IS NOT NULL), and Postgres will only infer a
+       -- partial index when the conflict target repeats its predicate; without it: 42P10.
+       ON CONFLICT (shopify_line_id) WHERE shopify_line_id IS NOT NULL DO NOTHING
        RETURNING id, true AS fresh`,
       [order.id, line.id, product.id, line.quantity ?? 1, line.sku,
        size, colorway, personalizationOf(line),

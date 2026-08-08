@@ -16,7 +16,9 @@ import psycopg2
 
 DIR = "/Users/omer/Documents/code/etsy/pipeline/ttrpg-guild"
 EMB_TEMPLATE = "h-emb-c6-v1"   # embroidery, Printful, chest-left
-DTF_TEMPLATE = "a1-c1-v1"      # DTF, printinly, same fandom tree
+DTF_TEMPLATE = "h-a1-c1-v1"    # DTF, printinly, same fandom tree — MUST be a shop-2 row:
+                               # a1-c1-v1 looks identical but belongs to shop 1 (Klozio), and
+                               # cloning it silently carried shop_id=1 into two live products.
 
 A_DESC = """A twenty-sided die crowned with a laurel wreath — the badge for anyone whose week is
 built around one table, one campaign and one very lucky roll.

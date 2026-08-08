@@ -13,8 +13,12 @@ Run: set -a && source .env && set +a && python3 scripts/shopify_port.py [--only 
 """
 import argparse, json, os, sys, time
 import requests, psycopg2
+from io import BytesIO
+from PIL import Image
 
-SHOP = os.environ["SHOPIFY_STORE_DOMAIN"]
+# Read lazily, not at import: batch_runner.py imports normalize_image() for its Shopify image gate
+# and must be able to do that in --dry-run, with no Shopify credentials and no token minted.
+SHOP = os.environ.get("SHOPIFY_STORE_DOMAIN", "")
 API = f"https://{SHOP}/admin/api/2026-07/graphql.json"
 UP = {"2X": 286, "3X": 572, "4X": 715}  # grossed anchor upcharges (cents)
 
@@ -24,6 +28,8 @@ SLOT_COLL = {"EMB": "Custom Embroidery", "EMBH": "Embroidered Hats",
              "B1": "Personalized Gifts", "B2": "Personalized Gifts", "OB": "Statement Tees"}
 
 def mint_token():
+    if not SHOP:
+        raise RuntimeError("SHOPIFY_STORE_DOMAIN not set")
     r = requests.post(f"https://{SHOP}/admin/oauth/access_token", data={
         "grant_type": "client_credentials",
         "client_id": os.environ["SHOPIFY_CLIENT_ID"],
@@ -31,10 +37,12 @@ def mint_token():
     r.raise_for_status()
     return r.json()["access_token"]
 
-TOKEN = mint_token()
+TOKEN = None
 
 def gql(query, variables=None, retries=3):
     global TOKEN
+    if TOKEN is None:
+        TOKEN = mint_token()
     for i in range(retries):
         r = requests.post(API, headers={"X-Shopify-Access-Token": TOKEN, "Content-Type": "application/json"},
                           json={"query": query, "variables": variables or {}})
@@ -111,17 +119,51 @@ def product_set(inp, nvars):
         if o["status"] == "FAILED": raise RuntimeError(f"async productSet FAILED: {o.get('userErrors')}")
     raise RuntimeError("async productSet timeout")
 
-def staged_upload(filename, mime, blob):
+
+def normalize_image(filename, mime, blob):
+    """Shopify caps an image at 20MB and renders nothing above 2048px anyway.
+
+    Our mockups come off the generator as 4096px PNGs — 22-30MB each — which the staged upload
+    rejects with EntityTooLarge (a 400 that says nothing about size unless you read the XML body).
+    Re-encoding to a 2048px JPEG keeps the visible quality, drops ~95% of the bytes and makes the
+    storefront materially faster.
+    """
+    if mime == "image/jpeg" and len(blob) <= 4_000_000:
+        return filename, mime, blob
+    im = Image.open(BytesIO(blob))
+    if im.mode in ("RGBA", "LA", "P"):
+        flat = Image.new("RGB", im.size, (255, 255, 255))
+        im = im.convert("RGBA")
+        flat.paste(im, (0, 0), im)
+        im = flat
+    else:
+        im = im.convert("RGB")
+    im.thumbnail((2048, 2048), Image.LANCZOS)
+    out = BytesIO()
+    im.save(out, "JPEG", quality=88, optimize=True, progressive=True)
+    name = filename.rsplit(".", 1)[0] + ".jpg"
+    return name, "image/jpeg", out.getvalue()
+
+def staged_upload(filename, mime, blob, resource="IMAGE", normalize=True):
+    """resource=FILE + normalize=False is how batch_runner.py parks a full-resolution print file in
+    Shopify Files: Printful's mockup generator FETCHES the artwork, so it needs a public URL, and it
+    needs the real print file rather than a storefront-sized re-encode."""
+    if normalize:
+        filename, mime, blob = normalize_image(filename, mime, blob)
     d = gql("""mutation su($input: [StagedUploadInput!]!) {
       stagedUploadsCreate(input: $input) {
         stagedTargets { url resourceUrl parameters { name value } }
         userErrors { message } } }""",
-      {"input": [{"filename": filename, "mimeType": mime, "httpMethod": "POST", "resource": "IMAGE"}]})
+      # fileSize is not optional in practice: without it Google signs a policy that rejects the upload
+      # with a bare 400, which reads like a credentials problem but is a content-length mismatch.
+      {"input": [{"filename": filename, "mimeType": mime, "httpMethod": "POST", "resource": resource,
+                  "fileSize": str(len(blob))}]})
     t = d["stagedUploadsCreate"]["stagedTargets"][0]
     form = [(p["name"], (None, p["value"])) for p in t["parameters"]]
     form.append(("file", (filename, blob, mime)))
-    r = requests.post(t["url"], files=form)
-    if r.status_code not in (200, 201, 204): raise RuntimeError(f"staged POST {r.status_code}")
+    r = requests.post(t["url"], files=form, timeout=120)
+    if r.status_code not in (200, 201, 204):
+        raise RuntimeError(f"staged POST {r.status_code}: {r.text[:200]}")
     return t["resourceUrl"]
 
 def attach_media(product_id, sources):

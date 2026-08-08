@@ -54,7 +54,7 @@ from pathlib import Path
 
 import numpy as np
 import requests
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from thread_colors import PALETTE_HEX, MAX_THREADS, coverage as thread_coverage, pick as thread_pick
@@ -95,6 +95,17 @@ PF_KIND_PLACEMENT = {"embroidery": "embroidery_chest_left", "dtf": "front"}
 PF_AREA = {"embroidery_chest_left": (1200, 1200), "embroidery_chest_center": (1200, 1200),
            "embroidery_large_center": (3000, 1800)}
 WORN_GROUPS = {"Men's", "Men's 2", "Men's 3", "Women's", "Women's 2"}
+
+# Comfort Colors 1717, size L — Printful renders the colourway, the size only picks the photo.
+# The mockup has to be the colour the listing sells: the first pending batch put dark type on a
+# charcoal Pepper tee for 88 products whose hero colourway is Ivory, which is unreadable and is not
+# the garment the buyer would receive.
+COLORWAY_VARIANT = {"Ivory": 16525, "Butter": 15168, "Chambray": 17650, "Pepper": 17695,
+                    "Black": 15116, "White": 15126, "True Navy": 15183, "Moss": 17703,
+                    "Blue Jean": 16513, "Bay": 17709, "Khaki": 21536, "Denim": 21522}
+# Ink follows the cloth. Anything darker than this reads as a dark garment and takes cream type.
+DARK_GARMENTS = {"Pepper", "Black", "True Navy", "Moss", "Denim", "Graphite", "Midnight", "Navy"}
+INK_ON_LIGHT, INK_ON_DARK = "#111111", "#F2EDE3"
 
 # --- design prompt tail ----------------------------------------------------------------------
 # The spec supplies only the concept ("a heraldic shield crest badge..."); these are the print
@@ -471,6 +482,74 @@ def gate_threads(art: Path | None, c: dict, r: Result) -> list[str]:
 # =================================================================================================
 # stage: hand-set type / personalisation token + GATE 7
 # =================================================================================================
+
+SLOGAN_FONT = "/System/Library/Fonts/Supplemental/Impact.ttf"
+
+
+def stage_slogan(src: Path, slogan: str, out: Path, ink: str = "#111111") -> tuple[Path, int]:
+    """Hand-set the slogan under the emblem.
+
+    These products ARE the phrase — the stored prompts asked the generator for the words letter by
+    letter, which is the one thing it reliably gets wrong (malformed glyphs, dropped letters, invented
+    punctuation). So the emblem is generated wordless and the line is set here in real type, the same
+    way the d20 numeral and the personalisation token are.
+
+    Layout is emblem-over-line, sized so the words read at thumbnail size: the phrase is the product,
+    and a buyer scrolling Etsy has to be able to read it in a 170px grid tile.
+    """
+    art = open_rgba(src)
+    art = art.crop(art.getbbox() or (0, 0, art.width, art.height))
+    W = H = 2048
+    # 6% margin cost real chest coverage: the print measured 43% of the shirt against the ~55% a
+    # 12-inch front print should occupy. Printful fits the whole square into the print area, so every
+    # transparent pixel of margin is print area given away.
+    pad = int(W * 0.02)
+    lines = _wrap(slogan.upper(), W - 2 * pad)
+    text_h = int(H * (0.16 if len(lines) == 1 else 0.13 * len(lines)))
+    art_box = H - text_h - int(H * 0.10) - pad
+    scale = min((W - 2 * pad) / art.width, art_box / art.height)
+    art = art.resize((max(1, int(art.width * scale)), max(1, int(art.height * scale))), Image.LANCZOS)
+
+    canvas = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    canvas.paste(art, ((W - art.width) // 2, pad), art)
+    d = ImageDraw.Draw(canvas)
+    y = pad + art.height + int(H * 0.045)
+    drawn = 0
+    for line in lines:
+        size = _fit(line, W - 2 * pad, text_h // max(1, len(lines)))
+        f = ImageFont.truetype(SLOGAN_FONT, size)
+        l, t, r, b = d.textbbox((0, 0), line, font=f)
+        d.text(((W - (r - l)) // 2 - l, y - t), line, font=f, fill=rgb_of(ink) + (255,))
+        y += (b - t) + int(H * 0.015)
+        drawn += 1
+    out.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(out)
+    return out, drawn
+
+
+def _wrap(text: str, width_px: int, max_lines: int = 3) -> list[str]:
+    """Break on words so no line needs a font smaller than the others to fit."""
+    words = text.split()
+    for n in range(1, max_lines + 1):
+        per = max(1, len(words) // n + (1 if len(words) % n else 0))
+        lines = [" ".join(words[i:i + per]) for i in range(0, len(words), per)]
+        if len(lines) <= n and max(len(x) for x in lines) <= 18:
+            return lines
+    return [" ".join(words)]
+
+
+def _fit(line: str, width_px: int, height_px: int) -> int:
+    """Largest Impact size that keeps the line inside the box on both axes."""
+    probe = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    size = height_px
+    while size > 24:
+        f = ImageFont.truetype(SLOGAN_FONT, size)
+        l, t, r, b = probe.textbbox((0, 0), line, font=f)
+        if (r - l) <= width_px and (b - t) <= height_px:
+            return size
+        size -= 4
+    return 24
+
 
 def stage_token(src: Path, token: str, out: Path) -> tuple[Path, int]:
     """Draw the placeholder token into the design's banner. Reuses ttrpg_placeholder.ribbon_box().
@@ -975,7 +1054,16 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
     drawn = None
     final = d / "final.png"
     if art and Path(art).exists() and not dry:
-        if c.get("personalised") and c.get("placeholder_token"):
+        if c.get("slogan"):
+            # the phrase is the product; the emblem alone would not match its own listing
+            try:
+                ink = c.get("ink") or (INK_ON_DARK if (c.get("hero_colorway") in DARK_GARMENTS)
+                                       else INK_ON_LIGHT)
+                _, drawn = stage_slogan(art, c["slogan"], final, ink)
+            except Exception as e:
+                r.error = f"slogan: {str(e)[:160]}"
+                drawn = 0
+        elif c.get("personalised") and c.get("placeholder_token"):
             try:
                 _, drawn = stage_token(art, c["placeholder_token"], final)
             except SystemExit as e:                       # ribbon_box could not find a banner
@@ -1001,7 +1089,11 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
             # Rerunning would park a duplicate copy of the print file in Shopify Files, so existing
             # mockups are reused unless --force. They are free, but they are not free of clutter.
             url = shopify_public_url(final)
-            shots = printful_mockups(url, spec["printful"], mock_dir, c["kind"],
+            pf = dict(spec["printful"])
+            variant = COLORWAY_VARIANT.get(c.get("hero_colorway") or "")
+            if variant:
+                pf["variant_ids"] = [variant]
+            shots = printful_mockups(url, pf, mock_dir, c["kind"],
                                      c.get("printful_placement"))
             r.pf_mockups = len(shots)
             worn = pick_worn(shots)

@@ -107,6 +107,39 @@ COLORWAY_VARIANT = {"Ivory": 16525, "Butter": 15168, "Chambray": 17650, "Pepper"
 DARK_GARMENTS = {"Pepper", "Black", "True Navy", "Moss", "Denim", "Graphite", "Midnight", "Navy"}
 INK_ON_LIGHT, INK_ON_DARK = "#111111", "#F2EDE3"
 
+# Comfort Colors swatches, for deciding whether a design can actually be seen on the cloth it is
+# listed against. 12 of the first 94 pending products put dark artwork on charcoal Pepper — the art
+# was fine, the garment was wrong, and swapping the garment costs nothing while regenerating does.
+GARMENT_RGB = {"Ivory": (255, 244, 217), "Butter": (255, 224, 158), "Chambray": (217, 243, 255),
+               "White": (255, 255, 255), "Bay": (184, 191, 171), "Khaki": (179, 171, 139),
+               "Pepper": (81, 79, 76), "Black": (27, 27, 28), "True Navy": (30, 44, 74),
+               "Moss": (107, 112, 83), "Denim": (86, 90, 103), "Blue Jean": (112, 126, 141)}
+MIN_VISIBLE = 0.55       # fraction of artwork pixels that must stand clear of the garment
+
+
+def _luma(a):
+    return 0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]
+
+
+def visible_fraction(art: Path, colorway: str) -> float:
+    im = open_rgba(art)
+    im.thumbnail((256, 256))
+    a = np.asarray(im)
+    op = a[:, :, 3] > 128
+    if not op.any():
+        return 0.0
+    g = GARMENT_RGB.get(colorway or "", (255, 244, 217))
+    return float((np.abs(_luma(a[:, :, :3][op].astype(float)) - _luma(np.array(g, float))) > 60).mean())
+
+
+def best_colorway(art: Path, preferred: str) -> tuple[str, float]:
+    """Keep the listed colour when the design reads on it; otherwise pick the one it reads on best."""
+    have = visible_fraction(art, preferred)
+    if have >= MIN_VISIBLE:
+        return preferred, have
+    ranked = sorted(((visible_fraction(art, c), c) for c in GARMENT_RGB), reverse=True)
+    return ranked[0][1], ranked[0][0]
+
 # --- design prompt tail ----------------------------------------------------------------------
 # The spec supplies only the concept ("a heraldic shield crest badge..."); these are the print
 # constraints from the ai-design skill and are identical for every design, so they live here.
@@ -1090,7 +1123,14 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
             # mockups are reused unless --force. They are free, but they are not free of clutter.
             url = shopify_public_url(final)
             pf = dict(spec["printful"])
-            variant = COLORWAY_VARIANT.get(c.get("hero_colorway") or "")
+            # The garment is chosen here rather than at catalogue time, because only now do we know
+            # what the artwork actually looks like.
+            chosen, vis = best_colorway(final, c.get("hero_colorway") or "Ivory")
+            if chosen != c.get("hero_colorway"):
+                r.note = (f"kumas {c.get('hero_colorway')} -> {chosen}: tasarim eskisinde "
+                          f"gorunmuyordu (gorunur %{vis * 100:.0f})")
+                c["hero_colorway"] = chosen
+            variant = COLORWAY_VARIANT.get(chosen)
             if variant:
                 pf["variant_ids"] = [variant]
             shots = printful_mockups(url, pf, mock_dir, c["kind"],

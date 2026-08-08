@@ -32,6 +32,24 @@ FRANCHISE_TERMS = ["project hail mary", "hail mary", "murderbot", "dungeon crawl
 MAX_SLOGAN = 40          # characters; beyond this Impact drops under a readable size on the chest
 MIN_SLOGAN = 2
 
+# The slogans carry bracket placeholders — "[Name]'S DAD — OFFICIAL". Left alone they get SET IN TYPE
+# and the shirt ships reading "[Name]'S DAD". The products.personalised column says False for every
+# one of them, so the bracket in the phrase is the only trustworthy signal that this is a custom tee.
+#
+# Each placeholder becomes a plausible sample word, because the personalizer works by finding the
+# existing lettering and replacing it — an empty space or a literal "[Name]" gives it nothing to
+# match. The sample also has to look like a real order in the listing photo.
+# Alphanumeric only, no spaces or punctuation: the personalizer replaces one contiguous run of
+# lettering, and "MIA & LEO" gives it three runs to choose between. G7 enforces this, and it was
+# right to — the buyer can still type whatever they like, the sample only has to be swappable.
+PLACEHOLDER_SAMPLE = {
+    "name": ("KAELEN", "First name"), "names": ("MIA", "Name or names"),
+    "surname": ("MORGAN", "Family name"), "year": ("1987", "Year, four digits"),
+    "petname": ("BISCUIT", "Pet's name"), "grade": ("3RD", "Grade"),
+    "teachername": ("REID", "Teacher's name"),
+}
+PLACEHOLDER_RE = re.compile(r"\[([A-Za-z][A-Za-z ]*)\]")
+
 CARD_PRINT = {"file": "printed-to-last.jpg", "title": "PRINTED TO LAST",
               "footer": "SOFT-HAND FINISH", "numbered": False,
               "steps": [["Sits in the fabric", "Not a stiff plastic layer on top"],
@@ -70,7 +88,8 @@ def main() -> None:
                     ORDER BY slug""")
     rows = cur.fetchall()
 
-    concepts, dropped = [], {"franchise": [], "slogan_uzun": [], "slogan_yok": [], "fikir_yok": []}
+    concepts, dropped = [], {"franchise": [], "slogan_uzun": [], "slogan_yok": [], "fikir_yok": [],
+                             "cok_yer_tutucu": [], "bilinmeyen_yer_tutucu": []}
     for (slug, niche, technique, personalised, price, colorway, concept_no,
          title, tags, description, visual_idea, hook) in rows:
         blob = f"{niche} {title} {visual_idea} {hook}".lower()
@@ -79,6 +98,21 @@ def main() -> None:
             continue
         slogan = slogan_of(description)
         idea = prompt_of(visual_idea)
+        holes = PLACEHOLDER_RE.findall(slogan)
+        token = instructions = None
+        if len(holes) > 1:
+            # The personalizer swaps ONE run of lettering; two blanks in one phrase would need it to
+            # know which is which, and it does not.
+            dropped["cok_yer_tutucu"].append(slug)
+            continue
+        if holes:
+            key = holes[0].strip().lower()
+            if key not in PLACEHOLDER_SAMPLE:
+                dropped["bilinmeyen_yer_tutucu"].append(slug)
+                continue
+            token, label = PLACEHOLDER_SAMPLE[key]
+            slogan = PLACEHOLDER_RE.sub(token, slogan)
+            instructions = f"{label} — up to 14 characters, printed exactly as you type it"
         if not idea:
             dropped["fikir_yok"].append(slug)
             continue
@@ -87,7 +121,7 @@ def main() -> None:
             continue
 
         concepts.append({
-            "slug": slug, "niche": niche, "kind": "dtf", "personalised": False,
+            "slug": slug, "niche": niche, "kind": "dtf", "personalised": bool(token),
             "concept_no": concept_no or 1, "price_anchor_cents": price or 3428,
             "hero_colorway": colorway or "Ivory",
             "hook": hook or slogan,
@@ -98,6 +132,8 @@ def main() -> None:
             "description": description,
             "cover": {"banner": slogan[:34].upper(), "strip": "COMFORT COLORS 1717 · S-4XL"},
             "info_cards": [CARD_PRINT, CARD_FIT],
+            **({"placeholder_token": token,
+                "personalization_instructions": instructions} if token else {}),
         })
 
     if a.limit:

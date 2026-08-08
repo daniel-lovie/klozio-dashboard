@@ -205,6 +205,16 @@ ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_claimed_at TIMESTA
 ALTER TABLE products ADD COLUMN IF NOT EXISTS personalization_placeholder TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS personalization_instructions TEXT;
 
+-- Shopify is a second sales channel, not a second orders table: klozio.io lines land in the same
+-- board as Etsy ones. receipt_id/transaction_id are NOT NULL and Etsy-shaped, so the Shopify order
+-- and line ids go in there and every existing query keeps working. The partial unique index is what
+-- makes the webhook idempotent — Shopify redelivers on any non-2xx and on manual replay.
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'etsy';
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS shopify_order_id BIGINT;
+ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS shopify_line_id BIGINT;
+CREATE UNIQUE INDEX IF NOT EXISTS fulfillment_orders_shopify_line
+  ON fulfillment_orders (shopify_line_id) WHERE shopify_line_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS hf_tokens (
   id            INT PRIMARY KEY DEFAULT 1,
   access_token  TEXT NOT NULL,

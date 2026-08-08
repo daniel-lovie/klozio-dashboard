@@ -198,7 +198,12 @@ ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS interpreted_text TEXT;
 ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_attempts INT NOT NULL DEFAULT 0;
 ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_log JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE fulfillment_orders ADD COLUMN IF NOT EXISTS agent_claimed_at TIMESTAMPTZ;
+-- Two different strings, and mixing them ships nonsense to buyers: `_placeholder` is the token the
+-- personalizer swaps OUT of the print file ("KAELEN"), `_instructions` is the buyer-facing prompt on
+-- the Etsy listing (see src/lib/publish.ts, Etsy caps it at 120 chars). The instructions column was
+-- added straight to the live DB and never made it here, so a rebuild from schema.sql lost it.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS personalization_placeholder TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS personalization_instructions TEXT;
 
 CREATE TABLE IF NOT EXISTS hf_tokens (
   id            INT PRIMARY KEY DEFAULT 1,

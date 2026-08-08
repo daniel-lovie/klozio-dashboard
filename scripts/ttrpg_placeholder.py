@@ -45,12 +45,27 @@ def ribbon_box(im: Image.Image):
     # Anchor on the widest light row, then keep only the contiguous run that stays nearly as wide.
     rows = np.bincount(ys, minlength=h)
     peak = int(rows.argmax())
-    thresh = rows[peak] * 0.80
-    y0 = y1 = peak
-    while y0 > 0 and rows[y0 - 1] >= thresh:
-        y0 -= 1
-    while y1 < h - 1 and rows[y1 + 1] >= thresh:
-        y1 += 1
+
+    # 0.80 assumes a parallel-sided banner. A scroll that tapers, or one drawn as an outline rather
+    # than a filled band, collapses to a single row at that threshold — and a zero-height box then
+    # produced `font size must be greater than 0`, which reads like a font bug and is not one.
+    # Loosen progressively, and if the band is still too thin to carry a stitched name, say exactly
+    # that: a 3px scroll cannot hold type and no font size rescues it.
+    def band(frac: float) -> tuple[int, int]:
+        t = rows[peak] * frac
+        a0 = a1 = peak
+        while a0 > 0 and rows[a0 - 1] >= t:
+            a0 -= 1
+        while a1 < h - 1 and rows[a1 + 1] >= t:
+            a1 += 1
+        return a0, a1
+
+    for frac in (0.80, 0.50, 0.35):
+        y0, y1 = band(frac)
+        if y1 - y0 >= h * 0.02:
+            break
+    if y1 - y0 < h * 0.015:
+        raise SystemExit(f"kurdele cok ince ({y1 - y0}px) — isim dikilemez, dolu bir bant gerekiyor")
     cols = np.where(light[y0:y1 + 1].any(axis=0))[0]
     return int(cols.min()), y0, int(cols.max()), y1
 

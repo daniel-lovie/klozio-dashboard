@@ -1,0 +1,104 @@
+{
+  "campaign": "ttrpg-guild",
+  "shop_id": 2,
+  "pipeline_dir": "/Users/omer/Documents/code/etsy/pipeline",
+  "campaign_scene_calls": 0,
+  "cover_crop_top": 0.2,
+
+  "templates": {
+    "embroidery": "h-emb-c6-v1",
+    "dtf": "h-a1-c1-v1"
+  },
+
+  "printful": {
+    "product_id": 586,
+    "store_id": 18561101,
+    "variant_ids": [17695],
+    "option_groups": ["Men's", "Women's", "Flat"],
+    "placement": "front"
+  },
+
+  "concepts": [
+    {
+      "slug": "h-emb-c10-v1",
+      "niche": "tabletop rpg",
+      "kind": "embroidery",
+      "personalised": true,
+      "concept_no": 10,
+      "price_anchor_cents": 5999,
+      "hero_colorway": "Pepper",
+      "hook": "A dice-tower crest with the player's table name stitched into the banner.",
+      "prompt_head": "a heraldic crest badge built around a tall stone dice tower, a plain empty ribbon banner across the bottom, two crossed quill pens behind the tower",
+      "threads": ["#000000", "#FFFFFF", "#A67843", "#CC3333", "#01784E"],
+      "placeholder_token": "KAELEN",
+      "personalization_instructions": "Type the name exactly as you want it stitched - up to 14 characters keeps the banner readable.",
+      "title": "Custom Embroidered Dice Tower Crest Tee, Personalized Tabletop RPG Gift, Your Table Name Stitched, Comfort Colors Game Night Shirt",
+      "tags": ["custom rpg shirt", "table name tee", "personalized rpg", "d20 shirt",
+               "embroidered tee", "tabletop rpg gift", "roleplaying gift", "dice tower tee",
+               "game night gift", "comfort colors tee", "rpg gift for him", "dice goblin",
+               "stitched name tee"],
+      "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nA stone dice tower crowned as a guild badge, with your table's name stitched into the ribbon.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has actual relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n\nFewer than 1% of customers ever use our 30-day return, but it is there.",
+      "cover": {
+        "banner": "YOUR TABLE NAME · STITCHED",
+        "strip": "COMFORT COLORS 1717 · S-4XL"
+      },
+      "info_cards": [
+        {
+          "file": "how-to-personalize.jpg",
+          "title": "HOW TO PERSONALIZE",
+          "footer": "REAL EMBROIDERY · NOT A PRINT",
+          "steps": [
+            ["Pick colour and size", "22 shades, S-4XL"],
+            ["Type the name", "Spelling and capitals are stitched exactly as typed"],
+            ["We digitise and stitch", "Made to order, shipped from the USA"]
+          ]
+        },
+        {
+          "file": "stitched-not-printed.jpg",
+          "title": "STITCHED, NOT PRINTED",
+          "footer": "NOTHING TO CRACK OR PEEL",
+          "numbered": false,
+          "steps": [
+            ["Real thread", "Raised satin stitch you can feel"],
+            ["Wash after wash", "No cracking, peeling or fading"],
+            ["Garment-dyed cotton", "Soft from the first wear"]
+          ]
+        }
+      ]
+    },
+
+    {
+      "slug": "h-a1-c9-v1",
+      "niche": "tabletop rpg",
+      "kind": "dtf",
+      "personalised": false,
+      "concept_no": 9,
+      "price_anchor_cents": 2856,
+      "hero_colorway": "Butter",
+      "hook": "A dice tower crest, printed large and centred.",
+      "prompt_head": "a heraldic crest badge built around a tall stone dice tower, two crossed quill pens behind the tower, a laurel wreath framing the whole badge",
+      "title": "Dice Tower Crest Tee, Tabletop RPG Shirt, Comfort Colors Game Night Tee, Gamer Gift, D20 Shirt",
+      "tags": ["d20 shirt", "tabletop rpg gift", "dice shirt", "roleplaying shirt",
+               "game night gift", "comfort colors tee", "rpg gift for him", "nerdy gift",
+               "dice goblin", "tabletop gamer", "crit shirt", "gamer tshirt", "dice tower tee"],
+      "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nA stone dice tower crowned as a guild badge, for anyone whose week is built around one table and one campaign.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n\nFewer than 1% of customers ever use our 30-day return, but it is there.",
+      "cover": {
+        "banner": "DICE TOWER CREST TEE",
+        "strip": "COMFORT COLORS 1717 · S-4XL"
+      },
+      "info_cards": [
+        {
+          "file": "printed-to-last.jpg",
+          "title": "PRINTED TO LAST",
+          "footer": "SOFT-HAND FINISH",
+          "numbered": false,
+          "steps": [
+            ["Sits in the fabric", "Not a thick plastic patch on top"],
+            ["Full colour", "Every shade in the artwork prints"],
+            ["Garment-dyed cotton", "Soft from the first wear"]
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1730 @@
+{
+ "campaign": "gaming-01",
+ "shop_id": 2,
+ "pipeline_dir": "/Users/omer/Documents/code/etsy/pipeline",
+ "campaign_scene_calls": 0,
+ "cover_crop_top": 0.2,
+ "templates": {
+  "embroidery": "h-emb-c6-v1",
+  "dtf": "h-a1-c1-v1"
+ },
+ "printful": {
+  "product_id": 586,
+  "store_id": 18561101,
+  "variant_ids": [
+   17695
+  ],
+  "option_groups": [
+   "Men's",
+   "Women's",
+   "Flat"
+  ],
+  "placement": "front"
+ },
+ "concepts": [
+  {
+   "slug": "h-emb-c10-v1",
+   "niche": "tabletop rpg",
+   "kind": "embroidery",
+   "personalised": true,
+   "concept_no": 10,
+   "price_anchor_cents": 5999,
+   "hero_colorway": "Pepper",
+   "hook": "An initiative crest with the player's name stitched in the banner.",
+   "prompt_head": "a heraldic crest badge, a twenty-sided die at the centre with completely blank unmarked faces, two crossed longswords behind it, a wide ribbon banner across the bottom, the banner drawn as a SOLID FILLED white shape with a large plain unbroken white interior, tall and thick, at least as tall as it is thick, with nothing written on it, ",
+   "title": "Custom Embroidered Initiative Crest Tee, Personalized Tabletop RPG Gift, Character Name Stitched, Comfort Colors D20 Shirt",
+   "tags": [
+    "custom rpg shirt",
+    "character name tee",
+    "personalized rpg",
+    "d20 shirt",
+    "embroidered tee",
+    "tabletop rpg gift",
+    "roleplaying gift",
+    "initiative tracker",
+    "game night gift",
+    "comfort colors tee",
+    "rpg gift for him",
+    "dice goblin",
+    "stitched name tee"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nA crest for the one who always rolls first, with your character's name stitched into the ribbon.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "YOUR NAME · STITCHED",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#FFCC00",
+    "#CC3333",
+    "#333366"
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, stitched exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c11-v1",
+   "niche": "tabletop rpg",
+   "kind": "embroidery",
+   "personalised": false,
+   "concept_no": 11,
+   "price_anchor_cents": 4999,
+   "hero_colorway": "Blue Jean",
+   "hook": "A stone dice tower crowned as a guild badge.",
+   "prompt_head": "a heraldic crest badge built around a tall stone dice tower with an arched opening, two small polyhedral dice tumbling from the mouth, a thick circular border ring",
+   "title": "Embroidered Dice Tower Tee, Tabletop RPG Gift, Stitched Dice Shirt, Comfort Colors Roleplaying Tee, Game Night Gift",
+   "tags": [
+    "dice tower tee",
+    "tabletop rpg gift",
+    "embroidered tee",
+    "dice shirt",
+    "roleplaying shirt",
+    "game night gift",
+    "comfort colors tee",
+    "stitched d20",
+    "rpg gift for him",
+    "nerdy gift",
+    "dice goblin",
+    "tabletop gamer",
+    "dm gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThe tower that decides everyone's fate, stitched as a guild badge.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "REAL EMBROIDERY · NOT A PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#96A1A8",
+    "#A67843",
+    "#01784E"
+   ]
+  },
+  {
+   "slug": "h-a1-c9-v1",
+   "niche": "tabletop rpg",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 9,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Butter",
+   "hook": "A d20 rosette with crossed swords, printed large.",
+   "prompt_head": "a bold rosette emblem, a twenty-sided die at the centre with completely blank unmarked faces, crossed longswords behind it, a ring of small pointed rays radiating outward",
+   "title": "D20 Rosette Tee, Tabletop RPG Shirt, Dice Emblem Tee, Comfort Colors Roleplaying Shirt, Gamer Gift",
+   "tags": [
+    "d20 shirt",
+    "tabletop rpg gift",
+    "dice shirt",
+    "roleplaying shirt",
+    "game night gift",
+    "comfort colors tee",
+    "rpg gift for him",
+    "nerdy gift",
+    "dice goblin",
+    "tabletop gamer",
+    "gamer tshirt",
+    "d20 tee",
+    "crit shirt"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThe die that decides everything, framed like a medal.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c10-v1",
+   "niche": "tabletop rpg",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 10,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Pepper",
+   "hook": "A potion and dice cluster badge for the table hoarder.",
+   "prompt_head": "a badge emblem of three stoppered potion bottles of different sizes clustered together with two small polyhedral dice at their base, a thin circular border ring, small sparkle marks",
+   "title": "Potion And Dice Tee, Tabletop RPG Shirt, Fantasy Gamer Tee, Comfort Colors Roleplaying Shirt, Game Night Gift",
+   "tags": [
+    "potion shirt",
+    "tabletop rpg gift",
+    "dice shirt",
+    "fantasy tee",
+    "roleplaying shirt",
+    "game night gift",
+    "comfort colors tee",
+    "rpg gift for him",
+    "nerdy gift",
+    "dice goblin",
+    "tabletop gamer",
+    "gamer tshirt",
+    "fantasy gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nEverything you hoard and never drink, in one badge.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c11-v1",
+   "niche": "tabletop rpg",
+   "kind": "dtf",
+   "personalised": true,
+   "concept_no": 11,
+   "price_anchor_cents": 3142,
+   "hero_colorway": "Ivory",
+   "hook": "A character sheet shield carrying the player's name.",
+   "prompt_head": "a heraldic shield crest divided into four quarters, a small twenty-sided die with blank faces in the upper left quarter, a sword in the upper right, a potion in the lower left, a scroll in the lower right, a wide ribbon banner across the bottom, the banner drawn as a SOLID FILLED white shape with a large plain unbroken white interior, tall and thick, at least as tall as it is thick, with nothing written on it, ",
+   "title": "Custom Character Shield Tee, Personalized Tabletop RPG Shirt, Your Character Name, Comfort Colors D20 Tee, Roleplaying Gift",
+   "tags": [
+    "custom rpg shirt",
+    "character name tee",
+    "personalized rpg",
+    "d20 shirt",
+    "tabletop rpg gift",
+    "roleplaying gift",
+    "custom d20 tee",
+    "game night gift",
+    "comfort colors tee",
+    "rpg gift for him",
+    "character crest",
+    "custom gamer tee",
+    "d20 tee"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nFour quarters for four things every character carries, and your name across the bottom.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, printed exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c12-v1",
+   "niche": "rpg",
+   "kind": "embroidery",
+   "personalised": true,
+   "concept_no": 12,
+   "price_anchor_cents": 5999,
+   "hero_colorway": "Moss",
+   "hook": "A save-point crystal crest with the player's name stitched in.",
+   "prompt_head": "a heraldic crest badge built around a tall faceted crystal floating above a small stone pedestal, soft radiating lines behind the crystal, a wide ribbon banner across the bottom, the banner drawn as a SOLID FILLED white shape with a large plain unbroken white interior, tall and thick, at least as tall as it is thick, with nothing written on it, ",
+   "title": "Custom Embroidered Save Point Tee, Personalized RPG Gamer Gift, Your Name Stitched, Comfort Colors Gaming Shirt",
+   "tags": [
+    "custom gamer shirt",
+    "save point tee",
+    "personalized gamer",
+    "rpg shirt",
+    "embroidered tee",
+    "gamer gift for him",
+    "video game gift",
+    "crystal tee",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "rpg gamer tee",
+    "stitched name tee"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThe one place you always felt safe, stitched with your name beneath it.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "YOUR NAME · STITCHED",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#3399FF",
+    "#005397",
+    "#FFCC00"
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, stitched exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c13-v1",
+   "niche": "rpg",
+   "kind": "embroidery",
+   "personalised": false,
+   "concept_no": 13,
+   "price_anchor_cents": 4999,
+   "hero_colorway": "Brick",
+   "hook": "A healing potion badge for the one who never uses them.",
+   "prompt_head": "a badge emblem of a single round-bellied stoppered potion bottle with a cork, a small cross symbol on the bottle body, a thick circular border ring behind it",
+   "title": "Embroidered Potion Tee, RPG Gamer Gift, Stitched Gaming Shirt, Comfort Colors Video Game Tee, Nerdy Gift For Him",
+   "tags": [
+    "potion shirt",
+    "rpg shirt",
+    "embroidered tee",
+    "gamer gift for him",
+    "video game gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "stitched gamer tee",
+    "nerdy gift",
+    "healer tee",
+    "rpg gamer tee",
+    "gamer tshirt",
+    "fantasy gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nNinety-nine in the bag and saved for a boss you never fight.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "REAL EMBROIDERY · NOT A PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#CC3333",
+    "#96A1A8",
+    "#01784E"
+   ]
+  },
+  {
+   "slug": "h-a1-c12-v1",
+   "niche": "rpg",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 12,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Espresso",
+   "hook": "A treasure chest emblem, printed large.",
+   "prompt_head": "a bold emblem of an open wooden treasure chest with iron bands and a heavy lock plate, coins and a small crown spilling out, radiating light lines behind it",
+   "title": "Treasure Chest Tee, RPG Gamer Shirt, Loot Emblem Tee, Comfort Colors Video Game Shirt, Gamer Gift",
+   "tags": [
+    "treasure chest tee",
+    "rpg shirt",
+    "loot shirt",
+    "gamer gift for him",
+    "video game gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "rpg gamer tee",
+    "gamer tshirt",
+    "dungeon tee",
+    "fantasy gift",
+    "loot goblin"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThe only reason anyone opens a door.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c13-v1",
+   "niche": "rpg",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 13,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Blue Spruce",
+   "hook": "A level-up burst emblem.",
+   "prompt_head": "a bold emblem of an upward-pointing chevron arrow inside a hexagonal frame, a burst of short rays radiating outward behind the hexagon, two small stars flanking it",
+   "title": "Level Up Tee, RPG Gamer Shirt, Gaming Emblem Tee, Comfort Colors Video Game Shirt, Nerdy Gift",
+   "tags": [
+    "level up shirt",
+    "rpg shirt",
+    "gamer gift for him",
+    "video game gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "rpg gamer tee",
+    "gamer tshirt",
+    "xp shirt",
+    "gaming emblem tee",
+    "gift for gamer",
+    "geek gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThe sound you would keep if you could only keep one.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c14-v1",
+   "niche": "rpg",
+   "kind": "dtf",
+   "personalised": true,
+   "concept_no": 14,
+   "price_anchor_cents": 3142,
+   "hero_colorway": "Sandstone",
+   "hook": "An adventurer's ID plate with the player's name.",
+   "prompt_head": "a rectangular metal name plate emblem with rounded corners and rivets at each corner, a small sword and shield crossed above the plate, a wide ribbon banner across the bottom, the banner drawn as a SOLID FILLED white shape with a large plain unbroken white interior, tall and thick, at least as tall as it is thick, with nothing written on it, ",
+   "title": "Custom Adventurer Name Tee, Personalized RPG Gamer Shirt, Your Name Printed, Comfort Colors Gaming Tee, Gamer Gift",
+   "tags": [
+    "custom gamer shirt",
+    "adventurer tee",
+    "personalized gamer",
+    "rpg shirt",
+    "name plate tee",
+    "gamer gift for him",
+    "video game gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "rpg gamer tee",
+    "custom gamer tee",
+    "gift for gamer"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nEvery adventurer needs papers. Here are yours.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, printed exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c14-v1",
+   "niche": "fps",
+   "kind": "embroidery",
+   "personalised": true,
+   "concept_no": 14,
+   "price_anchor_cents": 5999,
+   "hero_colorway": "Black",
+   "hook": "A callsign name tape patch, stitched like the real thing.",
+   "prompt_head": "a rectangular military-style name tape patch emblem with a thick stitched border and clipped corners, a small five-pointed star at each end of the strip, the centre of the strip left completely empty with no writing",
+   "title": "Custom Embroidered Callsign Tee, Personalized Gamer Gift, Your Callsign Stitched, Comfort Colors Shooter Shirt, Gaming Gift",
+   "tags": [
+    "custom gamer shirt",
+    "callsign tee",
+    "personalized gamer",
+    "fps shirt",
+    "embroidered tee",
+    "gamer gift for him",
+    "shooter game tee",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "squad shirt",
+    "custom gamer tee",
+    "stitched name tee"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nYour callsign, stitched on a name tape the way it should be.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "YOUR NAME · STITCHED",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#96A1A8",
+    "#01784E",
+    "#A67843"
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, stitched exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c15-v1",
+   "niche": "fps",
+   "kind": "embroidery",
+   "personalised": false,
+   "concept_no": 15,
+   "price_anchor_cents": 4999,
+   "hero_colorway": "Grey",
+   "hook": "A crosshair badge for the steady hand.",
+   "prompt_head": "a badge emblem of a circular crosshair reticle with four thick tick marks at the compass points and a small centre dot, a hexagonal outer frame behind the reticle",
+   "title": "Embroidered Crosshair Tee, FPS Gamer Gift, Stitched Gaming Shirt, Comfort Colors Shooter Tee, Nerdy Gift For Him",
+   "tags": [
+    "crosshair tee",
+    "fps shirt",
+    "embroidered tee",
+    "gamer gift for him",
+    "shooter game tee",
+    "gaming shirt",
+    "comfort colors tee",
+    "stitched gamer tee",
+    "nerdy gift",
+    "gamer tshirt",
+    "esports shirt",
+    "gift for gamer",
+    "aim trainer tee"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nCentre dot, steady hand, nothing else on the screen.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "REAL EMBROIDERY · NOT A PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#E25C27",
+    "#96A1A8",
+    "#333366"
+   ]
+  },
+  {
+   "slug": "h-a1-c15-v1",
+   "niche": "fps",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 15,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Pepper",
+   "hook": "A loadout flat-lay emblem.",
+   "prompt_head": "a bold emblem arranged as a symmetrical flat lay of gear silhouettes, a headset at the top, a compass and a canteen below it, two crossed combat knives at the base, a thin circular border ring",
+   "title": "Loadout Tee, FPS Gamer Shirt, Gaming Gear Emblem Tee, Comfort Colors Shooter Shirt, Gamer Gift",
+   "tags": [
+    "loadout tee",
+    "fps shirt",
+    "gamer gift for him",
+    "shooter game tee",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "gamer tshirt",
+    "esports shirt",
+    "gift for gamer",
+    "squad shirt",
+    "gaming gear tee",
+    "geek gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nEverything you check twice before the round starts.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c16-v1",
+   "niche": "fps",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 16,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Denim",
+   "hook": "A respawn emblem for the endlessly patient.",
+   "prompt_head": "a bold circular emblem of two thick arrows chasing each other in a clockwise loop, a small hourglass silhouette at the centre of the loop, short rays radiating outward",
+   "title": "Respawn Tee, FPS Gamer Shirt, Gaming Emblem Tee, Comfort Colors Shooter Shirt, Nerdy Gamer Gift",
+   "tags": [
+    "respawn tee",
+    "fps shirt",
+    "gamer gift for him",
+    "shooter game tee",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "gamer tshirt",
+    "esports shirt",
+    "gift for gamer",
+    "gaming emblem tee",
+    "geek gift",
+    "one more round"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTen seconds to think about what you did.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c17-v1",
+   "niche": "fps",
+   "kind": "dtf",
+   "personalised": true,
+   "concept_no": 17,
+   "price_anchor_cents": 3142,
+   "hero_colorway": "Moss",
+   "hook": "A squad patch carrying the player's callsign.",
+   "prompt_head": "a shield-shaped squad patch emblem with a thick border, a pair of crossed rifles silhouetted in the upper half with no visible branding or markings, three small stars above them, a wide ribbon banner across the bottom, the banner drawn as a SOLID FILLED white shape with a large plain unbroken white interior, tall and thick, at least as tall as it is thick, with nothing written on it, ",
+   "title": "Custom Squad Patch Tee, Personalized FPS Gamer Shirt, Your Callsign Printed, Comfort Colors Shooter Tee, Gaming Gift",
+   "tags": [
+    "custom gamer shirt",
+    "squad patch tee",
+    "personalized gamer",
+    "fps shirt",
+    "callsign tee",
+    "gamer gift for him",
+    "shooter game tee",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "custom gamer tee",
+    "gift for gamer",
+    "squad shirt"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nOne patch, one squad, your callsign across the bottom.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, printed exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c16-v1",
+   "niche": "mmorpg",
+   "kind": "embroidery",
+   "personalised": true,
+   "concept_no": 16,
+   "price_anchor_cents": 5999,
+   "hero_colorway": "Blue Jean",
+   "hook": "A guild tag patch with the guild name stitched in.",
+   "prompt_head": "a heraldic banner emblem hanging from a horizontal bar, a small castle tower silhouette at the top of the banner, two hanging tassels at the bottom corners, the banner face left completely empty with no writing",
+   "title": "Custom Embroidered Guild Tee, Personalized MMO Gamer Gift, Your Guild Name Stitched, Comfort Colors Gaming Shirt",
+   "tags": [
+    "custom gamer shirt",
+    "guild tee",
+    "personalized gamer",
+    "mmo shirt",
+    "embroidered tee",
+    "gamer gift for him",
+    "mmorpg gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "guild name tee",
+    "custom gamer tee",
+    "stitched name tee"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThe guild you have been in longer than most friendships, stitched on a banner.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "YOUR NAME · STITCHED",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#005397",
+    "#FFCC00",
+    "#CC3333"
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, stitched exactly as you type it"
+  },
+  {
+   "slug": "h-emb-c17-v1",
+   "niche": "mmorpg",
+   "kind": "embroidery",
+   "personalised": false,
+   "concept_no": 17,
+   "price_anchor_cents": 4999,
+   "hero_colorway": "Espresso",
+   "hook": "A trinity badge: shield, cross and sword.",
+   "prompt_head": "a circular badge emblem divided into three equal wedges by thick dividing lines, a tower shield silhouette in the first wedge, a plain cross in the second, an upright sword in the third, a thick outer ring",
+   "title": "Embroidered Tank Healer DPS Tee, MMO Gamer Gift, Stitched Gaming Shirt, Comfort Colors MMORPG Tee, Nerdy Gift",
+   "tags": [
+    "tank healer dps",
+    "mmo shirt",
+    "embroidered tee",
+    "gamer gift for him",
+    "mmorpg gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "stitched gamer tee",
+    "nerdy gift",
+    "healer tee",
+    "raid shirt",
+    "gamer tshirt",
+    "gift for gamer"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nThree jobs, one party, endless arguing about who pulled.\n\nStitched, not printed. Real embroidery thread on the left chest, so the badge has relief you can feel and nothing to crack, peel or fade in the wash.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "REAL EMBROIDERY · NOT A PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "stitched-not-printed.jpg",
+     "title": "STITCHED, NOT PRINTED",
+     "footer": "NOTHING TO CRACK OR PEEL",
+     "numbered": false,
+     "steps": [
+      [
+       "Real thread",
+       "Raised satin stitch you can feel"
+      ],
+      [
+       "Wash after wash",
+       "No cracking, peeling or fading"
+      ],
+      [
+       "Left chest, badge sized",
+       "Sits like a patch, not a slogan"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "threads": [
+    "#000000",
+    "#FFFFFF",
+    "#005397",
+    "#01784E",
+    "#CC3333"
+   ]
+  },
+  {
+   "slug": "h-a1-c18-v1",
+   "niche": "mmorpg",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 18,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Blue Spruce",
+   "hook": "A portal emblem for the raid-night commute.",
+   "prompt_head": "a bold emblem of an upright stone archway with a swirling spiral filling the opening, two small floating runic diamonds flanking the arch, short rays radiating outward",
+   "title": "Portal Tee, MMO Gamer Shirt, Raid Night Emblem Tee, Comfort Colors MMORPG Shirt, Gamer Gift",
+   "tags": [
+    "portal tee",
+    "mmo shirt",
+    "raid shirt",
+    "gamer gift for him",
+    "mmorpg gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "gamer tshirt",
+    "gift for gamer",
+    "guild tee",
+    "gaming emblem tee",
+    "geek gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTwenty minutes of summoning and one person still not through.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c19-v1",
+   "niche": "mmorpg",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 19,
+   "price_anchor_cents": 2856,
+   "hero_colorway": "Butter",
+   "hook": "A loot crate emblem for the drop that never comes.",
+   "prompt_head": "a bold emblem of a sturdy wooden crate with iron corner brackets, its lid lifting slightly with light spilling out, a small four-pointed sparkle above it, a thin circular border ring",
+   "title": "Loot Drop Tee, MMO Gamer Shirt, Raid Loot Emblem Tee, Comfort Colors MMORPG Shirt, Nerdy Gift",
+   "tags": [
+    "loot drop tee",
+    "mmo shirt",
+    "raid shirt",
+    "gamer gift for him",
+    "mmorpg gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "gamer tshirt",
+    "gift for gamer",
+    "loot goblin",
+    "guild tee",
+    "geek gift"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nForty runs. Still not the one you wanted.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "h-a1-c20-v1",
+   "niche": "mmorpg",
+   "kind": "dtf",
+   "personalised": true,
+   "concept_no": 20,
+   "price_anchor_cents": 3142,
+   "hero_colorway": "Ivory",
+   "hook": "A guild banner carrying the guild name.",
+   "prompt_head": "a tall heraldic banner emblem with a forked bottom edge hanging from a horizontal pole, a small griffin-like winged silhouette at the top of the banner face, a wide ribbon banner across the bottom, the banner drawn as a SOLID FILLED white shape with a large plain unbroken white interior, tall and thick, at least as tall as it is thick, with nothing written on it, ",
+   "title": "Custom Guild Banner Tee, Personalized MMO Gamer Shirt, Your Guild Name, Comfort Colors MMORPG Tee, Gaming Gift",
+   "tags": [
+    "custom gamer shirt",
+    "guild banner tee",
+    "personalized gamer",
+    "mmo shirt",
+    "guild name tee",
+    "gamer gift for him",
+    "mmorpg gift",
+    "gaming shirt",
+    "comfort colors tee",
+    "nerdy gift",
+    "custom gamer tee",
+    "raid shirt",
+    "gift for gamer"
+   ],
+   "description": "This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nFly the colours you have been repping for years.\n\nPrinted large and centred with a soft-hand finish that sits in the fabric rather than on top of it.\n\n- Comfort Colors 1717, garment-dyed heavyweight cotton\n- Unisex relaxed fit, S-4XL\n- Made to order and shipped from the USA, tracked on every order\n- If anything is wrong we replace it or refund you, and you never ship it back\n\nType the name in the Personalisation box exactly as you want it. Spelling and capitalisation are reproduced as typed; up to 14 characters keeps the banner readable.",
+   "cover": {
+    "banner": "SOFT-HAND PRINT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "how-to-personalize.jpg",
+     "title": "HOW TO PERSONALIZE",
+     "footer": "MADE TO ORDER IN THE USA",
+     "steps": [
+      [
+       "Pick colour and size",
+       "22 garment-dyed shades, S-4XL"
+      ],
+      [
+       "Type the name",
+       "Reproduced exactly as you type it"
+      ],
+      [
+       "We make it and ship it",
+       "Tracked on every order"
+      ]
+     ]
+    },
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ],
+   "placeholder_token": "KAELEN",
+   "personalization_instructions": "Name or callsign — up to 14 characters, printed exactly as you type it"
+  }
+ ]
+}

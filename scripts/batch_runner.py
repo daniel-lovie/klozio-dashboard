@@ -82,9 +82,15 @@ PF_BASE = "https://api.printful.com"
 PF_CC1717 = 586                  # Comfort Colors 1717
 # api.printful.com answers 403 "error code: 1010" (Cloudflare) with no User-Agent. Not documented.
 PF_HEADERS_BASE = {"User-Agent": "klozio/1.0", "Content-Type": "application/json"}
-# Proven position for a 1800x1800 chest print inside CC1717's 1800x2400 front print area.
-PF_POSITION = {"area_width": 1800, "area_height": 2400, "width": 1800, "height": 1800,
-               "top": 300, "left": 0}
+# A 10x10 inch chest print inside CC1717's 1800x2400 (12x16 inch @150dpi) front area. It used to be
+# the full 1800 wide — 12x12 inches, the largest the garment takes — and the composited mockups were
+# showing 17 inches, a print no press could produce. 10 inches is what the listing now promises, so
+# it has to be what the file orders: 1500px square, centred, dropped 2.5 inches below the neckline.
+PRINT_INCHES = 10
+PF_DPI = 150
+PF_POSITION = {"area_width": 1800, "area_height": 2400,
+               "width": PRINT_INCHES * PF_DPI, "height": PRINT_INCHES * PF_DPI,
+               "top": int(2.5 * PF_DPI), "left": (1800 - PRINT_INCHES * PF_DPI) // 2}
 
 # Printful renders a completely different garment per technique, and the mockup has to be the
 # technique we actually fulfil. Ordering embroidery_chest_left while showing a DTG "front" mockup

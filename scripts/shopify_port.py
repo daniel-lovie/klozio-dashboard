@@ -183,6 +183,23 @@ def attach_media(product_id, sources):
     errs = d["productCreateMedia"]["mediaUserErrors"]
     if errs: print(f"    media warnings: {errs[:2]}")
 
+def clear_media(product_id):
+    """Drop every image on the product so a refresh replaces rather than appends.
+
+    productCreateMedia only ever adds; without this a re-port leaves the old cover in slot 1 and the
+    new one buried at slot 8, which is worse than not refreshing at all.
+    """
+    d = gql("""query($id:ID!){ product(id:$id){ media(first:50){ nodes{ id } } } }""",
+            {"id": product_id})
+    ids = [n["id"] for n in (d.get("product") or {}).get("media", {}).get("nodes", [])]
+    if not ids:
+        return 0
+    gql("""mutation dm($pid: ID!, $ids: [ID!]!) {
+      productDeleteMedia(productId: $pid, mediaIds: $ids) {
+        deletedMediaIds mediaUserErrors { message } } }""", {"pid": product_id, "ids": ids})
+    return len(ids)
+
+
 def online_store_publication():
     d = gql("query{ publications(first:10){ nodes { id name } } }")
     for n in d["publications"]["nodes"]:
@@ -198,6 +215,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only"); ap.add_argument("--limit", type=int)
     ap.add_argument("--niche", help="comma separated; only these niches")
+    ap.add_argument("--refresh-images", action="store_true", help="replace media on existing products")
     a = ap.parse_args()
     conn = psycopg2.connect(os.environ["DATABASE_URL"]); cur = conn.cursor()
     q = """SELECT p.id, p.slug, p.title, p.description, p.tags, p.colorways, p.sizes,
@@ -220,9 +238,20 @@ def main():
     for p in rows:
         try:
             pid, media_n = find_by_handle(p["slug"])
-            if pid and media_n > 0:
+            if pid and media_n > 0 and not a.refresh_images:
                 coll_members.setdefault(collection_for(p), []).append(pid)
                 print(f"{p['slug']}: exists, skip"); continue
+            if pid and a.refresh_images:
+                n = clear_media(pid)
+                cur.execute("SELECT filename, mime, bytes FROM product_images WHERE product_id=%s ORDER BY rank",
+                            (p["id"],))
+                srcs = [staged_upload(fn or "img.jpg", mime or "image/jpeg", bytes(blob))
+                        for fn, mime, blob in cur.fetchall()]
+                attach_media(pid, srcs)
+                coll_members.setdefault(collection_for(p), []).append(pid)
+                print(f"{p['slug']}: REFRESHED ({n} eski -> {len(srcs)} yeni)")
+                time.sleep(0.4)
+                continue
             healed = bool(pid)
             nv = 0
             if not pid:

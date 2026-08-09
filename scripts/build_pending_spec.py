@@ -29,6 +29,11 @@ OUT = os.path.join(os.path.dirname(__file__), "batch_pending_01.json")
 FRANCHISE_NICHES = ["project hail mary", "murderbot", "dungeon crawler carl", "briar university"]
 FRANCHISE_TERMS = ["project hail mary", "hail mary", "murderbot", "dungeon crawler carl",
                    "briar university"]
+# Etsy apparel is bought overwhelmingly by women, and in most of these niches the buyer is also the
+# wearer. The exceptions are the gift niches: a "DAD — EST. 1987" tee is bought by a woman for a man,
+# so the cover should show the man who will wear it.
+MENS_GIFT_NICHES = ("dad", "grandpa", "papa", "brother", "husband", "son")
+
 MAX_SLOGAN = 40          # characters; beyond this Impact drops under a readable size on the chest
 MIN_SLOGAN = 2
 
@@ -124,6 +129,8 @@ def main() -> None:
             "slug": slug, "niche": niche, "kind": "dtf", "personalised": bool(token),
             "concept_no": concept_no or 1, "price_anchor_cents": price or 3428,
             "hero_colorway": colorway or "Ivory",
+            "cover_model": ("men" if any(k in (niche or "").lower() for k in MENS_GIFT_NICHES)
+                            else "women"),
             "hook": hook or slogan,
             "prompt_head": idea,
             "slogan": slogan,
@@ -144,7 +151,7 @@ def main() -> None:
             "campaign_scene_calls": 0, "cover_crop_top": 0.10,
             "templates": {"dtf": "h-a1-c1-v1", "embroidery": "h-emb-c6-v1"},
             "printful": {"product_id": 586, "store_id": 18561101, "variant_ids": [17695],
-                         "option_groups": ["Men's", "Women's", "Flat"], "placement": "front"},
+                         "option_groups": ["Women's 2", "Women's", "Men's", "Flat"], "placement": "front"},
             "concepts": concepts}
     with open(OUT, "w") as fh:
         json.dump(spec, fh, indent=1, ensure_ascii=False)

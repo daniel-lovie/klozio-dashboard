@@ -330,7 +330,7 @@ def main() -> None:
         "cover_crop_top": 0.2,
         "templates": {"embroidery": "h-emb-c6-v1", "dtf": "h-a1-c1-v1"},
         "printful": {"product_id": 586, "store_id": 18561101, "variant_ids": [17695],
-                     "option_groups": ["Men's", "Women's", "Flat"], "placement": "front"},
+                     "option_groups": ["Women's 2", "Women's", "Men's", "Flat"], "placement": "front"},
         "concepts": C,
     }
     bad = []

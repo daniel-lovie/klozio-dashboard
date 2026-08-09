@@ -721,10 +721,33 @@ def printful_mockups(image_url: str, spec_pf: dict, out_dir: Path,
     return shots
 
 
-def pick_worn(shots: list[tuple[str, str, Path]]) -> Path | None:
-    """House rule: the cover is ALWAYS the product on a person. Never folded, never a macro."""
-    front = [p for g, t, p in shots if g in WORN_GROUPS and t.lower().startswith("front")]
-    return front[0] if front else next((p for g, t, p in shots if g in WORN_GROUPS), None)
+def pick_worn(shots: list[tuple[str, str, Path]], prefer: str = "women") -> Path | None:
+    """House rule: the cover is ALWAYS the product on a person. Never folded, never a macro.
+
+    Which person is a merchandising decision, not a technical one. Printful returns the men's group
+    first, so taking the first front shot silently made every cover male — on a marketplace where
+    apparel is bought overwhelmingly by women, and for niches (cottagecore, cat, frog, gardening)
+    whose buyer is the wearer. `prefer` is set per concept; dad and grandpa gifts still lead with a
+    man, because there the buyer is shopping for someone else.
+
+    Matched on filename rather than the option-group label: when a rerun reuses mockups from disk the
+    group is rebuilt from the file stem as "Women", which never equalled the "Women's" this checked.
+    """
+    order = ["women-s-2", "women-s", "men-s"] if prefer == "women" else ["men-s", "women-s-2", "women-s"]
+    paths = [p for _, _, p in shots]
+    # Framing before identity. Printful's first women's model is photographed full-length mid-stride,
+    # which leaves the design a thumbnail inside the frame; the "front 2" and "left front" shots of
+    # the second model are waist-up and show the print at a size a buyer can read in a grid tile.
+    for who in order:
+        for suffix in ("-front-2", "-left-front", "-front"):
+            hit = sorted(p for p in paths if p.stem.lower() == f"{who}{suffix}")
+            if hit:
+                return hit[0]
+    for who in order:
+        any_worn = sorted(p for p in paths if p.stem.lower().startswith(f"{who}-"))
+        if any_worn:
+            return any_worn[0]
+    return None
 
 
 # =================================================================================================
@@ -1136,12 +1159,12 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
             shots = printful_mockups(url, pf, mock_dir, c["kind"],
                                      c.get("printful_placement"))
             r.pf_mockups = len(shots)
-            worn = pick_worn(shots)
+            worn = pick_worn(shots, c.get("cover_model", "women"))
         except Exception as e:
             r.error = r.error or f"mockups: {str(e)[:200]}"
     elif have_mocks:                                      # dry run, or a rerun: grade what is there
         shots = [(p.stem.split("-")[0].title(), p.stem, p) for p in sorted(mock_dir.glob("*.jpg"))]
-        worn = next((p for _, s, p in shots if s.startswith(("men", "women"))), None)
+        worn = pick_worn(shots, c.get("cover_model", "women"))
 
     if worn and not dry:
         try:

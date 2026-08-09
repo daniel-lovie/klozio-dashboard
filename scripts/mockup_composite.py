@@ -25,7 +25,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 BLANKS = Path("/Users/omer/Documents/code/etsy/pipeline/blanks")
 CONFIG = BLANKS / "templates.json"
@@ -105,14 +105,25 @@ def composite(design_path: Path, blank_path: Path, tpl: dict, out: Path) -> Path
     placed = warp(design, tpl["quad"], blank.size)
 
     art = np.asarray(placed).astype(float)
+    # A print does not have a die-cut edge. Ink bleeds a fraction of a millimetre into the weave, so
+    # a perfectly hard alpha is the single strongest tell that the artwork was pasted on rather than
+    # printed. One pixel of blur at this resolution is about that bleed.
+    soft = Image.fromarray(art[:, :, 3].astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.6))
+    art[:, :, 3] = np.asarray(soft).astype(float)
     alpha = art[:, :, 3:4] / 255.0 * float(tpl.get("opacity", 0.94))
     base = np.asarray(blank).astype(float)
 
-    # The garment's luminance becomes the light on the print: folds and shadows carry through, and a
-    # flat sticker becomes a printed shirt. `shade` is how much of that light to keep.
+    # Light the print with the garment's SHADING, not its darkness. Dividing luminance by a fixed
+    # white point meant a Pepper tee (luminance 65) multiplied the artwork by 0.39 — gold came out
+    # olive and white came out grey, on a print that in reality is opaque ink sitting on top of the
+    # cloth. Normalising by the garment's own median makes a flat area 1.0, so only folds, shadows
+    # and the weave move the print — which is the part that stops it looking pasted on.
     shade = float(tpl.get("shade", 0.85))
     lum = (0.2126 * base[:, :, 0] + 0.7152 * base[:, :, 1] + 0.0722 * base[:, :, 2])[:, :, None]
-    lit = art[:, :, :3] * ((lum / 235.0) * shade + (1 - shade))
+    inside = alpha[:, :, 0] > 0.5
+    ref = float(np.median(lum[:, :, 0][inside])) if inside.any() else float(np.median(lum))
+    ratio = lum / max(ref, 1.0)
+    lit = np.clip(art[:, :, :3] * (ratio * shade + (1 - shade)), 0, 255)
 
     out_arr = base * (1 - alpha) + lit * alpha
     out.parent.mkdir(parents=True, exist_ok=True)

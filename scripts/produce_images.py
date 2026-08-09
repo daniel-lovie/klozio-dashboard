@@ -22,7 +22,7 @@ from pathlib import Path
 
 import numpy as np
 import psycopg2
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mockup_composite import warp                                    # noqa: E402
@@ -62,11 +62,18 @@ def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bo
     quad = chest_left(tpl["quad"]) if embroidery else tpl["quad"]
     placed = warp(design, quad, blank.size)
     art = np.asarray(placed).astype(float)
+    # ink bleeds into the weave; a die-cut alpha edge is what makes a composite look pasted
+    soft = Image.fromarray(art[:, :, 3].astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.6))
+    art[:, :, 3] = np.asarray(soft).astype(float)
     alpha = art[:, :, 3:4] / 255.0 * float(tpl.get("opacity", 0.94))
     base = np.asarray(blank).astype(float)
+    # Normalise by the garment's own luminance — a fixed white point multiplied the artwork by 0.39
+    # on a Pepper tee, turning gold to olive. Only folds and weave should move the print.
     shade = float(tpl.get("shade", 0.85))
     lum = (0.2126 * base[:, :, 0] + 0.7152 * base[:, :, 1] + 0.0722 * base[:, :, 2])[:, :, None]
-    lit = art[:, :, :3] * ((lum / 235.0) * shade + (1 - shade))
+    inside = alpha[:, :, 0] > 0.5
+    ref = float(np.median(lum[:, :, 0][inside])) if inside.any() else float(np.median(lum))
+    lit = np.clip(art[:, :, :3] * ((lum / max(ref, 1.0)) * shade + (1 - shade)), 0, 255)
     return Image.fromarray(np.clip(base * (1 - alpha) + lit * alpha, 0, 255).astype(np.uint8))
 
 

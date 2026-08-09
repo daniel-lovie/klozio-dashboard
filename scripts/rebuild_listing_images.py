@@ -101,7 +101,13 @@ def main() -> None:
 
     cfg = load_config()
     root = PIPELINE / a.campaign / "designs"
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
+    # Each product writes ~7 JPEGs of a megabyte or so; the managed Postgres drops a connection that
+    # has been idle between those bursts, and two of these running in parallel killed it outright.
+    # Reconnect rather than lose the run at product 40 of 97.
+    def connect():
+        return psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=15)
+
+    conn = connect()
     cur = conn.cursor()
     dirs = [d for d in sorted(root.iterdir()) if d.is_dir() and (d / "final.png").exists()]
     if a.only:
@@ -111,7 +117,15 @@ def main() -> None:
 
     done = 0
     for d in dirs:
-        cur.execute("SELECT id, technique FROM products WHERE slug=%s", (d.name,))
+        for attempt in (1, 2, 3):
+            try:
+                cur.execute("SELECT id, technique FROM products WHERE slug=%s", (d.name,))
+                break
+            except psycopg2.Error:
+                conn = connect()
+                cur = conn.cursor()
+                if attempt == 3:
+                    raise
         row = cur.fetchone()
         if not row:
             print(f"  {d.name:14} urun satiri yok")
@@ -142,14 +156,24 @@ def main() -> None:
         print(f"  {d.name:14} {len(files):2} gorsel  ({'nakis' if emb else 'baski'})")
         if not a.apply:
             continue
-        # hero_colorway follows the cover, which is now always the Ivory model
-        cur.execute("UPDATE products SET hero_colorway='Ivory' WHERE id=%s", (pid,))
-        cur.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
-        for rank, p in enumerate(files, start=1):
-            cur.execute("""INSERT INTO product_images (product_id, rank, filename, mime, bytes)
-                           VALUES (%s,%s,%s,'image/jpeg',%s)""",
-                        (pid, rank, p.name, psycopg2.Binary(p.read_bytes())))
-        conn.commit()
+        blobs = [(p.name, p.read_bytes()) for p in files]
+        for attempt in (1, 2, 3):
+            try:
+                # hero_colorway follows the cover, which is now always the Ivory model
+                cur.execute("UPDATE products SET hero_colorway='Ivory' WHERE id=%s", (pid,))
+                cur.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
+                for rank, (fn, blob) in enumerate(blobs, start=1):
+                    cur.execute("""INSERT INTO product_images (product_id, rank, filename, mime, bytes)
+                                   VALUES (%s,%s,%s,'image/jpeg',%s)""",
+                                (pid, rank, fn, psycopg2.Binary(blob)))
+                conn.commit()
+                break
+            except psycopg2.Error as e:
+                print(f"    db yeniden baglaniyor ({str(e)[:60]})")
+                conn = connect()
+                cur = conn.cursor()
+                if attempt == 3:
+                    raise
         done += 1
 
     print(f"\n{done} urunun gorsel seti yenilendi" + ("" if a.apply else "   (--apply verilmedi)"))

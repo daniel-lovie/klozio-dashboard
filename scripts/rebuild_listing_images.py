@@ -29,7 +29,16 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from mockup_composite import load_config, composite_pil, BLANKS      # noqa: E402
-from apply_blank_covers import badge, chest_left, luma               # noqa: E402
+from apply_blank_covers import badge, luma                          # noqa: E402
+
+
+def chest_left_pos(sized, full):
+    """Move an already-sized badge onto the wearer's left chest, right of centre on a front view."""
+    (fx0, fy0), (fx1, _), _, (_, fy3) = [tuple(p) for p in full]
+    w = fx1 - fx0
+    dx = int(fx0 + w * 0.50 + w * 0.28) - (sized[0][0] + sized[1][0]) // 2
+    dy = int(fy0 + (fy3 - fy0) * 0.06) - sized[0][1]
+    return [[x + dx, y + dy] for x, y in sized]
 
 PIPELINE = Path("/Users/omer/Documents/code/etsy/pipeline")
 MODELS = [("model-IvoryTrendy4", "Ivory"), ("model-Pepper", "Pepper")]
@@ -71,11 +80,40 @@ def design_image(path: Path) -> Image.Image:
     return _DESIGN_CACHE[key]
 
 
+# Print sizes in inches on the longest side. Embroidery is a chest badge and nothing else: a needle
+# has a minimum stitch length, so a large stitched panel is both slow to run and stiff to wear, and
+# every extra square inch is stitch count somebody pays for.
+MAX_PRINT_IN = 10.0
+EMB_PRINT_IN = 4.0
+
+
+def fit_quad(quad, design: Image.Image, inches: float, px_per_inch: float) -> list:
+    """Size the quad to the design's own proportions, capped at `inches` on the longer side.
+
+    A square quad stretches a wide emblem and pillarboxes a tall one. The artwork is cropped to its
+    content first, so a triangle occupying the top half of its canvas is placed as a triangle rather
+    than as the square it happens to be stored in.
+    """
+    box = design.getbbox() or (0, 0, design.width, design.height)
+    aw, ah = box[2] - box[0], box[3] - box[1]
+    long_px = inches * px_per_inch
+    w = long_px if aw >= ah else long_px * aw / ah
+    h = long_px if ah > aw else long_px * ah / aw
+    (x0, y0), (x1, _), _, (_, y3) = [tuple(pt) for pt in quad]
+    cx = (x0 + x1) / 2
+    top = y0
+    return [[int(cx - w / 2), int(top)], [int(cx + w / 2), int(top)],
+            [int(cx + w / 2), int(top + h)], [int(cx - w / 2), int(top + h)]]
+
+
 def render(design: Path, tpl_name: str, cfg: dict, out: Path, embroidery: bool,
            scale: float = 1.0) -> Path:
     spec = dict(cfg[tpl_name])
+    ppi = float(spec.get("px_per_inch") or 90.0)
+    spec["quad"] = fit_quad(spec["quad"], design_image(design),
+                            EMB_PRINT_IN if embroidery else MAX_PRINT_IN, ppi)
     if embroidery:
-        spec["quad"] = chest_left(spec["quad"])
+        spec["quad"] = chest_left_pos(spec["quad"], cfg[tpl_name]["quad"])
     blank = blank_image(spec["file"])
     if scale < 1.0:
         # Chart tiles are thumbnailed to 460px anyway; compositing them at full size is nine times

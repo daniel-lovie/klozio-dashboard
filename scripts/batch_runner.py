@@ -98,6 +98,16 @@ PF_POSITION = {"area_width": 1800, "area_height": 2400,
 # Placement -> printfile area, from /mockup-generator/printfiles/586 (chest left is 1200x1200 @300).
 PF_TECHNIQUE = {"embroidery": "embroidery", "dtf": "dtg"}
 PF_KIND_PLACEMENT = {"embroidery": "embroidery_chest_left", "dtf": "front"}
+
+# A 4-inch badge cannot carry what a 10-inch print can. A needle has a minimum stitch length, so
+# hairlines close up, small counters fill in, and every extra colour is another thread change the
+# digitiser charges for. Embroidery concepts are therefore constrained at the prompt, not fixed in
+# review: bold shapes, few colours, nothing that stops reading at 4 inches.
+EMB_PROMPT_CLAUSE = (
+    "simple bold badge that reads clearly at 4 inches wide, very few shapes, thick chunky forms, "
+    "no thin lines, no small details, no gradients, no tiny elements, high contrast, "
+    "at most four flat colours, generous spacing between shapes, ")
+MAX_EMB_THREADS = 4
 PF_AREA = {"embroidery_chest_left": (1200, 1200), "embroidery_chest_center": (1200, 1200),
            "embroidery_large_center": (3000, 1800)}
 WORN_GROUPS = {"Men's", "Men's 2", "Men's 3", "Women's", "Women's 2"}
@@ -275,8 +285,10 @@ def hf(args: dict) -> dict:
 
 def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool) -> Path | None:
     raw = d / "raw" / f"{c['slug']}-raw.png"
-    pal = palette_line(c.get("threads")) if c["kind"] == "embroidery" else ""
-    prompt = f"{c['prompt_head'].strip().rstrip(',')}, {pal}{PROMPT_TAIL}"
+    emb = c["kind"] == "embroidery"
+    pal = palette_line(c.get("threads")) if emb else ""
+    lead = EMB_PROMPT_CLAUSE if emb else ""
+    prompt = f"{c['prompt_head'].strip().rstrip(',')}, {lead}{pal}{PROMPT_TAIL}"
     c["_prompt"] = prompt
     if raw.exists() and not force:
         return raw

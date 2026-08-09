@@ -100,8 +100,14 @@ def warp(design: Image.Image, quad, size) -> Image.Image:
 
 
 def composite(design_path: Path, blank_path: Path, tpl: dict, out: Path) -> Path:
-    blank = Image.open(blank_path).convert("RGB")
-    design = Image.open(design_path).convert("RGBA")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    composite_pil(Image.open(design_path).convert("RGBA"),
+                  Image.open(blank_path).convert("RGB"), tpl).save(out, quality=92)
+    return out
+
+
+def composite_pil(design: Image.Image, blank: Image.Image, tpl: dict) -> Image.Image:
+    """The composite itself, on already-decoded images — callers that loop should decode once."""
     placed = warp(design, tpl["quad"], blank.size)
 
     art = np.asarray(placed).astype(float)
@@ -125,10 +131,7 @@ def composite(design_path: Path, blank_path: Path, tpl: dict, out: Path) -> Path
     ratio = lum / max(ref, 1.0)
     lit = np.clip(art[:, :, :3] * (ratio * shade + (1 - shade)), 0, 255)
 
-    out_arr = base * (1 - alpha) + lit * alpha
-    out.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(np.clip(out_arr, 0, 255).astype(np.uint8)).save(out, quality=92)
-    return out
+    return Image.fromarray(np.clip(base * (1 - alpha) + lit * alpha, 0, 255).astype(np.uint8))
 
 
 def main() -> None:

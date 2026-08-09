@@ -19,6 +19,7 @@ Embroidery keeps its own quad: those products are fulfilled as a 4-inch left-che
 full-width composite of the same artwork would advertise a garment we do not make.
 """
 import argparse
+import io
 import os
 import sys
 from pathlib import Path
@@ -27,7 +28,7 @@ import psycopg2
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from mockup_composite import load_config, composite, BLANKS          # noqa: E402
+from mockup_composite import load_config, composite_pil, BLANKS      # noqa: E402
 from apply_blank_covers import badge, chest_left, luma               # noqa: E402
 
 PIPELINE = Path("/Users/omer/Documents/code/etsy/pipeline")
@@ -48,11 +49,41 @@ CARD_ORDER = ["how-to-personalize.jpg", "stitched-not-printed.jpg", "printed-to-
               "fit-and-care.jpg"]
 
 
-def render(design: Path, tpl_name: str, cfg: dict, out: Path, embroidery: bool) -> Path:
+# Decoding a 3600x3000 JPEG takes longer than the composite itself, and each product does nineteen
+# of them — two models, four flats, thirteen chart tiles. Decoded once, they serve every product.
+_BLANK_CACHE: dict = {}
+
+
+def blank_image(file: str) -> Image.Image:
+    if file not in _BLANK_CACHE:
+        _BLANK_CACHE[file] = Image.open(BLANKS / file).convert("RGB")
+    return _BLANK_CACHE[file]
+
+
+_DESIGN_CACHE: dict = {}
+
+
+def design_image(path: Path) -> Image.Image:
+    key = str(path)
+    if key not in _DESIGN_CACHE:
+        _DESIGN_CACHE.clear()                    # one product at a time; do not grow unbounded
+        _DESIGN_CACHE[key] = Image.open(path).convert("RGBA")
+    return _DESIGN_CACHE[key]
+
+
+def render(design: Path, tpl_name: str, cfg: dict, out: Path, embroidery: bool,
+           scale: float = 1.0) -> Path:
     spec = dict(cfg[tpl_name])
     if embroidery:
         spec["quad"] = chest_left(spec["quad"])
-    composite(design, BLANKS / spec["file"], spec, out)
+    blank = blank_image(spec["file"])
+    if scale < 1.0:
+        # Chart tiles are thumbnailed to 460px anyway; compositing them at full size is nine times
+        # the pixel work for detail that is discarded on the next line.
+        w, h = blank.size
+        blank = blank.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        spec["quad"] = [[int(x * scale), int(y * scale)] for x, y in spec["quad"]]
+    composite_pil(design_image(design), blank, spec).save(out, quality=92)
     return out
 
 
@@ -64,7 +95,7 @@ def build_chart(design: Path, cfg: dict, out: Path, embroidery: bool, cell: int 
         if name not in cfg:
             continue
         tmp = out.parent / f".chart-{name}.jpg"
-        render(design, name, cfg, tmp, embroidery)
+        render(design, name, cfg, tmp, embroidery, scale=0.34)
         im = Image.open(tmp).convert("RGB")
         im.thumbnail((cell, cell), Image.LANCZOS)
         tiles.append((CHART_NAMES.get(name, name), im))
@@ -105,32 +136,35 @@ def main() -> None:
     # has been idle between those bursts, and two of these running in parallel killed it outright.
     # Reconnect rather than lose the run at product 40 of 97.
     def connect():
-        return psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=15)
+        # TCP keepalives are the whole story here. Without them a dropped connection is not noticed
+        # until the OS gives up retransmitting, which took 88 minutes on one product — 12 seconds of
+        # that was CPU. With them a dead socket surfaces in about a minute and the retry can act.
+        return psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=15,
+                                keepalives=1, keepalives_idle=20, keepalives_interval=8,
+                                keepalives_count=3)
 
-    conn = connect()
-    cur = conn.cursor()
     dirs = [d for d in sorted(root.iterdir()) if d.is_dir() and (d / "final.png").exists()]
     if a.only:
         dirs = [d for d in dirs if d.name == a.only]
     if a.limit:
         dirs = dirs[:a.limit]
 
+    # Read the whole list up front and hold no connection during the image work. Twelve seconds of
+    # compositing with an open connection was enough for the managed Postgres to close it, and the
+    # write then blocked on a dead socket — 88 minutes for one product, of which 12 seconds was CPU.
+    conn = connect()
+    cur = conn.cursor()
+    cur.execute("SELECT slug, id, technique FROM products WHERE slug = ANY(%s)",
+                ([d.name for d in dirs],))
+    meta = {slug: (pid, tech) for slug, pid, tech in cur.fetchall()}
+    conn.close()
+
     done = 0
     for d in dirs:
-        for attempt in (1, 2, 3):
-            try:
-                cur.execute("SELECT id, technique FROM products WHERE slug=%s", (d.name,))
-                break
-            except psycopg2.Error:
-                conn = connect()
-                cur = conn.cursor()
-                if attempt == 3:
-                    raise
-        row = cur.fetchone()
-        if not row:
+        if d.name not in meta:
             print(f"  {d.name:14} urun satiri yok")
             continue
-        pid, technique = row
+        pid, technique = meta[d.name]
         emb = technique == "embroidery"
         design, shots = d / "final.png", d / "shots"
         shots.mkdir(exist_ok=True)
@@ -156,22 +190,36 @@ def main() -> None:
         print(f"  {d.name:14} {len(files):2} gorsel  ({'nakis' if emb else 'baski'})")
         if not a.apply:
             continue
-        blobs = [(p.name, p.read_bytes()) for p in files]
+        blobs = []
+        for f in files:
+            im = Image.open(f).convert("RGB")
+            if max(im.size) > 2400:            # Etsy asks for 2000px; 3600 is bytes nobody sees
+                im.thumbnail((2400, 2400), Image.LANCZOS)
+            buf = io.BytesIO()
+            im.save(buf, "JPEG", quality=88)
+            blobs.append((f.name, buf.getvalue()))
         for attempt in (1, 2, 3):
+            c = None
             try:
+                c = connect()                       # fresh, used immediately, closed straight after
+                k = c.cursor()
                 # hero_colorway follows the cover, which is now always the Ivory model
-                cur.execute("UPDATE products SET hero_colorway='Ivory' WHERE id=%s", (pid,))
-                cur.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
+                k.execute("UPDATE products SET hero_colorway='Ivory' WHERE id=%s", (pid,))
+                k.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
                 for rank, (fn, blob) in enumerate(blobs, start=1):
-                    cur.execute("""INSERT INTO product_images (product_id, rank, filename, mime, bytes)
-                                   VALUES (%s,%s,%s,'image/jpeg',%s)""",
-                                (pid, rank, fn, psycopg2.Binary(blob)))
-                conn.commit()
+                    k.execute("""INSERT INTO product_images (product_id, rank, filename, mime, bytes)
+                                 VALUES (%s,%s,%s,'image/jpeg',%s)""",
+                              (pid, rank, fn, psycopg2.Binary(blob)))
+                c.commit()
+                c.close()
                 break
             except psycopg2.Error as e:
-                print(f"    db yeniden baglaniyor ({str(e)[:60]})")
-                conn = connect()
-                cur = conn.cursor()
+                print(f"    yeniden deneniyor ({str(e)[:60]})")
+                if c is not None:
+                    try:
+                        c.close()
+                    except Exception:
+                        pass
                 if attempt == 3:
                     raise
         done += 1

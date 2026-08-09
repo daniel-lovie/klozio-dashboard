@@ -89,16 +89,10 @@ async function pollShopOrders(shopId: number) {
         });
       } else skipped++;
 
-      // embroidery → Printful DRAFT once the payment clears (draft is free, confirm stays manual)
-      const voided = ["Canceled", "Cancelled", "Refunded"].includes(String(r.status ?? ""));
-      if (!voided && row?.is_paid && (p.technique ?? "dtf") === "embroidery") {
-        const has = await one<{ n: string }>(
-          `SELECT printful_order_id::text AS n FROM fulfillment_orders WHERE id=$1`, [row.id]);
-        if (!has?.n) {
-          try { await sendOrderToPrintful(row.id); }
-          catch (e) { console.error(`printful draft failed for order ${row.id}:`, e); }
-        }
-      }
+      // Embroidery no longer goes to Printful. Customzon fulfils it, pulled straight from the shop
+      // by AllPodi, so a draft raised here would be the same garment produced and paid for twice —
+      // and on a personalised design it also books a $6.50 digitisation we have moved away from.
+      // The row still lands on the board; production is simply not ours to trigger.
     }
   }
   return { receipts: receipts.length, inserted, skipped, unmatched };

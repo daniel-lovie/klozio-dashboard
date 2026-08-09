@@ -170,11 +170,11 @@ PROMPT_TAIL = (
 # Plain-English names for the 15 Printful threads. The generator ignores a bare hex but obeys
 # "golden yellow #FFCC00", so both go in.
 THREAD_NAMES = {
-    "#FFFFFF": "white", "#000000": "black", "#96A1A8": "light grey", "#A67843": "tan brown",
-    "#FFCC00": "bright golden yellow", "#E25C27": "burnt orange", "#CC3366": "deep pink",
-    "#CC3333": "brick red", "#660000": "dark maroon", "#333366": "navy blue",
-    "#005397": "royal blue", "#3399FF": "bright sky blue", "#6B5294": "purple",
-    "#01784E": "deep green", "#7BA35A": "sage green",
+    "#FFFFFF": "white", "#000000": "black", "#9E9897": "warm grey", "#855332": "golden oak brown",
+    "#FFC918": "bright golden yellow", "#FA5F0B": "vivid orange", "#C8888A": "dusty pink",
+    "#CD2E29": "brick red", "#81673D": "olive tan", "#3F4A6E": "ink navy blue",
+    "#1C53AD": "royal blue", "#BCD2E1": "pale denim blue", "#803886": "purple",
+    "#1D4933": "deep forest green", "#4D5E53": "muted spruce green",
 }
 
 

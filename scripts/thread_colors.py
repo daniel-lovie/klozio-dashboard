@@ -16,9 +16,12 @@ import sys
 import numpy as np
 from PIL import Image
 
-PALETTE_HEX = ["#FFFFFF", "#000000", "#96A1A8", "#A67843", "#FFCC00", "#E25C27",
-               "#CC3366", "#CC3333", "#660000", "#333366", "#005397", "#3399FF",
-               "#6B5294", "#01784E", "#7BA35A"]
+# Customzon's rack, not Printful's. Both run Madeira Polyneon, but they stock different cones —
+# only 1800 black and 1801 white are common to the two — so a design snapped to the old palette
+# names threads the new supplier does not have, and the digitiser substitutes whatever is closest.
+from thread_palettes import CUSTOMZON
+
+PALETTE_HEX = list(CUSTOMZON)
 PALETTE = [tuple(int(h[i:i + 2], 16) for i in (1, 3, 5)) for h in PALETTE_HEX]
 MAX_THREADS = 6
 MIN_COVERAGE = 0.03

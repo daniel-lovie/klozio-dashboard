@@ -1,23 +1,19 @@
 /**
- * Shopify orders/create webhook — the only path by which a klozio.io order reaches a printer.
+ * Shopify orders/create webhook — records klozio.io orders. It no longer produces any of them.
  *
- * Why this exists rather than Printful's Shopify app: that app only fulfils products it has synced
- * in its own dashboard, and on a Shopify-platform Printful store there is no API to sync or link an
- * existing product (v1 /store/products is refused for platform stores, v2 has no POST). Our products
- * are created by our own pipeline, so the app would never see them. The Orders API, by contrast, is
- * fully open on that store — so we create the order ourselves and keep the two things the app cannot
- * do for us: the exact thread palette per design, and the file-id cache that stops Printful billing
- * $6.50 digitisation twice for the same artwork.
+ * It briefly did: Printful's own app could not see products our pipeline had created, so this
+ * endpoint raised the embroidery orders itself. Embroidery has since moved to Customzon, which like
+ * Printinly pulls orders directly out of the shop, so production is no longer ours to trigger and
+ * doing it anyway would make each garment twice.
  *
- * Printed items are deliberately ignored here. Those variants are mapped in Printinly, which pulls
- * them straight from Shopify; producing them here as well would print every shirt twice.
+ * What it still earns: the order appears on our board the moment it is placed, matched to the
+ * product row, with the buyer's personalisation text captured — none of which comes back to us from
+ * either integration.
  */
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 
 import { q, one, logEvent } from "@/lib/db";
-import { sendOrderToPrintful } from "@/lib/printful-fulfill";
-import { runWithShop } from "@/lib/shop-context";
 
 export const runtime = "nodejs";
 /** Shopify retries on non-2xx; a body we failed to verify must not be cached. */
@@ -88,12 +84,6 @@ export async function POST(req: Request) {
       results.push({ line: line.id, sku: line.sku, skipped: "urun bulunamadi" });
       continue;
     }
-    if (product.technique !== "embroidery") {
-      // Printinly owns these. Recorded, not produced.
-      results.push({ line: line.id, slug: product.slug, skipped: "baski -> printinly" });
-      continue;
-    }
-
     const { colorway, size } = splitVariant(line.variant_title);
     const inserted = await q<{ id: number; fresh: boolean }>(
       // receipt_id/transaction_id are NOT NULL and Etsy-shaped; the Shopify order and line ids slot
@@ -125,18 +115,15 @@ export async function POST(req: Request) {
       results.push({ line: line.id, slug: product.slug, skipped: "zaten islendi" });
       continue;
     }
-    const orderId = inserted[0].id;
-    try {
-      // Deliberately the same Printful store as the Etsy channel. Both stores sit in one Printful
-      // account, so a second store would only change a label in their dashboard — while splitting
-      // the code path risks losing the digitisation file-id cache, which is worth $6.50 a design.
-      const draft = await runWithShop(SHOP_ID, () => sendOrderToPrintful(orderId));
-      results.push({ line: line.id, slug: product.slug, order: orderId, printful: draft.printfulOrderId });
-    } catch (e: any) {
-      // Never 500 back at Shopify for a fulfilment failure: it would retry the whole order and we
-      // would re-insert siblings. The row is on the board with its error for the operator.
-      results.push({ line: line.id, slug: product.slug, order: orderId, error: String(e?.message ?? e).slice(0, 300) });
-    }
+    // Recorded, not produced. Both techniques are pulled straight out of the shop by their own
+    // integration — Printinly for print, Customzon for embroidery — so raising an order from here
+    // would make the same garment twice and pay for it twice. What this endpoint is for now is the
+    // board: an order visible to us the moment it is placed, with its personalisation text captured,
+    // which neither integration surfaces back.
+    results.push({
+      line: line.id, slug: product.slug, order: inserted[0].id,
+      producer: product.technique === "embroidery" ? "customzon" : "printinly",
+    });
   }
 
   await logEvent("shopify_order", {

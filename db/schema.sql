@@ -340,3 +340,19 @@ CREATE TABLE IF NOT EXISTS meta_ad_stats (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS meta_ad_stats_uidx ON meta_ad_stats(day, COALESCE(adset_name,''), COALESCE(ad_name,''));
+
+
+-- Licensed blank-garment photographs, with the chest quad each one is calibrated to. They live in
+-- Postgres rather than on disk for the same reason product images do: the service keeps no
+-- persistent volume, so a file beside the script would not survive a deploy — and the deployed
+-- producer needs them to build any listing image at all.
+CREATE TABLE IF NOT EXISTS mockup_blanks (
+  name       TEXT PRIMARY KEY,
+  kind       TEXT NOT NULL,            -- model | flat
+  colorway   TEXT NOT NULL,            -- the Comfort Colors shade actually photographed
+  quad       JSONB NOT NULL,           -- four corners of the print area, calibrated by eye
+  opacity    REAL NOT NULL DEFAULT 0.94,
+  shade      REAL NOT NULL DEFAULT 0.85,   -- how much of the garment's light shows through the print
+  bytes      BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

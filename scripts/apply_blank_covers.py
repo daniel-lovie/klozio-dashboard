@@ -46,7 +46,17 @@ def luma(a):
     return 0.2126 * a[..., 0] + 0.7152 * a[..., 1] + 0.0722 * a[..., 2]
 
 
+# Preference order, applied among the colours a design is already legible on. Maximising contrast
+# alone is not a merchandising rule — white has the highest luminance, so for any dark artwork it
+# wins every time, and it chose white for 63 of the first 116 products. The garment-dyed shades are
+# what buyers come to Comfort Colors for; white and black are the fallback, not the default.
+COLOR_PREFERENCE = ["model-IvoryTrendy4", "model-Pepper", "model-Bay2", "model-Moss",
+                    "model-Yam", "model-Navy", "model-White", "model-Black"]
+VISIBLE_ENOUGH = 0.75      # above this the design reads clearly; there is nothing to gain by more
+
+
 def pick_template(design: Path) -> tuple[str, str, float]:
+    """The nicest shade the design is clearly legible on — not the one with the most contrast."""
     im = Image.open(design).convert("RGBA")
     im.thumbnail((256, 256))
     a = np.asarray(im)
@@ -54,12 +64,13 @@ def pick_template(design: Path) -> tuple[str, str, float]:
     if not op.any():
         raise ValueError("bos tasarim")
     pl = luma(a[:, :, :3][op].astype(float))
-    best = None
-    for tpl, (name, rgb) in MODEL_COLORWAY.items():
-        vis = float((np.abs(pl - luma(np.array(rgb, float))) > 60).mean())
-        if best is None or vis > best[2]:
-            best = (tpl, name, vis)
-    return best
+    vis = {tpl: float((np.abs(pl - luma(np.array(rgb, float))) > 60).mean())
+           for tpl, (name, rgb) in MODEL_COLORWAY.items()}
+    for tpl in COLOR_PREFERENCE:
+        if vis.get(tpl, 0) >= VISIBLE_ENOUGH:
+            return tpl, MODEL_COLORWAY[tpl][0], vis[tpl]
+    tpl = max(vis, key=vis.get)          # nothing clears the bar: fall back to most legible
+    return tpl, MODEL_COLORWAY[tpl][0], vis[tpl]
 
 
 def chest_left(quad) -> list:

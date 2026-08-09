@@ -23,728 +23,35 @@
  },
  "concepts": [
   {
-   "slug": "a5-c2-v1",
-   "niche": "dad (personalised)",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 2,
-   "price_anchor_cents": 3142,
-   "hero_colorway": "Pepper",
-   "hook": "DAD — EST. {YEAR}",
-   "prompt_head": "Vintage athletic department type, distressed college numerals, cream on heather",
-   "slogan": "DAD — EST. 1987",
-   "title": "Dad Est Year Shirt, Personalized Dad Comfort Colors® Tee, Custom Dad Shirt, Best Dad Ever Shirt, Gift for Dad, Funny Shirt for Dad",
-   "tags": [
-    "personalized dad",
-    "custom dad shirt",
-    "best dad ever shirt",
-    "gift for dad",
-    "funny shirt for dad",
-    "retro dad shirt",
-    "new dad gift",
-    "dad birthday gift",
-    "1st time dad gift",
-    "dad and daughter",
-    "new dad first year",
-    "girl dad shirt",
-    "boy dad shirt"
-   ],
-   "description": "DAD — EST. [Year]\n\nVintage athletic-department lettering with the year he got the job. Distressed college numerals, cream on heather, no exclamation marks required.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType the kids' first names, and the year if you want it into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "DAD — EST. 1987",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "1987",
-   "personalization_instructions": "Year, four digits — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "a5-c2-v2",
-   "niche": "dad (personalised)",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 2,
-   "price_anchor_cents": 3142,
-   "hero_colorway": "Pepper",
-   "hook": "DAD — EST. {YEAR}",
-   "prompt_head": "Vintage athletic department type, distressed college numerals, cream on heather",
-   "slogan": "DAD — EST. 1987",
-   "title": "Dad Joke Enthusiast Tee, Dad Est Year Shirt Comfort Colors® Shirt, Husband Birthday Tee, Fathers Day From Son, Dad of Girls Tee",
-   "tags": [
-    "dad joke enthusiast",
-    "husband birthday tee",
-    "fathers day from son",
-    "dad of girls tee",
-    "dad est graphic tee",
-    "dad est lover shirt",
-    "funny dad est tshirt",
-    "dad est fan gift",
-    "cute dad est tshirt",
-    "retro dad est tee",
-    "dad est gift for her",
-    "custom dad fan gift",
-    "retro custom dad tee"
-   ],
-   "description": "DAD — EST. [Year]\n\nVintage athletic-department lettering with the year he got the job. Distressed college numerals, cream on heather, no exclamation marks required.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType the kids' first names, and the year if you want it into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "DAD — EST. 1987",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "1987",
-   "personalization_instructions": "Year, four digits — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "b3-c6-v1",
-   "niche": "christmas (personalised)",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 6,
-   "price_anchor_cents": 3428,
-   "hero_colorway": "Pepper",
-   "hook": "{SURNAME} COCOA BAR — ALL NIGHT",
-   "prompt_head": "Hand-painted diner menu board with a cocoa mug, chalk texture, 3 flats",
-   "slogan": "MORGAN COCOA BAR — ALL NIGHT",
-   "title": "Custom Name Cocoa Bar Shirt, Christmas Gift Comfort Colors® Tee, Xmas Eve Box Shirt, First Christmas Tee, Secret Santa Shirt",
-   "tags": [
-    "christmas gift",
-    "comfort colors shirt",
-    "xmas eve box shirt",
-    "first christmas tee",
-    "secret santa shirt",
-    "holiday party outfit",
-    "stocking filler tee",
-    "cocoa bar fan gift",
-    "retro cocoa bar tee",
-    "cocoa bar lover gift",
-    "christmas fan gift",
-    "retro christmas tee",
-    "christmas lover gift"
-   ],
-   "description": "[Surname] COCOA BAR — ALL NIGHT\n\nA hand-painted menu board for a cocoa bar that runs all night. Chalk texture, three flats, generous on the marshmallow question.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType your family surname, first names, pet name or the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "MORGAN COCOA BAR — ALL NIGHT",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "MORGAN",
-   "personalization_instructions": "Family name — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "b3-c6-v2",
-   "niche": "christmas (personalised)",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 6,
-   "price_anchor_cents": 3428,
-   "hero_colorway": "Pepper",
-   "hook": "{SURNAME} COCOA BAR — ALL NIGHT",
-   "prompt_head": "Hand-painted diner menu board with a cocoa mug, chalk texture, 3 flats",
-   "slogan": "MORGAN COCOA BAR — ALL NIGHT",
-   "title": "Cute Gift for Friend Tee, Custom Name Cocoa Bar Shirt Comfort Colors® Shirt, Gift for Him and Her, Cocoa Bar Shirt, Custom Christmas Tee",
-   "tags": [
-    "cute gift for friend",
-    "gift for him and her",
-    "cocoa bar shirt",
-    "custom christmas tee",
-    "holiday party outfit",
-    "stocking filler tee",
-    "cocoa bar fan gift",
-    "retro cocoa bar tee",
-    "cocoa bar lover gift",
-    "christmas fan gift",
-    "retro christmas tee",
-    "christmas lover gift",
-    "christmas gift"
-   ],
-   "description": "[Surname] COCOA BAR — ALL NIGHT\n\nA hand-painted menu board for a cocoa bar that runs all night. Chalk texture, three flats, generous on the marshmallow question.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType your family surname, first names, pet name or the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "MORGAN COCOA BAR — ALL NIGHT",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "MORGAN",
-   "personalization_instructions": "Family name — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "c11-c3-v2",
-   "niche": "sibling / big brother-sister",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 3,
-   "price_anchor_cents": 2856,
-   "hero_colorway": "Pepper",
-   "hook": "{NAME1} & {NAME2} — EST. {YEAR}",
-   "prompt_head": "Vintage athletic type with an ampersand ligature, distressed edges, cream on heather",
-   "slogan": "[Name1] & [Name2] — EST. 1987",
-   "title": "Big Sis Tee, Custom Sibling Est Year Tee Comfort Colors® Shirt, Big Sister Reveal, Toddler Sibling, New Brother Gift, Sibling Reveal",
-   "tags": [
-    "big sis",
-    "big sister reveal",
-    "toddler sibling",
-    "new brother gift",
-    "sibling reveal",
-    "big bro little bro",
-    "big little shirts",
-    "brother shirts",
-    "big bro shirt",
-    "big sister again",
-    "sibling family shirt",
-    "sister shirt",
-    "brother sister"
-   ],
-   "description": "[Name1] & [Name2] — EST. [Year]\n\nVintage athletic type with an ampersand ligature holding two names together, distressed at the edges. Cream on heather.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType both siblings' first names and the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "[NAME1] & [NAME2] — EST. 1987",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "1987",
-   "personalization_instructions": "Year, four digits — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "c11-c4-v1",
-   "niche": "sibling / big brother-sister",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 4,
-   "price_anchor_cents": 2856,
-   "hero_colorway": "Pepper",
-   "hook": "NOW ARRIVING: {NAME}",
-   "prompt_head": "Airport split-flap display board rendered flat, mechanical type, amber on charcoal",
-   "slogan": "NOW ARRIVING: KAELEN",
-   "title": "Custom Name Announcement Shirt, Big Sister Shirt Comfort Colors® Tee, Big Brother Shirt, Little Brother, Sibling Shirts, Little Sister Shirt",
-   "tags": [
-    "big sister shirt",
-    "big brother shirt",
-    "little brother",
-    "sibling shirts",
-    "little sister shirt",
-    "matching sibling",
-    "sibling announcement",
-    "big middle little",
-    "big brother outfit",
-    "promoted to big bro",
-    "big sister outfit",
-    "big sis lil sis",
-    "big brother little"
-   ],
-   "description": "NOW ARRIVING: [Name]\n\nAn airport split-flap board rendered flat, mechanical type in amber on charcoal, announcing an arrival by name.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType both siblings' first names and the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "NOW ARRIVING: KAELEN",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "KAELEN",
-   "personalization_instructions": "First name — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "c11-c4-v2",
-   "niche": "sibling / big brother-sister",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 4,
-   "price_anchor_cents": 2856,
-   "hero_colorway": "Pepper",
-   "hook": "NOW ARRIVING: {NAME}",
-   "prompt_head": "Airport split-flap display board rendered flat, mechanical type, amber on charcoal",
-   "slogan": "NOW ARRIVING: KAELEN",
-   "title": "Big Sis Tee, Custom Name Announcement Shirt Comfort Colors® Shirt, Big Sister Reveal, Toddler Sibling, New Brother Gift, Sibling Reveal",
-   "tags": [
-    "big sis",
-    "big sister reveal",
-    "toddler sibling",
-    "new brother gift",
-    "sibling reveal",
-    "big bro little bro",
-    "big little shirts",
-    "brother shirts",
-    "big bro shirt",
-    "big sister again",
-    "sibling family shirt",
-    "sister shirt",
-    "brother sister"
-   ],
-   "description": "NOW ARRIVING: [Name]\n\nAn airport split-flap board rendered flat, mechanical type in amber on charcoal, announcing an arrival by name.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType both siblings' first names and the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "NOW ARRIVING: KAELEN",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "KAELEN",
-   "personalization_instructions": "First name — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "c12-c4-v1",
-   "niche": "grandpa / papa",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 4,
-   "price_anchor_cents": 3142,
-   "hero_colorway": "Pepper",
-   "hook": "GRANDPA — EST. {YEAR}",
-   "prompt_head": "Distressed college numerals with a thin arched wordmark, cream on faded navy",
-   "slogan": "GRANDPA — EST. 1987",
-   "title": "Grandpa Est Year Shirt, Gift for Grandpa Comfort Colors® Tee, New Grandpa Gift, Gift for Papa, Personalized Grandpa, Custom Grandpa Shirt",
-   "tags": [
-    "gift for grandpa",
-    "new grandpa gift",
-    "gift for papa",
-    "personalized grandpa",
-    "custom grandpa shirt",
-    "grandpa est shirt",
-    "cool grandpa shirt",
-    "fathers day grandpa",
-    "grandpa with kids",
-    "grandpa birthday",
-    "personalized papa",
-    "funny papa shirt",
-    "custom papa shirt"
-   ],
-   "description": "GRANDPA — EST. [Year]\n\nDistressed college numerals under a thin arched wordmark, cream on faded navy. The year it started, nothing else.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType the grandkids' first names and the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "GRANDPA — EST. 1987",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "1987",
-   "personalization_instructions": "Year, four digits — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "c12-c4-v2",
-   "niche": "grandpa / papa",
-   "kind": "dtf",
-   "personalised": true,
-   "concept_no": 4,
-   "price_anchor_cents": 3142,
-   "hero_colorway": "Pepper",
-   "hook": "GRANDPA — EST. {YEAR}",
-   "prompt_head": "Distressed college numerals with a thin arched wordmark, cream on faded navy",
-   "slogan": "GRANDPA — EST. 1987",
-   "title": "Funny Grandpa Shirt, Grandpa Est Year Shirt Comfort Colors® Shirt, Grandpa Est Fan Gift, Grandpa Graphic Tee, Grandpa Lover Shirt",
-   "tags": [
-    "funny grandpa shirt",
-    "grandpa est fan gift",
-    "grandpa graphic tee",
-    "grandpa lover shirt",
-    "grandpa fan gift",
-    "cute grandpa tshirt",
-    "retro grandpa tee",
-    "grandpa gift for her",
-    "papa graphic tee",
-    "papa lover shirt",
-    "papa fan gift",
-    "cute papa tshirt",
-    "retro papa tee"
-   ],
-   "description": "GRANDPA — EST. [Year]\n\nDistressed college numerals under a thin arched wordmark, cream on faded navy. The year it started, nothing else.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nHOW TO PERSONALISE\nType the grandkids' first names and the year into the \"Add your personalisation\" box at checkout. It is printed exactly as you type it — spelling and capitalisation included — so give it one last read before you order. Text only, no photo needed.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
-   "cover": {
-    "banner": "GRANDPA — EST. 1987",
-    "strip": "COMFORT COLORS 1717 · S-4XL"
-   },
-   "info_cards": [
-    {
-     "file": "printed-to-last.jpg",
-     "title": "PRINTED TO LAST",
-     "footer": "SOFT-HAND FINISH",
-     "numbered": false,
-     "steps": [
-      [
-       "Sits in the fabric",
-       "Not a stiff plastic layer on top"
-      ],
-      [
-       "Full colour",
-       "Every shade in the artwork prints"
-      ],
-      [
-       "Wash cold, inside out",
-       "Keeps the colour where it belongs"
-      ]
-     ]
-    },
-    {
-     "file": "fit-and-care.jpg",
-     "title": "FIT & CARE",
-     "footer": "COMFORT COLORS 1717 · S-4XL",
-     "numbered": false,
-     "steps": [
-      [
-       "Unisex relaxed fit",
-       "Roomy through the body; size down for closer"
-      ],
-      [
-       "Garment-dyed cotton",
-       "Heavyweight and soft from the first wear"
-      ],
-      [
-       "Wash cold, tumble low",
-       "No bleach, no ironing over the design"
-      ]
-     ]
-    }
-   ],
-   "placeholder_token": "1987",
-   "personalization_instructions": "Year, four digits — up to 14 characters, printed exactly as you type it"
-  },
-  {
-   "slug": "c13-c1-v1",
-   "niche": "chicken / farm absurdist",
+   "slug": "a3-c5-v2",
+   "niche": "animal meme",
    "kind": "dtf",
    "personalised": false,
-   "concept_no": 1,
-   "price_anchor_cents": 3428,
-   "hero_colorway": "Butter",
-   "hook": "EVOLUTION — A REVIEW",
-   "prompt_head": "Left-to-right evolution diagram ending in a chicken, museum-plate type, single ink on cream",
-   "slogan": "EVOLUTION — A REVIEW",
-   "title": "Chicken Evolution Shirt, Farm Animal Shirt Comfort Colors® Tee, Chicken Shirt, Funny Chicken Shirt, Farm Life Shirt, Chicken Mom Shirt",
+   "concept_no": 5,
+   "price_anchor_cents": 3285,
+   "hero_colorway": "Ivory",
+   "hook": "SAFETY IS EVERYONE'S PROBLEM",
+   "prompt_head": "Workplace safety poster parody, duck in a hard hat, chevron border, industrial yellow and black",
+   "slogan": "SAFETY IS EVERYONE'S PROBLEM",
+   "title": "Animal Meme Fan Gift Tee, Safety is Everyone's Problem Comfort Colors® Shirt, Cute Gift for Friend, Gift for Him and Her, Safety Poster Tee",
    "tags": [
-    "farm animal shirt",
-    "chicken shirt",
-    "funny chicken shirt",
-    "farm life shirt",
-    "chicken mom shirt",
-    "animal lover gift",
-    "chicken lover gift",
-    "comfort colors",
-    "rustic farm shirt",
-    "backyard chicken",
-    "retro chicken tee",
-    "funny farm animal",
-    "chicken butt"
+    "animal meme fan gift",
+    "cute gift for friend",
+    "gift for him and her",
+    "safety poster tee",
+    "funny duck shirt",
+    "funny duck fan gift",
+    "retro funny duck tee",
+    "animal meme shirt",
+    "comfort colors shirt",
+    "funny animal shirt",
+    "meme shirt",
+    "humor animal tee",
+    "viral meme tee"
    ],
-   "description": "EVOLUTION — A REVIEW\n\nA left-to-right evolution diagram that ends, confidently, in a chicken. Museum-plate type, single ink on cream.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
+   "description": "SAFETY IS EVERYONE'S PROBLEM\n\nA workplace safety poster starring a duck in a hard hat. Chevron border, industrial yellow, the confidence of someone who has never read the manual.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
    "cover": {
-    "banner": "EVOLUTION — A REVIEW",
+    "banner": "SAFETY IS EVERYONE'S PROBLEM",
     "strip": "COMFORT COLORS 1717 · S-4XL"
    },
    "info_cards": [
@@ -791,35 +98,110 @@
    ]
   },
   {
-   "slug": "c13-c1-v2",
-   "niche": "chicken / farm absurdist",
+   "slug": "a3-c6-v2",
+   "niche": "animal meme",
+   "kind": "dtf",
+   "personalised": false,
+   "concept_no": 6,
+   "price_anchor_cents": 3285,
+   "hero_colorway": "Ivory",
+   "hook": "I THINK, THEREFORE I RIBBIT",
+   "prompt_head": "Engraved-plate frog in a philosopher's pose, antique etching cross-hatch, single ink",
+   "slogan": "I THINK, THEREFORE I RIBBIT",
+   "title": "Cute Gift for Friend Tee, I Think Therefore I Ribbit Shirt Comfort Colors® Shirt, Gift for Him and Her, Philosopher Frog, Frog Engraving Tee",
+   "tags": [
+    "cute gift for friend",
+    "gift for him and her",
+    "philosopher frog",
+    "frog engraving tee",
+    "animal meme fan gift",
+    "animal meme shirt",
+    "comfort colors shirt",
+    "funny animal shirt",
+    "meme shirt",
+    "humor animal tee",
+    "viral meme tee",
+    "unhinged meme shirt",
+    "funny animal meme"
+   ],
+   "description": "I THINK, THEREFORE I RIBBIT\n\nA frog in a thinker's pose, cross-hatched like an antique etching. It has been considering this for some time and has reached no conclusions.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
+   "cover": {
+    "banner": "I THINK, THEREFORE I RIBBIT",
+    "strip": "COMFORT COLORS 1717 · S-4XL"
+   },
+   "info_cards": [
+    {
+     "file": "printed-to-last.jpg",
+     "title": "PRINTED TO LAST",
+     "footer": "SOFT-HAND FINISH",
+     "numbered": false,
+     "steps": [
+      [
+       "Sits in the fabric",
+       "Not a stiff plastic layer on top"
+      ],
+      [
+       "Full colour",
+       "Every shade in the artwork prints"
+      ],
+      [
+       "Wash cold, inside out",
+       "Keeps the colour where it belongs"
+      ]
+     ]
+    },
+    {
+     "file": "fit-and-care.jpg",
+     "title": "FIT & CARE",
+     "footer": "COMFORT COLORS 1717 · S-4XL",
+     "numbered": false,
+     "steps": [
+      [
+       "Unisex relaxed fit",
+       "Roomy through the body; size down for closer"
+      ],
+      [
+       "Garment-dyed cotton",
+       "Heavyweight and soft from the first wear"
+      ],
+      [
+       "Wash cold, tumble low",
+       "No bleach, no ironing over the design"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "slug": "a4-c1-v2",
+   "niche": "cryptid",
    "kind": "dtf",
    "personalised": false,
    "concept_no": 1,
-   "price_anchor_cents": 3428,
-   "hero_colorway": "Butter",
-   "hook": "EVOLUTION — A REVIEW",
-   "prompt_head": "Left-to-right evolution diagram ending in a chicken, museum-plate type, single ink on cream",
-   "slogan": "EVOLUTION — A REVIEW",
-   "title": "Animal Graphic Tee, Chicken Evolution Shirt Comfort Colors® Shirt, Chicken Graphic Tee, Chicken Fan Gift, Cute Chicken Tshirt",
+   "price_anchor_cents": 3713,
+   "hero_colorway": "Ivory",
+   "hook": "FIELD GUIDE TO THINGS THAT AREN'T THERE",
+   "prompt_head": "Botanical-illustration style plate of three cryptid silhouettes with Latin-style labels, aged cream",
+   "slogan": "FIELD GUIDE TO THINGS THAT AREN'T THERE",
+   "title": "Cryptid Fan Gift Tee, Field Guide to Things That Aren't There Comfort Colors® Shirt, Cute Cryptid Tshirt, Retro Cryptid Tee",
    "tags": [
-    "animal graphic tee",
-    "chicken graphic tee",
-    "chicken fan gift",
-    "cute chicken tshirt",
-    "chicken gift for her",
-    "farm animal fan gift",
-    "cute gift for friend",
-    "gift for him and her",
-    "chicken evolution",
-    "chicken lover shirt",
-    "funny chicken tshirt",
-    "retro chicken tee",
-    "farm animal shirt"
+    "cryptid fan gift",
+    "cute cryptid tshirt",
+    "retro cryptid tee",
+    "cryptid gift for her",
+    "bigfoot graphic tee",
+    "bigfoot fan gift",
+    "cute bigfoot tshirt",
+    "retro bigfoot tee",
+    "bigfoot gift for her",
+    "sasquatch fan gift",
+    "retro sasquatch tee",
+    "sasquatch lover gift",
+    "cute gift for friend"
    ],
-   "description": "EVOLUTION — A REVIEW\n\nA left-to-right evolution diagram that ends, confidently, in a chicken. Museum-plate type, single ink on cream.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
+   "description": "FIELD GUIDE TO THINGS THAT AREN'T THERE\n\nThree cryptids drawn as a botanical plate would draw them — patient line work, Latin-style labels, aged cream paper. Field science for things that decline to be found.\n\nABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my design process, then refined and prepared for print by hand.\n\nTHE TEE\n• Comfort Colors® 1717 · 100% ring-spun cotton · 6.1 oz, garment-dyed so the colour softens instead of fading\n• Relaxed unisex cut — size down if you want it fitted\n• Sizes S–4XL · 22 Comfort Colors shades — pick yours from the colour chart in the photos\n• DTF print — soft to the touch, no cracking, no stiff plastic square\n\nSHIPPING\n• Made and shipped from Dallas, Texas, within 1 business day\n• Tracking on every order\n\nCARE\nCold wash inside out, tumble dry low, no bleach, and keep the iron off the print.\n\nQuestions, or want a wording change? Message me — I reply the same day.",
    "cover": {
-    "banner": "EVOLUTION — A REVIEW",
+    "banner": "FIELD GUIDE TO THINGS THAT AREN'T ",
     "strip": "COMFORT COLORS 1717 · S-4XL"
    },
    "info_cards": [

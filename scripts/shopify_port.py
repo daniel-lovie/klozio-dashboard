@@ -27,6 +27,15 @@ SLOT_COLL = {"EMB": "Custom Embroidery", "EMBH": "Embroidered Hats",
              "A1": "Statement Tees", "A2": "Statement Tees", "A3": "Statement Tees",
              "B1": "Personalized Gifts", "B2": "Personalized Gifts", "OB": "Statement Tees"}
 
+# Shopify is the gaming storefront and its collections are the genres, which the product's niche
+# names directly — the slot map above predates the channel split and would file a TTRPG tee under
+# "Statement Tees". Niche wins when it is a gaming one; slot remains the fallback for the rest.
+NICHE_COLL = {"tabletop rpg": "TTRPG", "rpg": "RPG", "fps": "FPS", "mmorpg": "MMORPG"}
+
+
+def collection_for(p: dict) -> str:
+    return NICHE_COLL.get((p.get("niche") or "").lower()) or SLOT_COLL.get(p["slot"], "Everything Else")
+
 def mint_token():
     if not SHOP:
         raise RuntimeError("SHOPIFY_STORE_DOMAIN not set")
@@ -188,15 +197,17 @@ def publish(product_id, pub_id):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only"); ap.add_argument("--limit", type=int)
+    ap.add_argument("--niche", help="comma separated; only these niches")
     a = ap.parse_args()
     conn = psycopg2.connect(os.environ["DATABASE_URL"]); cur = conn.cursor()
     q = """SELECT p.id, p.slug, p.title, p.description, p.tags, p.colorways, p.sizes,
-                  p.price_cents, COALESCE(p.slot,'') AS slot
+                  p.price_cents, COALESCE(p.slot,'') AS slot, COALESCE(p.niche,'') AS niche
              FROM products p
             WHERE EXISTS (SELECT 1 FROM product_images g WHERE g.product_id=p.id)
               AND p.title IS NOT NULL"""
     params = []
     if a.only: q += " AND p.slug=%s"; params.append(a.only)
+    if a.niche: q += " AND p.niche = ANY(%s)"; params.append(a.niche.split(","))
     q += " ORDER BY p.slot, p.id"
     if a.limit: q += f" LIMIT {a.limit}"
     cur.execute(q, params or None)
@@ -210,7 +221,7 @@ def main():
         try:
             pid, media_n = find_by_handle(p["slug"])
             if pid and media_n > 0:
-                coll_members.setdefault(SLOT_COLL.get(p["slot"], "Everything Else"), []).append(pid)
+                coll_members.setdefault(collection_for(p), []).append(pid)
                 print(f"{p['slug']}: exists, skip"); continue
             healed = bool(pid)
             nv = 0
@@ -223,7 +234,7 @@ def main():
                 sources.append(staged_upload(fn or "img.jpg", mime or "image/jpeg", bytes(blob)))
             attach_media(pid, sources)
             if pub: publish(pid, pub)
-            coll_members.setdefault(SLOT_COLL.get(p["slot"], "Everything Else"), []).append(pid)
+            coll_members.setdefault(collection_for(p), []).append(pid)
             print(f"{p['slug']}: {'HEALED' if healed else 'OK'} ({nv} variants, {len(sources)} imgs)")
         except Exception as e:
             print(f"{p['slug']}: FAIL {str(e)[:200]}")
@@ -231,13 +242,18 @@ def main():
 
     for title, ids in coll_members.items():
         try:
-            d = gql("""mutation cc($input: CollectionInput!) {
-              collectionCreate(input: $input) { collection { id } userErrors { message } } }""",
-                {"input": {"title": title}})
-            cid = (d["collectionCreate"]["collection"] or {}).get("id")
+            # Look BEFORE creating. Creating first and falling back to a lookup only on failure
+            # made a second "TTRPG" every run — collectionCreate happily accepts a duplicate title,
+            # and the store ended up with two of every genre, one of them missing from the menu.
+            dd = gql("query($q:String!){ collections(first:5, query:$q){ nodes{ id title } } }",
+                     {"q": f"title:'{title}'"})
+            hit = [n for n in dd["collections"]["nodes"] if n["title"] == title]
+            cid = hit[0]["id"] if hit else None
             if not cid:
-                dd = gql("query($q:String!){ collections(first:1, query:$q){ nodes{ id } } }", {"q": f"title:'{title}'"})
-                cid = dd["collections"]["nodes"][0]["id"] if dd["collections"]["nodes"] else None
+                d = gql("""mutation cc($input: CollectionInput!) {
+                  collectionCreate(input: $input) { collection { id } userErrors { message } } }""",
+                    {"input": {"title": title}})
+                cid = (d["collectionCreate"]["collection"] or {}).get("id")
             if not cid: print(f"collection {title}: no id"); continue
             for i in range(0, len(ids), 50):
                 gql("""mutation ca($id: ID!, $pids: [ID!]!) {

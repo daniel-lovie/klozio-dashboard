@@ -19,7 +19,9 @@ products(id, slug, slot, concept_no, variant int, niche, title, description, tag
   mockup_prompt_model, hero_colorway, design_state NULL|generating|ready|redo, redo_note, design_job_id,
   print_file bytea, technique dtf|embroidery, fulfillment printinly|printful, printful_placement,
   thread_colors text[], personalization_placeholder, etsy_listing_id, etsy_state, agent_log jsonb)
-product_images(product_id, rank, role, label, filename, mime, bytes) — rank1 = kapak (ad-style overlay'li)
+product_images(product_id, rank, role, label, filename, mime, bytes) — rank1 = kapak (Ivory model, renk rozetli)
+mockup_blanks(name, kind model|flat, colorway, quad jsonb, opacity, shade, bytes) — lisanslı blank
+  fotoğraflar; produce_images.py tasarımı bunların üstüne kompozit eder. Elleme.
 schedule(id, product_id, scheduled_at, status approved|publishing|published|failed, approved_at, approved_by, last_error)
 fulfillment_orders(id, receipt_id, transaction_id, product_id, quantity, size, colorway, personalization,
   buyer_name, ship_* kolonları, status new|generating|qa|ready|sent_to_producer|shipped|done|problem,
@@ -36,8 +38,13 @@ agent_chats(id=1, messages) — kendi hafızan, dokunma.
    Slug deseni: '{hat}-c{n}-v1' (ör. pet-c1-v1). slot: mevcutlar A1/A2/A3/B1/B2/OB/EMB/EMBH; yeni hat açabilirsin.
 2. İÇERİK ONAYI: operatör /plan'dan ya da chat'ten onaylar → content_status='approved'.
 3. GÖRSEL ÜRETİM (otomatik): Railway'deki producer agent şunları claim eder:
-   content_status='approved' AND görsel yok AND design_state IS NULL → tasarım+3 mockup+print file üretir,
-   design_state='ready' yapar. Kapak formülü otomatik uygulanır. SEN GÖRSEL ÜRETEMEZSİN — bayrağı bırak, producer yapar.
+   content_status='approved' AND görsel yok AND design_state IS NULL → tasarımı üretir, print file'ı
+   yazar, sonra scripts/produce_images.py ile 7 ilan görselini kurar, design_state='ready' yapar.
+   SEN GÖRSEL ÜRETEMEZSİN — bayrağı bırak, producer yapar.
+   Görsel seti (sabit): 1 Ivory model (kapak, renk rozetli) · 2 Pepper model · 3-6 düz renk
+   (Bay/Navy/Yam/Black) · 7 renk tablosu. Hepsi kendi lisanslı blank fotoğraflarımıza kompozit edilir
+   (mockup_blanks tablosu). AI mockup ÜRETİLMEZ, Printful render'ı KULLANILMAZ.
+   Nakış ürünlerinde tasarım göğüs-sol 4 inçlik armaya küçültülür — çünkü öyle dikiyoruz.
 4. REDO: operatör beğenmezse design_state='redo' + redo_note (İngilizce, spesifik talimat) → producer yeniden üretir.
 5. SCHEDULE: schedule satırı INSERT/UPDATE, status='approved', scheduled_at UTC → web'deki ticker vakti gelince
    Etsy'ye otomatik yayınlar (draft oluştur + görseller + video + inventory + personalization + activate).
@@ -49,8 +56,14 @@ agent_chats(id=1, messages) — kendi hafızan, dokunma.
 - Tags: TAM 13, hepsi çok kelimeli, ≤20 karakter, %95 title ile örtüşsün.
 - Description iskeleti: hook satırı → ABOUT THE DESIGN (AI ifşası dahil) → HOW TO PERSONALISE (varsa) →
   THE TEE (CC1717 spec) → SHIPPING → CARE → CTA. Mevcut ürünlerden örnek çek (SELECT description).
-- design_prompt: İngilizce, teknik (recraft için vector/renk listesi; nano için fotoğrafik). Mevcutlardan örnek al.
-- mockup_prompt + hanging + model: 3 mockup istemi; hero_colorway belirt. Blank: 'Comfort Colors 1717' (tişört).
+- design_prompt: İngilizce, SADECE amblem/şekil tarifi. Üç kural:
+  1) AI ASLA YAZI ÇİZMEZ. Prompt'ta "the design contains the text ..." YASAK — model bozuk harf üretir.
+     Slogan/isim/rakam sonradan PIL ile elle dizilir. Yazı gereken üründe prompt'a "NO text" yazılır.
+  2) Nakışta iplik hex'lerini prompt'ta ADIYLA say ("bright golden yellow #FFCC00") — yoksa model
+     kendi paletini seçer ve digitiser tahmin eder.
+  3) Kişiselleştirilmişse tasarımda DOLU beyaz bir kurdele iste ("SOLID FILLED white banner, tall
+     and thick"); personalizer mevcut yazıyı değiştirir, boş/ince kurdelede yapacak şey bulamaz.
+- mockup_prompt kolonları ARTIK KULLANILMIYOR (AI mockup üretimi kaldırıldı). Doldurma.
 - Arketipler (kanıtlı): A1 foto-bootleg premium, pet merdiveni, hediye-vesile (Nana/Mama+isim), trip+yıl,
   text-logo utility, estetik marka. Kişiselleştirme ciroyu taşır (12/13 veteran mağazada %83-100).
 
@@ -66,6 +79,14 @@ agent_chats(id=1, messages) — kendi hafızan, dokunma.
   Yeni nakış ürünü fiyatlarken COGS'a digitization'ı DAİMA ekle.
 - Reklam ölçümü: Etsy'ye Pixel konulamaz. ad_spend tablosuna günlük harcama girilir, shop_daily_stats
   (elle Etsy panel verisi) ve listing_stats ile eşleşip CAC/ROAS çıkar. Başabaş CAC nakış tişörtte $21.45.
+
+# GÖSTERDİĞİN = GÖNDERDİĞİN (bu mağazadaki her pahalı hata bunun ihlaliydi)
+- Nakış ürünü göğüs-sol 10 cm arma olarak üretilir. Büyük ortalanmış baskı gösteren görsel YANLIŞTIR.
+- Görseldeki tişört rengi ürünün hero_colorway'i olmalı. Kapak Ivory ise satır da Ivory.
+- Tasarım kumaşa gömülüyorsa (kontrast düşük) TASARIMI DEĞİL KUMAŞI değiştir — bedava, üretim değil.
+- Kapak daima giyimli; makro dikiş çekimi tişört gibi değil çorap gibi durur.
+- Yeni ürünün nişi birinin kitabı/dizisi ise açma (ad kopyada geçmese bile tasarım o esere işaret eder).
+- Slogan 40 karakteri geçerse Etsy ızgarasında okunmaz — kısalt ya da konsepti değiştir.
 
 # PLATFORM TUZAKLARI
 - Etsy görsel upload: rank verilmezse 1 sayılır ve KAPAĞI EZER. Ek görselde rank'i açıkça ver.

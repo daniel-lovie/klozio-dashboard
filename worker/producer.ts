@@ -7,7 +7,6 @@ import { callTool, jobIdOf, rawUrlOf, statusOf } from "./hf.ts";
 import { forcedJson } from "./anthropic.ts";
 
 const scriptPath = (f: string) => new URL(`../scripts/${f}`, import.meta.url).pathname;
-const CHART = new URL("../assets/comfort-colors-1717-color-chart.jpeg", import.meta.url).pathname;
 
 export function makeProducer(pool: pg.Pool) {
   const q = async (sql: string, params: any[] = []) => (await pool.query(sql, params)).rows;
@@ -65,39 +64,19 @@ export function makeProducer(pool: pg.Pool) {
     throw new Error("design generation timeout");
   }
 
-  async function generateMockup(designJobId: string | null, prompt: string): Promise<Buffer> {
-    const params: any = { model: "nano_banana_pro", prompt, aspect_ratio: "1:1", resolution: "2k" };
-    if (designJobId) params.medias = [{ role: "image", value: designJobId }];
-    const gen = await callTool("generate_image", { params });
-    const jobId = jobIdOf(gen);
-    if (!jobId) throw new Error("no mockup job id");
-    for (let i = 0; i < 40; i++) {
-      await new Promise((r) => setTimeout(r, 8000));
-      const st = await callTool("job_status", { jobId, sync: true });
-      const status = statusOf(st);
-      if (status === "completed") {
-        const url = rawUrlOf(st);
-        if (!url) throw new Error("mockup completed without rawUrl");
-        return Buffer.from(await (await fetch(url)).arrayBuffer());
-      }
-      if (["failed", "nsfw", "error"].includes(status)) throw new Error(`mockup ${status}`);
+  /** Build the listing images the way the batch pipeline does: composited onto our own licensed
+   *  blank photographs, at the placement the product is actually fulfilled at, plus the colour
+   *  chart. Replaces three AI-generated mockups a product (~$0.54) that knew none of the rules —
+   *  they rendered type, ignored the thread palette, and showed a full-front print on garments
+   *  stitched as a 4-inch chest badge. Two production paths that disagree is the defect. */
+  async function buildImages(productId: number): Promise<number> {
+    const proc = spawnSync("python3", [scriptPath("produce_images.py"), String(productId)],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    if (proc.status !== 0) {
+      throw new Error("image build failed: " + (proc.stdout + proc.stderr).slice(0, 300));
     }
-    throw new Error("mockup timeout");
-  }
-
-  function toJpeg(png: Buffer, tag: string): { buf: Buffer; w: number; h: number } {
-    const tin = `/tmp/prod-${tag}.png`, tout = `/tmp/prod-${tag}.jpg`;
-    writeFileSync(tin, png);
-    const r = spawnSync("python3", ["-c", `
-from PIL import Image
-im = Image.open('${tin}').convert('RGB')
-im.save('${tout}', 'JPEG', quality=88, optimize=True)
-print(im.size[0], im.size[1])`], { encoding: "utf8" });
-    if (r.status !== 0) throw new Error("jpeg convert failed: " + r.stderr.slice(0, 150));
-    const [w, h] = r.stdout.trim().split(" ").map(Number);
-    const buf = readFileSync(tout);
-    unlinkSync(tin); unlinkSync(tout);
-    return { buf, w, h };
+    const line = proc.stdout.trim().split("\n").pop() ?? "{}";
+    return JSON.parse(line).images ?? 0;
   }
 
   function pngDims(buf: Buffer): { w: number; h: number } {
@@ -116,18 +95,6 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
     return {
       banner: pers ? "PERSONALIZED WITH YOUR NAMES" : "COMFORT COLORS GARMENT-DYED TEE",
       strip: "COMFORT COLORS 1717 · 22 COLORS · S-4XL" };
-  }
-
-  function adStyleCover(jpeg: Buffer, p: any): Buffer {
-    const tin = `/tmp/prod-${p.id}-cov-in.jpg`, tout = `/tmp/prod-${p.id}-cov-out.jpg`;
-    writeFileSync(tin, jpeg);
-    const { banner, strip } = coverTexts(p);
-    const script = new URL("../scripts/make_cover.py", import.meta.url).pathname;
-    const r = spawnSync("python3", [script, tin, tout, "--banner", banner, "--strip", strip], { encoding: "utf8" });
-    if (r.status !== 0) { console.log(`[product ${p.id}] cover overlay failed, using plain:`, (r.stderr || "").slice(0, 120)); return jpeg; }
-    const out = readFileSync(tout);
-    unlinkSync(tin); unlinkSync(tout);
-    return out;
   }
 
   async function visionQaDesign(p: any, printPng: Buffer): Promise<string | null> {
@@ -149,69 +116,27 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
     }
   }
 
-  async function attach(p: any, printPng: Buffer | null, mocks: Buffer[]): Promise<void> {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(`DELETE FROM product_images WHERE product_id=$1`, [p.id]);
-      const roles = ["cover", "hanging", "model"];
-      for (let i = 0; i < 3; i++) {
-        const { buf, w, h } = toJpeg(mocks[i], `${p.id}-${roles[i]}`);
-        const finalBuf = i === 0 ? adStyleCover(buf, p) : buf;
-        await client.query(
-          `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
-           VALUES ($1,$2,$3,$4,$5,'image/jpeg',$6,$7,$8)`,
-          [p.id, i + 1, roles[i], i === 0 ? "ad-style cover" : p.hero_colorway, `mockup-${roles[i]}.jpg`, w, h, finalBuf]);
-      }
-      if (existsSync(CHART) && String(p.blank || "").includes("Comfort Colors")) {
-        const chart = readFileSync(CHART);
-        await client.query(
-          `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
-           VALUES ($1,4,'colorway-chart','All 22 colors','color-chart.jpeg','image/jpeg',2000,2000,$2)`,
-          [p.id, chart]);
-        const sizeChart = new URL("../assets/cc1717-size-chart.png", import.meta.url).pathname;
-        if (existsSync(sizeChart)) {
-          await client.query(
-            `INSERT INTO product_images (product_id, rank, role, label, filename, mime, width, height, bytes)
-             VALUES ($1,5,'size-chart','CC1717 size chart','cc1717-size-chart.png','image/png',2000,2000,$2)`,
-            [p.id, readFileSync(sizeChart)]);
-        }
-      }
-      if (printPng) {
-        const d = pngDims(printPng);
-        await client.query(
-          `UPDATE products SET print_file=$2, print_file_name=$3, print_file_w=$4, print_file_h=$5,
-                  print_dpi=$6, design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`,
-          [p.id, printPng, `${p.slug}-print.png`, d.w, d.h, Math.round(d.w / 9.5)]);
-      } else {
-        await client.query(
-          `UPDATE products SET design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`, [p.id]);
-      }
-      await client.query("COMMIT");
-    } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
+  /** Store the print file only. Images are built from it afterwards by produce_images.py, which
+   *  owns the composition rules — this used to insert three AI mockups plus a static colour chart. */
+  async function storePrintFile(p: any, printPng: Buffer): Promise<void> {
+    const d = pngDims(printPng);
+    await q(`UPDATE products SET print_file=$2, print_file_name=$3, print_file_w=$4, print_file_h=$5,
+               print_dpi=$6, design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`,
+      [p.id, printPng, `${p.slug}-print.png`, d.w, d.h, Math.round(d.w / 9.5)]);
   }
 
   async function produce(p: any): Promise<void> {
     // design-less products (e.g. embroidered hats): mockup prompts fully describe the
     // stitched result — no design generation, no print file, straight to mockups.
     if (!p.design_prompt) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const mocks: Buffer[] = [];
-          for (const prompt of [p.mockup_prompt, p.mockup_prompt_hanging, p.mockup_prompt_model]) {
-            if (!prompt) throw new Error("missing mockup prompt");
-            const withNote = p.redo_note ? prompt + ` REVISION REQUEST from the reviewer — you MUST honor it: ${p.redo_note}` : prompt;
-            mocks.push(await generateMockup(null, withNote));
-          }
-          await attach(p, null, mocks);
-          await q(`INSERT INTO events (product_id, kind, detail) VALUES ($1,'agent_generated',$2)`,
-            [p.id, `3 mockups by producer agent (design-less)${p.redo_note ? " (redo)" : ""}`]);
-          return log(p.id, "ready", { slug: p.slug, designless: true });
-        } catch (e: any) {
-          await log(p.id, "produce-error", String(e).slice(0, 250));
-          if (attempt === 2) await q(`UPDATE products SET design_state='error', updated_at=now() WHERE id=$1`, [p.id]);
-        }
-      }
+      // Design-less products were hats whose mockup prompts described the stitched result, so an
+      // image model drew the whole product. There are no hat blanks to composite onto, and drawing
+      // a product we then have to match is the opposite of showing what we ship. Stop with the
+      // reason on the row rather than produce something unusable.
+      await log(p.id, "produce-error", "design_prompt yok: sapka/tasarimsiz urun icin blank yok");
+      await q(`UPDATE products SET design_state='error',
+                 redo_note='design_prompt gerekli — tasarimsiz uretim kaldirildi (blank mockup yok)'
+               WHERE id=$1`, [p.id]);
       return;
     }
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -228,15 +153,12 @@ print(im.size[0], im.size[1])`], { encoding: "utf8" });
         await log(p.id, "print-ok", proc.stdout.trim());
         const qaProblem = await visionQaDesign(p, printPng);
         if (qaProblem) throw new Error("design QA: " + qaProblem);
-        const mocks: Buffer[] = [];
-        for (const prompt of [p.mockup_prompt, p.mockup_prompt_hanging, p.mockup_prompt_model]) {
-          if (!prompt) throw new Error("missing mockup prompt");
-          mocks.push(await generateMockup(d.jobId, prompt));
-        }
-        await log(p.id, "mockups-ok", { count: mocks.length });
-        await attach(p, printPng, mocks);
+        // the print file has to be stored before the images are built: they are composited FROM it
+        await storePrintFile(p, printPng);
+        const n = await buildImages(p.id);
+        await log(p.id, "images-ok", { count: n });
         await q(`INSERT INTO events (product_id, kind, detail) VALUES ($1,'agent_generated',$2)`,
-          [p.id, `design+print+3 mockups by producer agent${p.redo_note ? " (redo)" : ""}`]);
+          [p.id, `design+print+${n} blank-composited images${p.redo_note ? " (redo)" : ""}`]);
         return log(p.id, "ready", { slug: p.slug });
       } catch (e: any) {
         await log(p.id, "produce-error", String(e).slice(0, 250));

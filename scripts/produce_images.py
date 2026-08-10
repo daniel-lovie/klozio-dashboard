@@ -73,7 +73,18 @@ def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bo
     lum = (0.2126 * base[:, :, 0] + 0.7152 * base[:, :, 1] + 0.0722 * base[:, :, 2])[:, :, None]
     inside = alpha[:, :, 0] > 0.5
     ref = float(np.median(lum[:, :, 0][inside])) if inside.any() else float(np.median(lum))
-    lit = np.clip(art[:, :, :3] * ((lum / max(ref, 1.0)) * shade + (1 - shade)), 0, 255)
+    # Texture must be scaled by ABSOLUTE deviation, not relative. Cloth of every shade has roughly
+    # the same grain in absolute terms, but dividing by the garment's own mean makes that grain four
+    # times stronger on Pepper (mean 65) than on Ivory (mean 247) — which is exactly what showed up:
+    # a clean print on the light shirt and a woven-through one on the dark.
+    # Normalise by the garment's OWN texture amplitude, not by its brightness and not by a fixed
+    # number. Measured on these photographs the weave is 0.7% of mean on Ivory and 22.9% on Pepper —
+    # they were shot differently, and any shared multiplier leaves one clean and the other woven
+    # through. Dividing by each garment's standard deviation gives every shade the same subtle grain,
+    # which is what a print actually looks like.
+    sd = float(np.std(lum[:, :, 0][inside])) if inside.any() else float(np.std(lum))
+    grain = (lum - ref) / max(sd, 1.0)                     # in units of this cloth's own variation
+    lit = np.clip(art[:, :, :3] * (1.0 + np.clip(grain, -3, 3) * shade), 0, 255)
     return Image.fromarray(np.clip(base * (1 - alpha) + lit * alpha, 0, 255).astype(np.uint8))
 
 

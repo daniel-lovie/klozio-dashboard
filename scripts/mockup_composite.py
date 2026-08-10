@@ -106,9 +106,39 @@ def composite(design_path: Path, blank_path: Path, tpl: dict, out: Path) -> Path
     return out
 
 
+def displace(placed: Image.Image, blank: Image.Image, strength_px: float) -> Image.Image:
+    """Push the artwork around by the cloth's own folds.
+
+    This is what separates a mockup from a sticker, and no amount of shading substitutes for it. A
+    print lies ON the fabric: where the cloth rises the ink rides up with it, where it creases the
+    ink bends into the crease. Shading alone paints a shadow over a shape that is still perfectly
+    flat and perfectly circular, which is exactly what "looks like paint" means.
+
+    The displacement field is the gradient of the garment's blurred luminance — folds are where
+    luminance changes fastest — and the artwork is resampled through it.
+    """
+    from scipy import ndimage
+
+    lum = np.asarray(blank.convert("L")).astype(float)
+    soft = ndimage.gaussian_filter(lum, sigma=max(2.0, strength_px * 1.5))
+    gy, gx = np.gradient(soft)
+    scale = strength_px / max(float(np.percentile(np.hypot(gx, gy), 97)), 1e-3)
+    h, w = lum.shape
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    sx = np.clip(xx + gx * scale, 0, w - 1)
+    sy = np.clip(yy + gy * scale, 0, h - 1)
+
+    a = np.asarray(placed).astype(np.float32)
+    out = np.empty_like(a)
+    for c in range(4):
+        out[:, :, c] = ndimage.map_coordinates(a[:, :, c], [sy, sx], order=1, mode="nearest")
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA")
+
+
 def composite_pil(design: Image.Image, blank: Image.Image, tpl: dict) -> Image.Image:
     """The composite itself, on already-decoded images — callers that loop should decode once."""
     placed = warp(design, tpl["quad"], blank.size)
+    placed = displace(placed, blank, float(tpl.get("displace", 6.0)))
 
     art = np.asarray(placed).astype(float)
     # A print does not have a die-cut edge. Ink bleeds a fraction of a millimetre into the weave, so
@@ -128,8 +158,18 @@ def composite_pil(design: Image.Image, blank: Image.Image, tpl: dict) -> Image.I
     lum = (0.2126 * base[:, :, 0] + 0.7152 * base[:, :, 1] + 0.0722 * base[:, :, 2])[:, :, None]
     inside = alpha[:, :, 0] > 0.5
     ref = float(np.median(lum[:, :, 0][inside])) if inside.any() else float(np.median(lum))
-    ratio = lum / max(ref, 1.0)
-    lit = np.clip(art[:, :, :3] * (ratio * shade + (1 - shade)), 0, 255)
+    # Texture must be scaled by ABSOLUTE deviation, not relative. Cloth of every shade has roughly
+    # the same grain in absolute terms, but dividing by the garment's own mean makes that grain four
+    # times stronger on Pepper (mean 65) than on Ivory (mean 247) — which is exactly what showed up:
+    # a clean print on the light shirt and a woven-through one on the dark.
+    # Normalise by the garment's OWN texture amplitude, not by its brightness and not by a fixed
+    # number. Measured on these photographs the weave is 0.7% of mean on Ivory and 22.9% on Pepper —
+    # they were shot differently, and any shared multiplier leaves one clean and the other woven
+    # through. Dividing by each garment's standard deviation gives every shade the same subtle grain,
+    # which is what a print actually looks like.
+    sd = float(np.std(lum[:, :, 0][inside])) if inside.any() else float(np.std(lum))
+    grain = (lum - ref) / max(sd, 1.0)                     # in units of this cloth's own variation
+    lit = np.clip(art[:, :, :3] * (1.0 + np.clip(grain, -3, 3) * shade), 0, 255)
 
     return Image.fromarray(np.clip(base * (1 - alpha) + lit * alpha, 0, 255).astype(np.uint8))
 

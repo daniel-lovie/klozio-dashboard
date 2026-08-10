@@ -15,13 +15,23 @@
  *  - there is NO endpoint to buy shipping labels
  */
 import { q, one } from "./db";
-import { shopCtx } from "./shop-context";
+import { shopCtx, hasEtsy } from "./shop-context";
 
 const BASE = "https://openapi.etsy.com/v3/application";
 const TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token";
 const REFRESH_MARGIN_MS = 10 * 60 * 1000;
 
+function requireEtsy(): void {
+  const c = shopCtx();
+  if (!hasEtsy(c)) {
+    throw new Error(
+      `Bu magazanin (shop ${c.dbShopId}) Etsy baglantisi yok. Urun uretmek icin gerekmez; ` +
+      `yayinlamak icin Ayarlar > Etsy baglantisi adimini tamamlayin.`);
+  }
+}
+
 function apiKeyHeader(): string {
+  requireEtsy();
   const k = shopCtx().apiKey || process.env.ETSY_API_KEY || "";
   if (!k) throw new Error("Etsy api key missing for the active shop");
   return k;

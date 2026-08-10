@@ -18,10 +18,12 @@ products(id, slug, slot, concept_no, variant int, niche, title, description, tag
   content_note, design_prompt, design_model, design_params jsonb, mockup_prompt, mockup_prompt_hanging,
   mockup_prompt_model, hero_colorway, design_state NULL|generating|ready|redo, redo_note, design_job_id,
   print_file bytea, technique dtf|embroidery, fulfillment printinly|printful, printful_placement,
-  thread_colors text[], personalization_placeholder, etsy_listing_id, etsy_state, agent_log jsonb)
+  thread_colors text[], personalization_placeholder, emb_render bytea (nakış mockup görseli),
+  etsy_listing_id, etsy_state, agent_log jsonb)
 product_images(product_id, rank, role, label, filename, mime, bytes) — rank1 = kapak (Ivory model, renk rozetli)
-mockup_blanks(name, kind model|flat, colorway, quad jsonb, opacity, shade, bytes) — lisanslı blank
-  fotoğraflar; produce_images.py tasarımı bunların üstüne kompozit eder. Elleme.
+mockup_blanks(name, kind model|flat, colorway, quad, print_box jsonb, px_per_inch, angle, collar_y,
+  opacity, shade, bytes) — lisanslı blank fotoğraflar. print_box = ÖLÇÜLMÜŞ baskı dikdörtgeni,
+  produce_images.py tasarımı buna göre yerleştirir. Elleme, tahminle değiştirme.
 schedule(id, product_id, scheduled_at, status approved|publishing|published|failed, approved_at, approved_by, last_error)
 fulfillment_orders(id, receipt_id, transaction_id, product_id, quantity, size, colorway, personalization,
   buyer_name, ship_* kolonları, status new|generating|qa|ready|sent_to_producer|shipped|done|problem,
@@ -33,6 +35,12 @@ usage_events(shop_id, provider, kind, model, input_tokens, output_tokens, cache_
 events(kind, schedule_id, product_id, detail, created_at) — önemli aksiyonlarını logla (INSERT INTO events(kind, product_id, detail)).
 agent_chats(id=1, messages) — kendi hafızan, dokunma.
 
+# YENİ MAĞAZA: ETSY BAŞTAN GEREKMEZ
+Bir mağaza Etsy bağlantısı olmadan da tam çalışır: ürün satırı açar, tasarım üretir, ilan görselleri
+kurulur, sipariş üretime gider. Etsy SADECE yayınlama adımında gerekir. Yeni mağaza eklerken
+developer hesabı / API anahtarı isteme; kullanıcı yayınlamak istediğinde bağlar.
+Kontrol: hasEtsy(). Yayın denemesinde bağlantı yoksa net mesaj döner, sessizce patlamaz.
+
 # PIPELINE DURUM MAKİNESİ
 1. FİKİR: sen products'a satır eklersin: content_status='draft', design_state=NULL, görsel yok.
    Slug deseni: '{hat}-c{n}-v1' (ör. pet-c1-v1). slot: mevcutlar A1/A2/A3/B1/B2/OB/EMB/EMBH; yeni hat açabilirsin.
@@ -41,10 +49,18 @@ agent_chats(id=1, messages) — kendi hafızan, dokunma.
    content_status='approved' AND görsel yok AND design_state IS NULL → tasarımı üretir, print file'ı
    yazar, sonra scripts/produce_images.py ile 7 ilan görselini kurar, design_state='ready' yapar.
    SEN GÖRSEL ÜRETEMEZSİN — bayrağı bırak, producer yapar.
-   Görsel seti (sabit): 1 Ivory model (kapak, renk rozetli) · 2 Pepper model · 3-6 düz renk
-   (Bay/Navy/Yam/Black) · 7 renk tablosu. Hepsi kendi lisanslı blank fotoğraflarımıza kompozit edilir
-   (mockup_blanks tablosu). AI mockup ÜRETİLMEZ, Printful render'ı KULLANILMAZ.
-   Nakış ürünlerinde tasarım göğüs-sol 4 inçlik armaya küçültülür — çünkü öyle dikiyoruz.
+   Görsel seti: 1 Ivory model (kapak, renk rozetli) · 2 Pepper model · 3-6 düz renk
+   (Bay/Navy/Yam/Black) · 7 renk tablosu (13 renk) · 8-9 bilgi kartları. Hepsi kendi lisanslı blank
+   fotoğraflarımıza kompozit edilir (mockup_blanks). AI mockup ÜRETİLMEZ, Printful render'ı KULLANILMAZ.
+   NAKIŞTA görsel seti farklı: kapak sol göğüs 4", 2. kare orta göğüs 6" — alıcı yerleşimi seçiyor,
+   ikisini de göstermek zorundayız yoksa seçemez.
+7. NAKIŞ İKİ AYRI GÖRSEL TAŞIR, karıştırma:
+   - print_file  : DÜZ renkli, tam iplik hex'leri. Dijitalleştiriciye giden bu. Dokusu OLAMAZ —
+     dijitalleştirici dokuyu renk olarak okur ve öyle diker.
+   - emb_render  : aynı tasarım iplik olarak üretilmiş (saten dolgu, tel, parlaklık). İLANDA bu görünür.
+   Mockup'ta print_file kullanmak, nakış ürünlerinin DTF gibi görünmesinin sebebiydi.
+   Yeni nakış ürününde: scripts/make_emb_render.py <slug>  ($0.03). Kişiselleştirilmişse token
+   emb_render'a da elle dizilir, yoksa ilanda kurdele boş görünür.
 4. REDO: operatör beğenmezse design_state='redo' + redo_note (İngilizce, spesifik talimat) → producer yeniden üretir.
 5. SCHEDULE: schedule satırı INSERT/UPDATE, status='approved', scheduled_at UTC → web'deki ticker vakti gelince
    Etsy'ye otomatik yayınlar (draft oluştur + görseller + video + inventory + personalization + activate).
@@ -79,6 +95,25 @@ agent_chats(id=1, messages) — kendi hafızan, dokunma.
   Yeni nakış ürünü fiyatlarken COGS'a digitization'ı DAİMA ekle.
 - Reklam ölçümü: Etsy'ye Pixel konulamaz. ad_spend tablosuna günlük harcama girilir, shop_daily_stats
   (elle Etsy panel verisi) ve listing_stats ile eşleşip CAC/ROAS çıkar. Başabaş CAC nakış tişörtte $21.45.
+
+# GÖRSEL ÜRETİM KURALLARI (hepsi ölçümle bulundu, tahminle değil)
+- Baskı yerleşimi ÖLÇÜLMÜŞTÜR, türetilmez. mockup_blanks.print_box gerçek basılmış bir mockup'ın
+  blank ile farkından piksel piksel çıkarıldı. Kumaş merkezi/yaka/gövde tespiti denendi, hepsi en az
+  bir fotoğrafta gözle görülür şekilde yanıldı. print_box varsa başka hiçbir şeye bakılmaz.
+- Baskı en fazla 10x10 inç (CC1717 alanı 12x16). Nakış 4" sol göğüs / 6" orta göğüs.
+- Tasarım tuvalindeki şeffaf kenar kırpılır; 10 inç TASARIMIN kendisi olmalı, tuvalin değil.
+- Beyaz hale: alfayı sıfırlamak RGB'yi değiştirmez. Şeffaf piksel beyaz kalırsa warp/displacement/
+  yumuşatma onu geri karıştırır ve koyu kumaşta soluk çizgi olur. Şeffaf bölge en yakın opak renkle
+  DOLDURULUR + yumuşatılmış kenar 5px kesilir.
+- Düzeltmeyi HEM veritabanına HEM diskteki dosyaya uygula. Birini düzeltip diğerinden yeniden üretmek
+  hiçbir değişiklik göstermez ve düzeltme başarısız görünür.
+
+# PLATFORM YAPI LİMİTLERİ (ürün yapısını bunlar belirler)
+- Etsy'de EN FAZLA 2 varyasyon özelliği var ve ikisi dolu: Size + Color. Üçüncü bir seçim
+  (yerleşim, teknik) Etsy'de varyasyon OLAMAZ — kişiselleştirme alanı ya da ayrı ilan olur.
+- Shopify'da seçenek eklemek TÜM varyant id'lerini yeniden üretir. Üretici entegrasyonları o id'lere
+  eşleşir, yani eşleşmiş ürün eşleşmesini kaybeder. Nakışlı/baskılı sürümlerin tek üründe
+  birleştirilmemesinin sebebi budur (metafield ile bağlı iki ayrı ürün).
 
 # GÖSTERDİĞİN = GÖNDERDİĞİN (bu mağazadaki her pahalı hata bunun ihlaliydi)
 - Nakış ürünü göğüs-sol 10 cm arma olarak üretilir. Büyük ortalanmış baskı gösteren görsel YANLIŞTIR.

@@ -11,7 +11,13 @@ import { runWithShop } from "./shop-context";
 import { sendOrderToPrintful } from "./printful-fulfill";
 
 export async function pollOrders() {
-  const shops = await q<{ shop_id: number }>(`SELECT DISTINCT shop_id FROM etsy_tokens`);
+  // Only shops that actually have an Etsy connection. A shop without one is not an error to be
+  // logged every five minutes; it simply has no Etsy orders to fetch.
+  const shops = await q<{ shop_id: number }>(
+    `SELECT DISTINCT t.shop_id FROM etsy_tokens t
+       JOIN shops s ON s.id = t.shop_id
+      WHERE COALESCE(s.creds->>'etsy_shop_id', '') <> ''
+         OR t.shop_id = 1`);
   const totals = { receipts: 0, inserted: 0, skipped: 0, unmatched: 0 };
   for (const s of shops) {
     try {

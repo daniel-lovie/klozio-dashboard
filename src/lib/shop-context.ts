@@ -37,6 +37,12 @@ function envCtx(): ShopCtx {
   };
 }
 
+/** Does this shop have a usable Etsy connection? Checked where Etsy is actually called. */
+export function hasEtsy(ctx?: ShopCtx): boolean {
+  const c = ctx ?? shopCtx();
+  return !!c.etsyShopId && c.apiKey.includes(":");
+}
+
 export function shopCtx(): ShopCtx {
   return als.getStore() ?? envCtx();
 }
@@ -59,7 +65,10 @@ export async function runWithShop<T>(dbShopId: number, fn: () => Promise<T>): Pr
     printfulApiKey: c.printful_api_key || process.env.PRINTFUL_API_KEY || "",
     printfulStoreId: c.printful_store_id || process.env.PRINTFUL_STORE_ID || "",
   };
-  if (!ctx.etsyShopId || !ctx.apiKey.includes(":"))
-    throw new Error(`shop ${dbShopId}: Etsy credentials incomplete (shop_id/api key)`);
+  // Deliberately NOT a precondition. A new shop should be able to hold products, generate designs,
+  // build listing images and fulfil orders before anyone has an Etsy developer account — Etsy is one
+  // sales channel, not the price of entry. Throwing here also took out work that has nothing to do
+  // with Etsy: the Printful fulfilment path and the analytics snapshot both run inside this context.
+  // The Etsy client refuses with a clear message at the point of use instead; see hasEtsy().
   return als.run(ctx, fn);
 }

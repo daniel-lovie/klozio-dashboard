@@ -15,7 +15,7 @@
 import fs from "fs";
 import path from "path";
 import { q, one, logEvent } from "./db";
-import { runWithShop, shopCtx } from "./shop-context";
+import { runWithShop, shopCtx, hasEtsy } from "./shop-context";
 import {
   createDraftListing,
   setListingPersonalization,
@@ -77,7 +77,14 @@ export async function claimDue(limit = 5): Promise<DueRow[]> {
 export async function publishOne(row: DueRow): Promise<{ ok: boolean; listingId?: number; error?: string }> {
   const { schedule_id, product_id } = row;
   const shopRow = await one<{ shop_id: number }>(`SELECT shop_id FROM products WHERE id=$1`, [product_id]);
-  return runWithShop(shopRow?.shop_id ?? 1, () => publishOneInner(row));
+  return runWithShop(shopRow?.shop_id ?? 1, async () => {
+    // Publishing is the one step that genuinely needs the channel connected. Say so plainly rather
+    // than failing deep inside an API call.
+    if (!hasEtsy()) {
+      throw new Error(`shop ${shopRow?.shop_id ?? 1}: Etsy baglantisi yok — yayinlamadan once baglayin`);
+    }
+    return publishOneInner(row);
+  });
 }
 
 async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: number; error?: string }> {

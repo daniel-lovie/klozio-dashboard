@@ -59,9 +59,13 @@ EMB_DROP_IN = 2.2
 # Embroidery is not only a left-chest badge. Centre chest carries a wider crest, and a bigger badge
 # is legitimate there because it sits on the flat of the chest rather than over the pectoral curve.
 # Size still stays small — stitch count is what the supplier bills and what stiffens the garment.
+# Both placements at the same 4 inches, because size is a production decision and position is the
+# buyer's. Centre chest was 6 inches while it was the only alternative to a small left badge; now
+# that both are offered the difference has to be position alone, or the two options are not
+# comparable and the listing is choosing for them.
 EMB_PLACEMENTS = {
-    "embroidery_chest_left":   {"inches": 4.0, "x": 0.78, "y": 0.06},
-    "embroidery_chest_center": {"inches": 6.0, "x": 0.50, "y": 0.10},
+    "embroidery_chest_left":   {"inches": 4.0, "x": 0.78, "y": 0.06, "label": "Left chest"},
+    "embroidery_chest_center": {"inches": 4.0, "x": 0.50, "y": 0.08, "label": "Centre chest"},
 }
 EMB_DEFAULT = "embroidery_chest_left"
 
@@ -104,16 +108,10 @@ def design_image(path: Path) -> Image.Image:
 # Print sizes in inches on the longest side. Embroidery is a chest badge and nothing else: a needle
 # has a minimum stitch length, so a large stitched panel is both slow to run and stiff to wear, and
 # every extra square inch is stitch count somebody pays for.
-MAX_PRINT_IN = 10.0
 
 # Embroidery is not only a left-chest badge. Centre chest carries a wider crest, and a bigger badge
 # is legitimate there because it sits on the flat of the chest rather than over the pectoral curve.
 # Size still stays small — stitch count is what the supplier bills and what stiffens the garment.
-EMB_PLACEMENTS = {
-    "embroidery_chest_left":   {"inches": 4.0, "x": 0.78, "y": 0.06},
-    "embroidery_chest_center": {"inches": 6.0, "x": 0.50, "y": 0.10},
-}
-EMB_DEFAULT = "embroidery_chest_left"
 
 
 def rotate_quad(quad, deg: float) -> list:
@@ -342,7 +340,18 @@ def main() -> None:
                 print(f"    {d.name}: emb_render yok -> make_emb_render.py calistirilmali")
         files: list[Path] = []
         try:
-            for tpl, colour in MODELS:
+            # An embroidery listing has to show both placements, or the buyer cannot see what the
+            # choice means. Cover is the left badge; the second frame is the same badge centred.
+            if emb:
+                for tpl, colour in MODELS[:1]:
+                    for place, tag in (("embroidery_chest_left", "left"),
+                                       ("embroidery_chest_center", "center")):
+                        p = render(design, tpl, cfg, shots / f"{d.name}-{tag}-model.jpg", emb,
+                                   placement=place, mockup_src=mock_src)
+                        lbl = EMB_PLACEMENTS[place]["label"]
+                        badge(Image.open(p).convert("RGB"), f"{colour} · {lbl}").save(p, quality=93)
+                        files.append(p)
+            for tpl, colour in MODELS[1:] if emb else MODELS:
                 p = render(design, tpl, cfg, shots / f"{d.name}-{colour.lower()}-model.jpg", emb,
                            placement=placement, mockup_src=mock_src)
                 badge(Image.open(p).convert("RGB"), colour).save(p, quality=93)

@@ -47,19 +47,27 @@ def font(path: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-def chest_left(quad) -> list:
-    """The 4-inch badge quad, for products fulfilled at embroidery_chest_left."""
+# Both at 4 inches: the size is ours to decide, the position is the buyer's, so the two options must
+# differ only in position or they are not a comparable choice.
+EMB_SPOTS = {"left": {"x": 0.78, "y": 0.06, "label": "Left chest"},
+             "center": {"x": 0.50, "y": 0.08, "label": "Centre chest"}}
+EMB_INCHES = 4.0
+
+
+def badge_quad(quad, spot: dict, inches: float = EMB_INCHES) -> list:
+    """A 4-inch badge placed at a named spot inside the garment's print area."""
     (x0, y0), (x1, _), _, (_, y3) = [tuple(pt) for pt in quad]
     w, h = x1 - x0, y3 - y0
-    side = int(w * 0.30)
-    cx = int(x0 + w * 0.50 + w * 0.28)
-    top = int(y0 + h * 0.06)
+    side = int(w * inches / 10.0)             # the print box spans ten inches
+    cx = int(x0 + w * spot["x"])
+    top = int(y0 + h * spot["y"])
     return [[cx - side // 2, top], [cx + side // 2, top],
             [cx + side // 2, top + side], [cx - side // 2, top + side]]
 
 
-def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bool) -> Image.Image:
-    quad = chest_left(tpl["quad"]) if embroidery else tpl["quad"]
+def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bool,
+              spot: str = "left") -> Image.Image:
+    quad = badge_quad(tpl["quad"], EMB_SPOTS[spot]) if embroidery else tpl["quad"]
     placed = warp(design, quad, blank.size)
     art = np.asarray(placed).astype(float)
     # ink bleeds into the weave; a die-cut alpha edge is what makes a composite look pasted
@@ -146,15 +154,22 @@ def main() -> None:
     pid = int(sys.argv[1])
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
-    cur.execute("SELECT slug, technique, print_file FROM products WHERE id=%s", (pid,))
+    cur.execute("SELECT slug, technique, print_file, emb_render FROM products WHERE id=%s", (pid,))
     row = cur.fetchone()
     if not row:
         sys.exit(f"urun {pid} yok")
-    slug, technique, print_file = row
+    slug, technique, print_file, emb_render = row
     if not print_file:
         sys.exit(f"{slug}: print_file yok — once tasarim uretilmeli")
     emb = technique == "embroidery"
-    design = Image.open(io.BytesIO(bytes(print_file))).convert("RGBA")
+    # The listing shows thread; print_file stays flat because the digitiser reads it as colour.
+    # Compositing the production file is what made embroidery mockups look like DTF.
+    src = emb_render if (emb and emb_render) else print_file
+    if emb and not emb_render:
+        print(f"UYARI {slug}: emb_render yok, duz dosya kullanildi "
+              f"(scripts/make_emb_render.py {slug})", file=sys.stderr)
+    design = Image.open(io.BytesIO(bytes(src))).convert("RGBA")
+    design = design.crop(design.getbbox() or (0, 0, design.width, design.height))
 
     cur.execute("SELECT name, colorway, quad, opacity, shade, bytes FROM mockup_blanks")
     blanks = {}
@@ -167,7 +182,14 @@ def main() -> None:
         sys.exit("mockup_blanks bos — blank'ler yuklenmeli")
 
     images: list[tuple[str, str, str, bytes]] = []
-    for name in MODELS:
+    if emb:
+        # The listing has to show both placements or the buyer cannot see what the choice means.
+        b = blanks[MODELS[0]]
+        for spot in ("left", "center"):
+            im = badge(composite(design, b["image"], b, emb, spot),
+                       f"{b['colorway']} · {EMB_SPOTS[spot]['label']}")
+            images.append((f"{slug}-{spot}-model.jpg", "model", b["colorway"], jpeg(im, 93)))
+    for name in (MODELS[1:] if emb else MODELS):
         b = blanks[name]
         im = badge(composite(design, b["image"], b, emb), b["colorway"])
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-model.jpg",

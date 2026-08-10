@@ -62,7 +62,13 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
       if (!line) continue;
       let ev: any;
       try { ev = JSON.parse(line.slice(6)); } catch { continue; }
-      if (ev.type === "message_start") {
+      if (ev.type === "error") {
+        // Anthropic reports mid-stream failures (overloaded_error, api_error) as an event, not an
+        // HTTP status. Ignoring it left `content` empty, the turn ended silently, and the empty
+        // assistant message was then persisted — which the API rejects, so every later turn failed
+        // too. One dropped event was turning a transient hiccup into a permanently broken thread.
+        throw new Error(`Anthropic stream error: ${JSON.stringify(ev.error ?? ev).slice(0, 200)}`);
+      } else if (ev.type === "message_start") {
         usage.input_tokens += ev.message?.usage?.input_tokens ?? 0;
         usage.cache_read += ev.message?.usage?.cache_read_input_tokens ?? 0;
         usage.cache_write += ev.message?.usage?.cache_creation_input_tokens ?? 0;
@@ -106,6 +112,10 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
         if (ev.kind === "text") yield { t: "text", d: ev.text };
         else assistant = ev;
       }
+      if (!assistant?.content?.length) {
+        // A cut-off stream yields nothing. Storing it poisons the thread, so fail loudly instead.
+        throw new Error("model bos yanit dondu (akis kesildi) — tekrar deneyin");
+      }
       messages.push({ role: "assistant", content: assistant.content });
       const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 };
       // opus per MTok: in $15, cache write $18.75, cache read $1.50, out $75; BYO key -> their bill
@@ -127,7 +137,15 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
   } catch (e: any) {
     yield { t: "error", d: String(e?.message ?? e).slice(0, 400) };
   } finally {
-    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE shop_id=$2`, [JSON.stringify(messages.slice(-60)), shopId]);
+    // Never persist a message the API will reject on the next turn: an empty content array, or a
+    // tool_use whose result never arrived.
+    const clean = messages.filter((m: any) =>
+      typeof m.content === "string" || (Array.isArray(m.content) && m.content.length > 0));
+    while (clean.length && clean[clean.length - 1].role === "assistant"
+           && clean[clean.length - 1].content?.some?.((b: any) => b.type === "tool_use")) {
+      clean.pop();
+    }
+    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE shop_id=$2`, [JSON.stringify(clean.slice(-60)), shopId]);
   }
   yield { t: "done" };
 }

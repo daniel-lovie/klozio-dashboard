@@ -217,7 +217,8 @@ def main():
     ap.add_argument("--niche", help="comma separated; only these niches")
     ap.add_argument("--refresh-images", action="store_true", help="replace media on existing products")
     a = ap.parse_args()
-    conn = psycopg2.connect(os.environ["DATABASE_URL"]); cur = conn.cursor()
+    conn = psycopg2.connect(os.environ["DATABASE_URL"], keepalives=1, keepalives_idle=20,
+                            keepalives_interval=8, keepalives_count=3); cur = conn.cursor()
     q = """SELECT p.id, p.slug, p.title, p.description, p.tags, p.colorways, p.sizes,
                   p.price_cents, COALESCE(p.slot,'') AS slot, COALESCE(p.niche,'') AS niche
              FROM products p

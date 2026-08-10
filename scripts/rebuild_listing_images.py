@@ -59,13 +59,13 @@ EMB_DROP_IN = 2.2
 # Embroidery is not only a left-chest badge. Centre chest carries a wider crest, and a bigger badge
 # is legitimate there because it sits on the flat of the chest rather than over the pectoral curve.
 # Size still stays small — stitch count is what the supplier bills and what stiffens the garment.
-# Both placements at the same 4 inches, because size is a production decision and position is the
-# buyer's. Centre chest was 6 inches while it was the only alternative to a small left badge; now
-# that both are offered the difference has to be position alone, or the two options are not
-# comparable and the listing is choosing for them.
+# Two genuinely different products, not one product in two positions. A left-chest badge is small
+# because it sits over the pectoral curve; centre chest lies on the flat of the chest and carries a
+# bigger crest, which is why it is worth offering at all. Both stay well under a print: stitch count
+# is what the supplier bills and what stiffens the garment.
 EMB_PLACEMENTS = {
-    "embroidery_chest_left":   {"inches": 4.0, "x": 0.78, "y": 0.06, "label": "Left chest"},
-    "embroidery_chest_center": {"inches": 4.0, "x": 0.50, "y": 0.08, "label": "Centre chest"},
+    "embroidery_chest_left":   {"inches": 4.0, "x": 0.78, "y": 0.06, "label": "Left chest 4\""},
+    "embroidery_chest_center": {"inches": 6.0, "x": 0.50, "y": 0.10, "label": "Centre chest 6\""},
 }
 EMB_DEFAULT = "embroidery_chest_left"
 

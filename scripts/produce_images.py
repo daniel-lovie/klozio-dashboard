@@ -49,16 +49,15 @@ def font(path: str, size: int) -> ImageFont.FreeTypeFont:
 
 # Both at 4 inches: the size is ours to decide, the position is the buyer's, so the two options must
 # differ only in position or they are not a comparable choice.
-EMB_SPOTS = {"left": {"x": 0.78, "y": 0.06, "label": "Left chest"},
-             "center": {"x": 0.50, "y": 0.08, "label": "Centre chest"}}
-EMB_INCHES = 4.0
+EMB_SPOTS = {"left":   {"x": 0.78, "y": 0.06, "inches": 4.0, "label": 'Left chest 4"'},
+             "center": {"x": 0.50, "y": 0.10, "inches": 6.0, "label": 'Centre chest 6"'}}
 
 
-def badge_quad(quad, spot: dict, inches: float = EMB_INCHES) -> list:
+def badge_quad(quad, spot: dict, inches: float | None = None) -> list:
     """A 4-inch badge placed at a named spot inside the garment's print area."""
     (x0, y0), (x1, _), _, (_, y3) = [tuple(pt) for pt in quad]
     w, h = x1 - x0, y3 - y0
-    side = int(w * inches / 10.0)             # the print box spans ten inches
+    side = int(w * (inches or spot.get("inches", 4.0)) / 10.0)   # the print box spans ten inches
     cx = int(x0 + w * spot["x"])
     top = int(y0 + h * spot["y"])
     return [[cx - side // 2, top], [cx + side // 2, top],

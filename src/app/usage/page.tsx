@@ -2,9 +2,15 @@
 import { redirect } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { currentShopId, getShop } from "@/lib/shops";
 
 export default async function UsagePage() {
   if (!(await isLoggedIn())) redirect("/login");
+  // Scoped to the active shop. This page grouped by shop name with no filter, so every operator saw
+  // every other company's token spend and cost — the one page where that is least acceptable, since
+  // it is the billing base.
+  const shopId = await currentShopId();
+  const shop = await getShop(shopId);
 
   const agg = await q<any>(`
     SELECT s.name AS shop, u.provider,
@@ -16,13 +22,15 @@ export default async function UsagePage() {
            sum(u.cost_usd) FILTER (WHERE u.created_at >= date_trunc('month', now()))::numeric AS cost_month,
            sum(u.cost_usd)::numeric AS cost_total, sum(u.units)::numeric AS units_total
       FROM usage_events u JOIN shops s ON s.id = u.shop_id
-     GROUP BY s.name, u.provider ORDER BY s.name, u.provider`);
+     WHERE u.shop_id = $1
+     GROUP BY s.name, u.provider ORDER BY u.provider`, [shopId]);
 
   const recent = await q<any>(`
     SELECT s.name AS shop, u.provider, u.kind, u.model, u.input_tokens, u.output_tokens,
            u.units, u.cost_usd, to_char(u.created_at, 'MM-DD HH24:MI') AS at
       FROM usage_events u JOIN shops s ON s.id = u.shop_id
-     ORDER BY u.id DESC LIMIT 25`);
+     WHERE u.shop_id = $1
+     ORDER BY u.id DESC LIMIT 25`, [shopId]);
 
   const num = (v: any) => (v == null ? "—" : Number(v).toLocaleString("en-US"));
 
@@ -30,7 +38,7 @@ export default async function UsagePage() {
     <main className="mx-auto max-w-[1100px] px-6 py-8">
       <h1 className="mb-1 text-2xl font-semibold">Kullanım</h1>
       <p className="mb-6 text-sm text-muted">
-        Mağaza bazlı sağlayıcı tüketimi. Anthropic = token & tahmini USD (Opus $15/$75 per MTok varsayımı);
+        {shop?.name ?? "Bu mağaza"} — sağlayıcı tüketimi. Anthropic = token & tahmini USD (Opus $15/$75 per MTok varsayımı);
         Higgsfield = iş adedi (kredi karşılığı eklenecek). Credit-bazlı faturalamanın temeli.
       </p>
 

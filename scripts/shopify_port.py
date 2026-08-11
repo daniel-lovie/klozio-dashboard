@@ -111,12 +111,31 @@ mutation ps($input: ProductSetInput!, $sync: Boolean) {
   }
 }"""
 
+def assert_handle(pid, wanted):
+    """Refuse a product Shopify renamed.
+
+    When the requested handle is already taken, Shopify does not fail — it appends `-1` and creates a
+    SECOND product. The porter treated that as success, so a lookup that missed for any reason (a
+    transient error, a draft the identifier query did not return) silently duplicated the tee on the
+    storefront. Eighty-eight of them accumulated before anyone looked. Delete the impostor rather than
+    leave it live, and say which handle collided.
+    """
+    got = gql("query($id:ID!){ product(id:$id){ handle } }", {"id": pid})["product"]["handle"]
+    if got == wanted:
+        return pid
+    gql("""mutation($input: ProductDeleteInput!) { productDelete(input: $input) {
+             deletedProductId userErrors { message } } }""", {"input": {"id": pid}})
+    raise RuntimeError(f"handle '{wanted}' zaten kullanimda; Shopify '{got}' olarak kopya yaratti, "
+                       f"kopya silindi — mevcut urunu --refresh-images ile guncelle")
+
+
 def product_set(inp, nvars):
     sync = nvars <= 100
     d = gql(PRODUCT_SET, {"input": inp, "sync": sync})
     ps = d["productSet"]
     if ps["userErrors"]: raise RuntimeError(f"productSet: {ps['userErrors'][:3]}")
-    if sync: return ps["product"]["id"]
+    if sync: return assert_handle(ps["product"]["id"], inp["handle"]) if inp.get("handle") \
+        else ps["product"]["id"]
     op = ps["productSetOperation"]["id"]
     for _ in range(60):
         time.sleep(2)
@@ -124,7 +143,8 @@ def product_set(inp, nvars):
         o = od["productOperation"]
         if o["status"] == "COMPLETE":
             if o["userErrors"]: raise RuntimeError(f"async productSet: {o['userErrors'][:3]}")
-            return o["product"]["id"]
+            pid = o["product"]["id"]
+            return assert_handle(pid, inp["handle"]) if inp.get("handle") else pid
         if o["status"] == "FAILED": raise RuntimeError(f"async productSet FAILED: {o.get('userErrors')}")
     raise RuntimeError("async productSet timeout")
 
@@ -215,6 +235,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only"); ap.add_argument("--limit", type=int)
     ap.add_argument("--niche", help="comma separated; only these niches")
+    # The store sells one shop's catalogue. Without this filter the porter published every product that
+    # had images — 188 of another shop's Etsy-only listings ended up on the storefront.
+    ap.add_argument("--shop", type=int, help="only this shop_id (zorunlu degil ama filtresiz cok riskli)")
     ap.add_argument("--refresh-images", action="store_true", help="replace media on existing products")
     a = ap.parse_args()
     conn = psycopg2.connect(os.environ["DATABASE_URL"], keepalives=1, keepalives_idle=20,
@@ -227,6 +250,7 @@ def main():
     params = []
     if a.only: q += " AND p.slug=%s"; params.append(a.only)
     if a.niche: q += " AND p.niche = ANY(%s)"; params.append(a.niche.split(","))
+    if a.shop: q += " AND p.shop_id = %s"; params.append(a.shop)
     q += " ORDER BY p.slot, p.id"
     if a.limit: q += f" LIMIT {a.limit}"
     cur.execute(q, params or None)

@@ -4,6 +4,7 @@
  * POST /api/cron/publish with CRON_SECRET; the DB lock makes that safe.
  */
 import { runDue } from "./publish";
+import { produceDue } from "./producer";
 import { pollOrders } from "./orders";
 import { snapshotAllShops } from "./analytics";
 import { adInsights } from "./meta";
@@ -18,6 +19,7 @@ declare global {
   var __klozioStatsTicker: NodeJS.Timeout | undefined;
   // eslint-disable-next-line no-var
   var __klozioMetaTicker: NodeJS.Timeout | undefined;
+  var __klozioProducerTicker: NodeJS.Timeout | undefined;
 }
 
 export function startScheduler() {
@@ -50,6 +52,24 @@ export function startScheduler() {
       console.error("[orders] poll failed:", e);
     }
   };
+  // Producer: approved products with no artwork become publish-ready without anyone asking. One at a
+  // time on purpose — each pass is a paid Higgsfield call plus seven composites, and serialising keeps a
+  // burst of approvals from running the container out of memory or the account out of credit.
+  const produceInterval = Number(process.env.PRODUCER_INTERVAL_MS || 90000);
+  const produceTick = async () => {
+    try {
+      const out = await produceDue(1);
+      if (out.produced || out.failed) console.log("[producer]", JSON.stringify(out));
+    } catch (e) {
+      console.error("[producer] tick failed:", e);
+    }
+  };
+  if (process.env.ENABLE_PRODUCER !== "false") {
+    global.__klozioProducerTicker = setInterval(produceTick, produceInterval);
+    global.__klozioProducerTicker.unref?.();
+    console.log(`[producer] every ${produceInterval}ms`);
+  }
+
   global.__klozioOrderTicker = setInterval(orderTick, orderInterval);
   global.__klozioOrderTicker.unref?.();
   console.log(`[orders] polling every ${orderInterval}ms`);

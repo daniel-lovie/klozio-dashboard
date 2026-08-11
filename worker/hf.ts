@@ -9,6 +9,8 @@
 import pg from "pg";
 
 const MCP_URL = "https://mcp.higgsfield.ai/mcp";
+// The account the platform pays for. A tenant without its own connection falls back to it.
+const PLATFORM_SHOP_ID = Number(process.env.HF_PLATFORM_SHOP_ID || 1);
 const TOKEN_URL = "https://mcp.higgsfield.ai/oauth2/token";
 
 function db() {
@@ -18,13 +20,36 @@ function db() {
   return new pg.Client({ connectionString: url, ssl: isLocal ? undefined : { rejectUnauthorized: false } });
 }
 
-async function loadToken(): Promise<{ access: string; refresh: string; clientId: string; expiresAt: Date }> {
+/**
+ * Which shop's Higgsfield account to spend. HF_SHOP_ID is set by the caller (the batch runner passes
+ * the campaign's shop); absent, it falls back to the platform account.
+ *
+ * This used to read `WHERE id=1` unconditionally, so ANY shop generating a design spent the operator's
+ * Higgsfield credit — a second tenant's images were billed to the first. The table already carried
+ * shop_id; only this query did not use it.
+ */
+function shopId(): number {
+  const v = Number(process.env.HF_SHOP_ID);
+  return Number.isFinite(v) && v > 0 ? v : PLATFORM_SHOP_ID;
+}
+
+async function loadToken(): Promise<{ access: string; refresh: string; clientId: string; expiresAt: Date; shop: number }> {
   const c = db(); await c.connect();
   try {
-    const r = await c.query(`SELECT access_token, refresh_token, client_id, expires_at FROM hf_tokens WHERE id=1`);
-    if (!r.rows.length) throw new Error("hf_tokens empty — run scripts/seed-hf-tokens.mts");
+    const want = shopId();
+    // The shop's own account first; the platform account only as an explicit fallback, so a tenant that
+    // has not connected Higgsfield still works and the cost is knowingly ours.
+    const r = await c.query(
+      `SELECT access_token, refresh_token, client_id, expires_at, shop_id FROM hf_tokens
+        WHERE shop_id = $1 OR shop_id = $2
+        ORDER BY (shop_id = $1) DESC LIMIT 1`, [want, PLATFORM_SHOP_ID]);
+    if (!r.rows.length) throw new Error(`hf_tokens: shop ${want} icin token yok — scripts/seed-hf-tokens.mts`);
     const row = r.rows[0];
-    return { access: row.access_token, refresh: row.refresh_token, clientId: row.client_id, expiresAt: new Date(row.expires_at) };
+    if (row.shop_id !== want) {
+      console.warn(`[hf] shop ${want} kendi Higgsfield hesabini baglamamis; platform hesabi kullanildi`);
+    }
+    return { access: row.access_token, refresh: row.refresh_token, clientId: row.client_id,
+             expiresAt: new Date(row.expires_at), shop: row.shop_id };
   } finally { await c.end(); }
 }
 
@@ -41,8 +66,8 @@ async function refreshToken(): Promise<string> {
   try {
     await c.query(
       `UPDATE hf_tokens SET access_token=$1, refresh_token=COALESCE($2, refresh_token),
-              expires_at=now() + ($3 || ' seconds')::interval, updated_at=now() WHERE id=1`,
-      [json.access_token, json.refresh_token ?? null, String(json.expires_in ?? 3600)]
+              expires_at=now() + ($3 || ' seconds')::interval, updated_at=now() WHERE shop_id=$4`,
+      [json.access_token, json.refresh_token ?? null, String(json.expires_in ?? 3600), t.shop]
     );
   } finally { await c.end(); }
   return json.access_token as string;

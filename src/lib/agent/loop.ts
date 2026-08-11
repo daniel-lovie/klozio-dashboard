@@ -48,6 +48,44 @@ function promisedWork(said: string): boolean {
   return PROMISE.test(said) || PROMISED_SQL.test(said);
 }
 
+/** Make a message list satisfy the API's tool-pairing contract, whatever slicing did to it.
+ *
+ * A tool_result does not ride in its own message — it is content inside a USER message. So "trim until
+ * the first user message" is not a clean boundary: it happily leaves a tool_result whose tool_use was
+ * dropped by the window slice, and the API answers 400 "unexpected tool_use_id found in tool_result
+ * blocks". That failure is permanent rather than transient, because the broken prefix is what gets
+ * persisted and replayed on every later message — the operator sees the agent die on every attempt and
+ * clearing the chat is the only way out.
+ *
+ * Both ends of the round trip slice a window (40 on load, 60 on save), so both ends need this.
+ */
+function sanitiseHistory(messages: any[]): any[] {
+  const out: any[] = [];
+  let offered = new Set<string>();          // tool_use ids the previous assistant message asked for
+  for (const m of messages) {
+    if (m?.role === "assistant") {
+      const blocks = Array.isArray(m.content) ? m.content : [];
+      offered = new Set(blocks.filter((b: any) => b?.type === "tool_use").map((b: any) => b.id));
+      if (typeof m.content === "string" ? m.content.length > 0 : blocks.length > 0) out.push(m);
+      continue;
+    }
+    if (!Array.isArray(m?.content)) {
+      if (typeof m?.content === "string" && m.content.length) out.push(m);
+      offered = new Set();
+      continue;
+    }
+    const kept = m.content.filter((b: any) => b?.type !== "tool_result" || offered.has(b.tool_use_id));
+    if (kept.length) out.push({ ...m, content: kept });
+    offered = new Set();
+  }
+  // A tool_use whose results never arrived cannot be the last thing we send or store.
+  while (out.length && out[out.length - 1].role === "assistant"
+         && (out[out.length - 1].content as any[])?.some?.((b: any) => b.type === "tool_use")) {
+    out.pop();
+  }
+  return out;
+}
+
 export type AgentEvent =
   | { t: "text"; d: string }
   | { t: "tool"; d: string }
@@ -157,9 +195,9 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
            HAVING NOT EXISTS (SELECT 1 FROM agent_chats WHERE shop_id=$1)
            ON CONFLICT (shop_id) DO NOTHING`, [shopId]);
   const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE shop_id=$1 ORDER BY id LIMIT 1`, [shopId]);
-  let messages: any[] = (row?.messages ?? []).slice(-40);
-  // a dangling tool_use without its result breaks the API — trim to a clean boundary
-  while (messages.length && messages[0].role !== "user") messages.shift();
+  // Slice the window first, then repair what the slice broke. Doing it the other way round would let a
+  // freshly orphaned tool_result through.
+  let messages: any[] = sanitiseHistory((row?.messages ?? []).slice(-40));
   messages.push({ role: "user", content: `[Aktif mağaza: ${shopName} (shop_id=${shopId}) — tüm SQL sorgularında bu mağazaya filtrele]\n${userText}` });
 
   let wrote = false;                  // did this turn change anything, or only read?
@@ -184,6 +222,10 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
           lastErr = e;
         }
         if (assistant?.content?.length) break;
+        // Retrying is for transient failures. A 400 invalid_request means the payload itself is wrong —
+        // a malformed history, a tool schema, too many tokens — and the same payload will be rejected
+        // every time. Retrying it three times only delays the error the operator needs to see.
+        if (/\b400\b|invalid_request_error/i.test(String(lastErr?.message ?? ""))) break;
         if (attempt < 3) {
           // Say it out loud: text from the failed attempt may already be on screen, and a silent
           // restart would read as the agent repeating itself for no reason.
@@ -193,7 +235,7 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
       }
       if (!assistant?.content?.length) {
         throw new Error(lastErr?.message
-          ? `model yanit vermedi (3 deneme): ${String(lastErr.message).slice(0, 200)}`
+          ? `model yanit vermedi: ${String(lastErr.message).slice(0, 200)}`
           : "model bos yanit dondu (akis 3 kez kesildi) — istegi bolerek deneyin");
       }
       // Echo back only what the API accepts on the next turn. Thinking blocks counted as content above
@@ -252,15 +294,10 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
   } catch (e: any) {
     yield { t: "error", d: String(e?.message ?? e).slice(0, 400) };
   } finally {
-    // Never persist a message the API will reject on the next turn: an empty content array, or a
-    // tool_use whose result never arrived.
-    const clean = messages.filter((m: any) =>
-      typeof m.content === "string" || (Array.isArray(m.content) && m.content.length > 0));
-    while (clean.length && clean[clean.length - 1].role === "assistant"
-           && clean[clean.length - 1].content?.some?.((b: any) => b.type === "tool_use")) {
-      clean.pop();
-    }
-    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE shop_id=$2`, [JSON.stringify(clean.slice(-60)), shopId]);
+    // Never persist a message the API will reject on the next turn: an empty content array, a tool_use
+    // whose result never arrived, or a tool_result the window slice separated from its tool_use.
+    const clean = sanitiseHistory(messages.slice(-60));
+    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE shop_id=$2`, [JSON.stringify(clean), shopId]);
   }
   yield { t: "done" };
 }

@@ -171,6 +171,11 @@ Soru her seferinde şu: müşterinin gördüğü baytı hangi kod üretiyor, ve 
   gibi görünen gerçek bir üründür.
 - Bitince CANLI ÜRÜNÜ İNDİRİP BAK. 'Yükledim' ile 'doğru görünüyor' aynı şey değil.
 
+- SLUG BENZERSİZLİĞİ TÜM MAĞAZALARI KAPSAR, ama RLS sana yalnızca kendi mağazanı gösterir. Kendi
+  SELECT'in boş dönse bile slug başka bir mağazada dolu olabilir; duplicate key hatası göremediğin bir
+  satırı işaret eder. Yeni ürün yazarken slug'ı TAHMİN ETME, prefix değiştirerek deneme:
+  SELECT next_free_slug('sta-c1-v1') çağır, ne dönerse onu kullan.
+
 # PLATFORM TUZAKLARI
 - Etsy görsel upload: rank verilmezse 1 sayılır ve KAPAĞI EZER. Ek görselde rank'i açıkça ver.
 - Etsy personalization: legacy alanlar 400 verir; özel endpoint kullanılır (publish pipeline halleder).

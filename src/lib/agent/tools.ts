@@ -143,6 +143,34 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
     return { result: `unknown tool ${name}`, summary: `? ${name}` };
   } catch (e: any) {
     const msg = String(e?.message ?? e).slice(0, 1200);
-    return { result: `ERROR: ${msg}`, summary: `${name} ▸ HATA` };
+    return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ HATA` };
   }
+}
+
+/** Turn a database error the agent cannot see the cause of into an instruction it can act on.
+ *
+ * RLS hides other shops' rows; products.slug is unique GLOBALLY. So a duplicate-key failure points at a
+ * row the agent is not allowed to read, its own SELECT says the slug is free, and it has nothing to go on
+ * — watched live it burned four turns guessing prefixes and gave up. The constraint stays (operator
+ * scripts look products up by slug alone), so the error has to carry the way out with it.
+ */
+function advice(name: string, e: any): string {
+  const code = e?.code as string | undefined;
+  const detail = `${e?.constraint ?? ""} ${e?.message ?? ""}`;
+  if (code === "23505" && /slug/i.test(detail)) {
+    return "\n\nNOT: slug BENZERSIZLIGI TUM MAGAZALAR ICIN GECERLI ve RLS yuzunden cakisan satiri "
+      + "goremezsin — kendi SELECT'in bos donse de slug dolu olabilir. Tahmin etme: "
+      + "`SELECT next_free_slug('istedigin-slug')` cagir, dondugu degeri kullan.";
+  }
+  if (code === "42501" || /permission denied/i.test(detail)) {
+    return "\n\nNOT: bu satir baska bir magazaya ait ya da rolunun yetkisi yok. Kendi magazanin "
+      + "verisiyle devam et; baska magazaya erismeye calismak yerine durumu bildir.";
+  }
+  if (name === "sql") {
+    // The agent read a rolled-back transaction as a partial write — "muhtemelen zaten insert edilmişti
+    // kısmen" — and then reasoned from a state that never existed. Every sql call is one transaction.
+    return "\n\nNOT: bu cagri tek bir transaction icinde kosar; hata alinca TAMAMEN geri alindi. "
+      + "Kismi yazma diye bir sey yok — sifirdan tekrar dene.";
+  }
+  return "";
 }

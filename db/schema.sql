@@ -377,3 +377,51 @@ CREATE TABLE IF NOT EXISTS jobs (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS jobs_live_idx ON jobs(status, updated_at DESC);
+
+-- A shop's agent cannot see another shop's rows, but products.slug is unique GLOBALLY. The two rules
+-- together produce a failure the agent has no way to diagnose: its SELECT finds nothing, its INSERT
+-- fails on a duplicate key, and the row it collides with is invisible. Watched live, the agent spent
+-- four turns guessing prefixes ("demek ki a4- slug'ları başka bir mağazada var — farklı bir prefix
+-- kullanacağım") and never got a clean run.
+--
+-- Relaxing the constraint to (shop_id, slug) would be the textbook multi-tenant fix, and it is the wrong
+-- one here: twenty-two operator scripts look a product up by slug alone, and each would silently pick an
+-- arbitrary row the first time two shops shared one.
+--
+-- So keep the constraint and give the agent a way to satisfy it. SECURITY DEFINER runs as the owner, so
+-- the search sees every shop; the function returns a STRING, never a row, so nothing about another
+-- shop's catalogue is exposed beyond what the duplicate-key error already revealed.
+CREATE OR REPLACE FUNCTION next_free_slug(base text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  candidate text := base;
+  n int := 1;
+BEGIN
+  IF base IS NULL OR btrim(base) = '' THEN
+    RAISE EXCEPTION 'next_free_slug: base bos olamaz';
+  END IF;
+  -- Bounded: a runaway loop inside a SECURITY DEFINER function is worse than a clear error.
+  WHILE n < 200 LOOP
+    IF NOT EXISTS (SELECT 1 FROM products WHERE slug = candidate) THEN
+      RETURN candidate;
+    END IF;
+    n := n + 1;
+    candidate := base || '-' || n;
+  END LOOP;
+  RAISE EXCEPTION 'next_free_slug: % icin 200 varyantin hepsi dolu', base;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION next_free_slug(text) FROM PUBLIC;
+-- The agent role is created by db/multiuser_rls.sql, which a fresh database may not have run yet.
+DO $do$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'klozio_agent') THEN
+    GRANT EXECUTE ON FUNCTION next_free_slug(text) TO klozio_agent;
+  END IF;
+END
+$do$;

@@ -22,11 +22,12 @@
     "personalizer": "node --experimental-strip-types scripts/personalizer.mts"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.7.1",
     "image-size": "^2.0.2",
     "next": "^15.5.22",
     "pg": "^8.13.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

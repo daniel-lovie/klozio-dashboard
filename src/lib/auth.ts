@@ -41,7 +41,21 @@ export function checkPassword(input: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+/**
+ * Is there a signed-in operator?
+ *
+ * Thirty-five route handlers and pages call this, so the auth provider changes here rather than in
+ * thirty-five files. When Clerk is configured it is the only authority; the shared-password path stays
+ * for the pre-Clerk single-operator mode and for local work without Clerk keys — it is selected by the
+ * ABSENCE of Clerk configuration, never as a fallback when a Clerk check fails, because a fallback that
+ * triggers on failure is a way in.
+ */
 export async function isLoggedIn(): Promise<boolean> {
+  if (process.env.CLERK_SECRET_KEY && process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+    return !!userId;
+  }
   const c = await cookies();
   return verifyToken(c.get(COOKIE)?.value);
 }

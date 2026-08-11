@@ -356,3 +356,24 @@ CREATE TABLE IF NOT EXISTS mockup_blanks (
   bytes      BYTEA NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- Progress for work that runs OUTSIDE the web service. Design generation and listing-image builds
+-- happen on the operator's machine (Higgsfield's client and the compositor are local), so the
+-- dashboard had no way to tell "running" from "nothing is happening" — approving a product looked
+-- identical to a stalled pipeline, and the operator had to ask. Local scripts write a row here and
+-- tick it; the UI reads it. Rows are small and self-expiring in practice: nothing depends on them.
+CREATE TABLE IF NOT EXISTS jobs (
+  id          bigserial PRIMARY KEY,
+  shop_id     int REFERENCES shops(id),
+  kind        text NOT NULL,                     -- design | listing_images | etsy_resync | shopify_refresh
+  label       text NOT NULL,                     -- shown to the operator, e.g. "SPA · 7 tasarım"
+  total       int  NOT NULL DEFAULT 0,           -- 0 = unknown length
+  done        int  NOT NULL DEFAULT 0,
+  failed      int  NOT NULL DEFAULT 0,
+  status      text NOT NULL DEFAULT 'running',   -- running | done | error
+  detail      text,                              -- last step, or the error that stopped it
+  started_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS jobs_live_idx ON jobs(status, updated_at DESC);

@@ -6,14 +6,47 @@ import { q, one } from "./db";
 
 export type Shop = { id: number; slug: string; name: string; creds: Record<string, any>; settings: Record<string, any> };
 
+/**
+ * The shop this request may act on.
+ *
+ * This used to read the `shop_id` cookie and return it unchecked, which made the cookie the
+ * authorisation: a second signed-in user could manage the first user's shop by editing one value. It
+ * now resolves through membership (see lib/user.ts) and the cookie is only a preference.
+ *
+ * When the user has no claim to any shop it returns NO_SHOP rather than 1. Falling back to a real id
+ * would have handed a stranger the operator's catalogue; an id that matches nothing makes every query
+ * return empty, which is the failure the caller can survive.
+ */
+export const NO_SHOP = -1;
+
 export async function currentShopId(): Promise<number> {
+  const { me, activeShopId, clerkConfigured } = await import("./user");
+  if (clerkConfigured()) {
+    const u = await me();
+    if (!u) return NO_SHOP;
+    return (await activeShopId(u)) ?? NO_SHOP;
+  }
+  // Pre-Clerk single-operator mode: one shared password, so the cookie is the only signal there is.
   const c = await cookies();
   const v = Number(c.get("shop_id")?.value ?? 1);
   return Number.isFinite(v) && v > 0 ? v : 1;
 }
 
+/** Shops the signed-in user may open — all of them for an admin, their memberships otherwise. */
 export async function listShops(): Promise<Shop[]> {
-  return q<Shop>(`SELECT id, slug, name, creds, settings FROM shops ORDER BY id`);
+  const { me, clerkConfigured } = await import("./user");
+  if (!clerkConfigured()) {
+    return q<Shop>(`SELECT id, slug, name, creds, settings FROM shops ORDER BY id`);
+  }
+  const u = await me();
+  if (!u) return [];
+  if (u.isAdmin) {
+    return q<Shop>(`SELECT id, slug, name, creds, settings FROM shops ORDER BY id`);
+  }
+  return q<Shop>(
+    `SELECT s.id, s.slug, s.name, s.creds, s.settings FROM shops s
+       JOIN memberships m ON m.shop_id = s.id AND m.user_id = $1
+      ORDER BY s.id`, [u.id]);
 }
 
 export async function getShop(id: number): Promise<Shop | null> {

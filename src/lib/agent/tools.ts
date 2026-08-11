@@ -4,6 +4,48 @@ import { etsyRaw } from "../etsy";
 import { shopifyGql } from "../shopify";
 import { printfulRaw } from "../printful";
 
+/**
+ * Run the model's SQL confined to one shop.
+ *
+ * The tool takes free-form SQL, so no amount of prompting confines it — "filter by shop_id" is a
+ * request, not a boundary, and one forgotten WHERE reads every tenant's catalogue. Two things make it
+ * a boundary instead:
+ *
+ *   - `SET LOCAL ROLE klozio_agent` — the application connects as `postgres`, which is superuser and
+ *     owner of every table, and row-level security is bypassed entirely for a superuser. Policies
+ *     without this role switch would be decoration. The role also has no grant at all on etsy_tokens,
+ *     hf_tokens or shops, so live OAuth tokens and every API key in the platform are unreachable.
+ *   - `SET LOCAL app.shop_id` — the value the policies compare against. It is the shop the request is
+ *     already authorised for, never anything the model chose.
+ *
+ * Both are LOCAL: they die with the transaction, so a leaked role cannot outlive one statement. If the
+ * shop cannot be resolved the query is refused rather than run unconfined.
+ */
+async function agentQuery(sql: string) {
+  const { currentShopId, NO_SHOP } = await import("../shops");
+  const shopId = await currentShopId();
+  if (!shopId || shopId === NO_SHOP) {
+    throw new Error("aktif magaza cozulemedi — sorgu calistirilmadi");
+  }
+  const client = await pool().connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL ROLE klozio_agent");
+    await client.query("SELECT set_config('app.shop_id', $1, true)", [String(shopId)]);
+    const res = await client.query(sql);
+    await client.query("COMMIT");
+    return res;
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    // The pool hands this connection to the next caller, which may be the publisher running as
+    // postgres. RESET makes sure the restricted role does not travel with it.
+    await client.query("RESET ROLE").catch(() => {});
+    client.release();
+  }
+}
+
 export const TOOL_DEFS = [
   {
     name: "sql",
@@ -12,6 +54,17 @@ export const TOOL_DEFS = [
       type: "object",
       properties: { query: { type: "string", description: "The SQL to execute" } },
       required: ["query"],
+    },
+  },
+  {
+    name: "produce",
+    description: "Onayli bir urunun tasarimini ve 7-9 ilan gorselini uretir (Higgsfield ~$0.03 + kompozit). "
+      + "content_status='approved' ve design_prompt dolu olmali. Zaten gorseli olan urunu tekrar uretmez. "
+      + "Bir urun icin product_id, birden fazlasi icin slug listesi degil TEK id ver; her cagri bir urun.",
+    input_schema: {
+      type: "object",
+      properties: { product_id: { type: "number", description: "products.id" } },
+      required: ["product_id"],
     },
   },
   {
@@ -57,11 +110,20 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
   try {
     if (name === "sql") {
       const q = String(input.query ?? "");
-      const res = await pool().query(q);
+      const res = await agentQuery(q);
       const rows = (res.rows ?? []).slice(0, 200);
       await logEvent("agent_tool", { detail: `sql: ${q.slice(0, 180)}` });
       const summary = `sql ▸ ${res.command ?? "OK"} ${res.rowCount ?? rows.length}`;
       return { result: clip(JSON.stringify({ command: res.command, rowCount: res.rowCount, rows })), summary };
+    }
+    if (name === "produce") {
+      // Same entrypoint the scheduler uses. The agent gets no private path to image building: one
+      // implementation, or the version nobody tested is the one customers see.
+      const pid = Number(input.product_id);
+      const { produceOne } = await import("../producer");
+      const out = await produceOne(pid);
+      await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
+      return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
     }
     if (name === "etsy") {
       const out = await etsyRaw(input.method, input.path, input.body);

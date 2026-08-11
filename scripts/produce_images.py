@@ -274,7 +274,18 @@ def main() -> None:
             if detail is None:
                 detail = (f"{slug}-detail.jpg", "detail", b["colorway"],
                           jpeg(detail_shot(shot, placement_quad(design, b, emb, spot)), 93))
-    for name in (models[1:] if emb else models):
+    # A second worn shot is only worth a gallery slot if the design can be seen in it. Pepper's mean
+    # luminance is 127 and these designs' ink runs 89-165, so its contrast measured 2-38 on 38 of 40
+    # products sampled — an image of a shirt with something indistinct on it. The lead shot always
+    # stays; the rest have to earn their place, and the flats below carry the colour variety.
+    MIN_MODEL_CONTRAST = 35.0
+    # Embroidery already spent models[0] on the two placement shots above; DTF still needs its lead.
+    lead = [] if emb else [models[0]]
+    rest = [n for n in models[1:] if _contrast(n) >= MIN_MODEL_CONTRAST]
+    skipped = [blanks[n]["colorway"] for n in models[1:] if n not in rest]
+    if skipped:
+        print(f"model karesi atlandi (tasarim okunmuyor): {skipped}", file=sys.stderr)
+    for name in lead + rest:
         b = blanks[name]
         shot = composite(design, b["image"], b, emb)
         im = badge(shot, b["colorway"])
@@ -285,7 +296,19 @@ def main() -> None:
                       jpeg(detail_shot(shot, placement_quad(design, b, emb)), 93))
     if detail is not None:
         images.insert(1, detail)
-    for name in FLATS:
+    # The flats used to be four fixed dark shades. That was safe for pale artwork and wrong for
+    # everything else: a dark engraving with a dark typeset caption on Bay, Navy, Yam and Black gave
+    # four listing images where the words could not be read at all — checked on a Pepper frame where
+    # "THE MILLER HAUNT — EST. 2026" was invisible. The cover already follows measured contrast; the
+    # flats now follow the same rule, so a buyer only ever sees colourways this print actually reads on.
+    flats = sorted((n for n in CHART if n in blanks), key=_contrast, reverse=True)[:len(FLATS)]
+    if not flats:
+        flats = [n for n in FLATS if n in blanks]
+    dropped = [blanks[n]["colorway"] for n in FLATS if n in blanks and n not in flats]
+    if dropped:
+        print(f"düz kareler kontrasta göre secildi: {[blanks[n]['colorway'] for n in flats]} "
+              f"(atlanan: {dropped})", file=sys.stderr)
+    for name in flats:
         b = blanks[name]
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-flat.jpg",
                        "flat", b["colorway"], jpeg(composite(design, b["image"], b, emb))))

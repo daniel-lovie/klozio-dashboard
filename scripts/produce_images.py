@@ -20,12 +20,11 @@ import os
 import sys
 from pathlib import Path
 
-import numpy as np
 import psycopg2
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from mockup_composite import warp                                    # noqa: E402
+from mockup_composite import composite_pil, fit_quad, decontaminate   # noqa: E402
 
 MODELS = ["model-IvoryTrendy4", "model-Pepper"]
 FLATS = ["flat-Bay", "flat-Navy", "flat-LayYam", "flat-Black"]
@@ -38,7 +37,14 @@ FONT_L = "/System/Library/Fonts/Supplemental/Arial.ttf"
 
 def font(path: str, size: int) -> ImageFont.FreeTypeFont:
     """Railway's image has neither macOS font; fall back rather than fail the whole build."""
-    for p in (path, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    # Alpine puts DejaVu in /usr/share/fonts/dejavu, Debian in /usr/share/fonts/truetype/dejavu. Only
+    # the Debian paths were listed, so on the deployed Alpine image every lookup failed and PIL fell back
+    # to its bitmap default — the colourway badge came out unreadably small on a listing image that
+    # otherwise looked finished. Installing the font package is not enough if the path is wrong.
+    for p in (path,
+              "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+              "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
               "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
         try:
             return ImageFont.truetype(p, size)
@@ -47,8 +53,9 @@ def font(path: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-# Both at 4 inches: the size is ours to decide, the position is the buyer's, so the two options must
-# differ only in position or they are not a comparable choice.
+# The two placements a buyer can choose between, each at the size that placement is actually sold at —
+# a left chest badge is small, a centre chest one is not. The label carries the size so the gallery
+# says which is which.
 EMB_SPOTS = {"left":   {"x": 0.78, "y": 0.06, "inches": 4.0, "label": 'Left chest 4"'},
              "center": {"x": 0.50, "y": 0.10, "inches": 6.0, "label": 'Centre chest 6"'}}
 
@@ -64,35 +71,63 @@ def badge_quad(quad, spot: dict, inches: float | None = None) -> list:
             [cx + side // 2, top + side], [cx - side // 2, top + side]]
 
 
+PRINT_INCHES = 10.0            # the cap the shop sells; smaller is allowed, larger cannot be printed
+
+
+def placement_quad(design: Image.Image, tpl: dict, embroidery: bool, spot: str = "left") -> list:
+    """Where the artwork lands on this blank, in blank pixels.
+
+    Split out of composite() so the detail crop can ask the same question instead of recomputing the
+    placement — a second copy of this arithmetic is what once published the whole catalogue at the
+    wrong size and offset.
+    """
+    box, ppi = tpl.get("print_box"), tpl.get("px_per_inch")
+    if box and ppi:
+        spot_cfg = EMB_SPOTS[spot]
+        return fit_quad(design, box, float(ppi),
+                        inches=float(spot_cfg["inches"]) if embroidery else PRINT_INCHES,
+                        angle=float(tpl.get("angle") or 0.0),
+                        x_frac=spot_cfg["x"] if embroidery else None,
+                        y_frac=spot_cfg["y"] if embroidery else None)
+    # Uncalibrated blank: fall back to the stored quad rather than skip the image, but say so —
+    # silence here is what let a whole catalogue publish at the wrong size.
+    print(f"UYARI {tpl.get('colorway')}: print_box/px_per_inch yok, eski quad kullanildi "
+          f"(scripts/sync_blank_calibration.py --apply)", file=sys.stderr)
+    return badge_quad(tpl["quad"], EMB_SPOTS[spot]) if embroidery else tpl["quad"]
+
+
+def detail_shot(shot: Image.Image, quad: list, side: int = 2000, pad: float = 0.22) -> Image.Image:
+    """A square close crop around the stitching, for the gallery.
+
+    Winning listings fill the frame; a 4-inch badge on a full-body model shot is about a tenth of the
+    width, so at gallery-thumbnail size the buyer cannot read what is stitched — which is fatal when
+    the promise IS the lettering. The crop is clamped to the canvas so a badge near an edge stays
+    inside the picture instead of shifting the subject off-centre.
+    """
+    xs = [p[0] for p in quad]
+    ys = [p[1] for p in quad]
+    cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+    half = max(max(xs) - min(xs), max(ys) - min(ys)) * (0.5 + pad)
+    half = min(half, shot.width / 2, shot.height / 2)
+    cx = min(max(cx, half), shot.width - half)
+    cy = min(max(cy, half), shot.height - half)
+    crop = shot.crop((round(cx - half), round(cy - half), round(cx + half), round(cy + half)))
+    return crop.resize((side, side), Image.LANCZOS)
+
+
 def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bool,
               spot: str = "left") -> Image.Image:
-    quad = badge_quad(tpl["quad"], EMB_SPOTS[spot]) if embroidery else tpl["quad"]
-    placed = warp(design, quad, blank.size)
-    art = np.asarray(placed).astype(float)
-    # ink bleeds into the weave; a die-cut alpha edge is what makes a composite look pasted
-    soft = Image.fromarray(art[:, :, 3].astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.6))
-    art[:, :, 3] = np.asarray(soft).astype(float)
-    alpha = art[:, :, 3:4] / 255.0 * float(tpl.get("opacity", 0.94))
-    base = np.asarray(blank).astype(float)
-    # Normalise by the garment's own luminance — a fixed white point multiplied the artwork by 0.39
-    # on a Pepper tee, turning gold to olive. Only folds and weave should move the print.
-    shade = float(tpl.get("shade", 0.85))
-    lum = (0.2126 * base[:, :, 0] + 0.7152 * base[:, :, 1] + 0.0722 * base[:, :, 2])[:, :, None]
-    inside = alpha[:, :, 0] > 0.5
-    ref = float(np.median(lum[:, :, 0][inside])) if inside.any() else float(np.median(lum))
-    # Texture must be scaled by ABSOLUTE deviation, not relative. Cloth of every shade has roughly
-    # the same grain in absolute terms, but dividing by the garment's own mean makes that grain four
-    # times stronger on Pepper (mean 65) than on Ivory (mean 247) — which is exactly what showed up:
-    # a clean print on the light shirt and a woven-through one on the dark.
-    # Normalise by the garment's OWN texture amplitude, not by its brightness and not by a fixed
-    # number. Measured on these photographs the weave is 0.7% of mean on Ivory and 22.9% on Pepper —
-    # they were shot differently, and any shared multiplier leaves one clean and the other woven
-    # through. Dividing by each garment's standard deviation gives every shade the same subtle grain,
-    # which is what a print actually looks like.
-    sd = float(np.std(lum[:, :, 0][inside])) if inside.any() else float(np.std(lum))
-    grain = (lum - ref) / max(sd, 1.0)                     # in units of this cloth's own variation
-    lit = np.clip(art[:, :, :3] * (1.0 + np.clip(grain, -3, 3) * shade), 0, 255)
-    return Image.fromarray(np.clip(base * (1 - alpha) + lit * alpha, 0, 255).astype(np.uint8))
+    """Place the artwork using the SHARED compositor and the MEASURED print rectangle.
+
+    This function used to carry its own copy of the warp-and-light maths and to hand the artwork's
+    corners straight to a square quad out of mockup_blanks. Both were wrong in ways only visible on a
+    finished listing: the duplicated lighting kept a formula that blacked pixels out on cleanly lit
+    cloth, and the square quad stretched every non-square design inside an area a third too small and
+    offset from where the print actually lands. The calibrated numbers were in templates.json all along;
+    they now live in the table this path reads.
+    """
+    quad = placement_quad(design, tpl, embroidery, spot)
+    return composite_pil(design, blank, {**tpl, "quad": quad})
 
 
 def badge(img: Image.Image, colorway: str) -> Image.Image:
@@ -148,9 +183,19 @@ def jpeg(im: Image.Image, quality: int = 92) -> bytes:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        sys.exit("kullanim: produce_images.py <product_id>")
-    pid = int(sys.argv[1])
+    # --out writes the JPEGs to a folder and touches NOTHING else: no product_images, no hero
+    # colourway, no Etsy. Every image change until now went straight to the database and from there to
+    # a live listing, so the only way to see a mockup was to publish it. A render that can be looked at
+    # before it ships is the difference between approving a change and discovering it on the shop page.
+    argv = [a for a in sys.argv[1:] if not a.startswith("--")]
+    out_dir = None
+    for i, a in enumerate(sys.argv):
+        if a == "--out" and i + 1 < len(sys.argv):
+            out_dir = Path(sys.argv[i + 1]).expanduser()
+            argv = [x for x in argv if x != sys.argv[i + 1]]
+    if not argv:
+        sys.exit("kullanim: produce_images.py <product_id> [--out KLASOR]")
+    pid = int(argv[0])
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
     cur.execute("SELECT slug, technique, print_file, emb_render FROM products WHERE id=%s", (pid,))
@@ -169,36 +214,91 @@ def main() -> None:
               f"(scripts/make_emb_render.py {slug})", file=sys.stderr)
     design = Image.open(io.BytesIO(bytes(src))).convert("RGBA")
     design = design.crop(design.getbbox() or (0, 0, design.width, design.height))
+    # Once, here: every composite below reuses this decoded design, and the distance transform
+    # is far too expensive to repeat nine times per product.
+    design = decontaminate(design)
 
-    cur.execute("SELECT name, colorway, quad, opacity, shade, bytes FROM mockup_blanks")
+    cur.execute("""SELECT name, colorway, quad, opacity, shade, print_box, px_per_inch, angle, bytes
+                     FROM mockup_blanks""")
     blanks = {}
-    for name, colorway, quad, opacity, shade, blob in cur.fetchall():
+    for name, colorway, quad, opacity, shade, box, ppi, angle, blob in cur.fetchall():
         blanks[name] = {"colorway": colorway,
                         "quad": quad if isinstance(quad, list) else json.loads(quad),
                         "opacity": opacity, "shade": shade,
+                        "print_box": box if isinstance(box, list) else (json.loads(box) if box else None),
+                        "px_per_inch": ppi, "angle": angle,
                         "image": Image.open(io.BytesIO(bytes(blob))).convert("RGB")}
     if not blanks:
         sys.exit("mockup_blanks bos — blank'ler yuklenmeli")
 
+    # Which model shot leads. This used to be hardcoded to Ivory, which was safe while every design was a
+    # dark flat-vector emblem. The styles that actually sell are cream-forward engravings, and cream on an
+    # ivory tee is invisible — so the cover follows MEASURED contrast between the artwork's own ink and the
+    # garment, the same rule the batch pipeline uses. Moving the garment is free; regenerating is not.
+    def _contrast(blank_name: str) -> float:
+        import numpy as np
+        b = blanks[blank_name]
+        g = np.asarray(b["image"].convert("L")).astype(float).mean()
+        a = np.asarray(design.convert("RGBA"))
+        m = a[:, :, 3] > 128
+        if not m.any():
+            return 0.0
+        ink = (0.2126 * a[:, :, 0] + 0.7152 * a[:, :, 1] + 0.0722 * a[:, :, 2])[m].mean()
+        return abs(ink - g)
+
+    # Honour the garment produce_product already chose — the type on the artwork was set to contrast with
+    # it. Recomputing here with a different measure is what put cream type on an ivory tee.
+    cur.execute("SELECT hero_colorway FROM products WHERE id=%s", (pid,))
+    want = (cur.fetchone() or [None])[0]
+    chosen = next((n for n in MODELS if blanks.get(n, {}).get("colorway") == want), None)
+    if chosen:
+        models = [chosen] + [n for n in MODELS if n != chosen]
+    else:
+        models = sorted(MODELS, key=_contrast, reverse=True) if not emb else MODELS
+    if models[0] != MODELS[0]:
+        print(f"kapak {blanks[models[0]]['colorway']} secildi: tasarim {blanks[MODELS[0]]['colorway']} "
+              f"uzerinde okunmuyordu (kontrast {_contrast(models[0]):.0f} vs {_contrast(MODELS[0]):.0f})",
+              file=sys.stderr)
+
     images: list[tuple[str, str, str, bytes]] = []
+    # The close crop goes second, right behind the lead model shot: the gallery's job after the click is
+    # to prove what is printed or stitched, and on a full-body shot the artwork is too small to read.
+    detail: tuple[str, str, str, bytes] | None = None
     if emb:
         # The listing has to show both placements or the buyer cannot see what the choice means.
-        b = blanks[MODELS[0]]
+        b = blanks[models[0]]
         for spot in ("left", "center"):
-            im = badge(composite(design, b["image"], b, emb, spot),
-                       f"{b['colorway']} · {EMB_SPOTS[spot]['label']}")
+            shot = composite(design, b["image"], b, emb, spot)
+            im = badge(shot, f"{b['colorway']} · {EMB_SPOTS[spot]['label']}")
             images.append((f"{slug}-{spot}-model.jpg", "model", b["colorway"], jpeg(im, 93)))
-    for name in (MODELS[1:] if emb else MODELS):
+            if detail is None:
+                detail = (f"{slug}-detail.jpg", "detail", b["colorway"],
+                          jpeg(detail_shot(shot, placement_quad(design, b, emb, spot)), 93))
+    for name in (models[1:] if emb else models):
         b = blanks[name]
-        im = badge(composite(design, b["image"], b, emb), b["colorway"])
+        shot = composite(design, b["image"], b, emb)
+        im = badge(shot, b["colorway"])
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-model.jpg",
                        "model", b["colorway"], jpeg(im, 93)))
+        if detail is None:
+            detail = (f"{slug}-detail.jpg", "detail", b["colorway"],
+                      jpeg(detail_shot(shot, placement_quad(design, b, emb)), 93))
+    if detail is not None:
+        images.insert(1, detail)
     for name in FLATS:
         b = blanks[name]
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-flat.jpg",
                        "flat", b["colorway"], jpeg(composite(design, b["image"], b, emb))))
     images.append((f"{slug}-color-chart.jpg", "colorway-chart", "All colors",
                    jpeg(build_chart(design, blanks, emb), 91)))
+
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for rank, (fn, role, label, blob) in enumerate(images, start=1):
+            (out_dir / f"{rank:02d}-{fn}").write_bytes(blob)
+        print(json.dumps({"ok": True, "slug": slug, "images": len(images),
+                          "technique": technique, "out": str(out_dir), "db": "dokunulmadi"}))
+        return
 
     cur.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
     for rank, (fn, role, label, blob) in enumerate(images, start=1):
@@ -207,7 +307,7 @@ def main() -> None:
                        VALUES (%s,%s,%s,%s,%s,'image/jpeg',%s)""",
                     (pid, rank, "cover" if rank == 1 else role, label, fn, psycopg2.Binary(blob)))
     cur.execute("UPDATE products SET hero_colorway=%s, updated_at=now() WHERE id=%s",
-                (blanks[MODELS[0]]["colorway"], pid))
+                (blanks[models[0]]["colorway"], pid))   # confirm what was actually featured
     conn.commit()
     print(json.dumps({"ok": True, "slug": slug, "images": len(images),
                       "technique": technique, "cover": images[0][0]}))

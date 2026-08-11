@@ -157,15 +157,163 @@ def best_colorway(art: Path, preferred: str) -> tuple[str, float]:
     return ranked[0][1], ranked[0][0]
 
 # --- design prompt tail ----------------------------------------------------------------------
-# The spec supplies only the concept ("a heraldic shield crest badge..."); these are the print
-# constraints from the ai-design skill and are identical for every design, so they live here.
-# "NO text" is not optional: AI-rendered type is malformed and every word we ship is hand-set.
-PROMPT_TAIL = (
-    "flat vector emblem, bold graphic patch design, screen-print style, flat solid colors only, "
-    "no gradients, no shading, hard clean edges, thick bold outlines, "
-    "bold silhouette that reads at small size, centered composition, transparent background, "
-    "NO text, NO letters, NO numbers, NO numerals, no watermark"
+# ── style presets, measured against what actually sells ──────────────────────────────────────────
+#
+# One tail for every design was the mistake. It asked for a "flat vector emblem, bold outlines, no
+# shading" — and 40 of the best-selling non-personalised Comfort Colors tees on Etsy (est. 150-1300
+# sales/month, IP excluded) are mostly NOT that. What they are:
+#
+#   · a straight-faced illustration under a mundane caption — an antique botanical plate titled
+#     "ALL PLANTS ARE EDIBLE, SOME ONLY ONCE" (1313/mo), a dying armoured knight titled "TUMMY HURTS".
+#     The joke is the GAP between how seriously the picture is drawn and how dumb the line is.
+#   · a collection: nine small drawings of unloved animals, nine protest icons, school supplies.
+#     Plenty to look at reads as worth more money.
+#   · a character given a persona under an arched title ("THE DESPERADO CLUB", a cat with a cocktail).
+#   · type as the artwork: varsity letters filled with florals, groovy wavy lettering.
+#   · a tiny chest motif where the garment shade does the selling.
+#
+# Two things are true of nearly all of them and were absent from our prompts: **there is text**, and the
+# palette is small and muted — two to five colours, earthy or a single bright accent, very often cream
+# ink on a garment-dyed dark. Texture (engraving lines, halftone, distress) is the norm, not clean vector.
+#
+# So the tail is now per style, and every style RESERVES SPACE for the type we hand-set afterwards. We
+# still never ask the model for letters — it cannot draw them — but we stop asking for a full-bleed
+# emblem that leaves the caption nowhere to go.
+
+STYLE_TAILS = {
+    # An antique engraving or scientific plate: the "serious picture, silly caption" formula.
+    "engraving": (
+        "vintage 19th-century engraving style, fine cross-hatched line work, etched texture, "
+        "single ink colour on transparent background, aged printmaking feel, high contrast, "
+        "detailed but readable at 10 inches, centred subject with clear empty space above and below "
+        "for a caption"),
+    # Dense botanical / naturalist plate with muted earth tones.
+    "plate": (
+        "antique botanical plate illustration, muted earth palette, hand-inked outlines with soft "
+        "flat fills, arranged specimens, subtle aged paper texture, transparent background, "
+        "generous empty band at the top and bottom for a caption"),
+    # A grid of small drawings — the highest perceived-value layout in the sample.
+    "collection": (
+        "a neat grid of eight to twelve small separate hand-drawn illustrations of the same theme, "
+        "even spacing, consistent line weight, limited muted palette, each item complete and "
+        "recognisable on its own, transparent background, empty space in the middle or bottom "
+        "reserved for a caption"),
+    # Character with an identity: cat with a cocktail, raccoon with a flag.
+    "character": (
+        "a single hand-drawn character with personality and a prop, expressive face, retro cartoon "
+        "line work, limited muted palette, soft grain shading, transparent background, "
+        "arched empty space above the character for a title and a clear band below for a subtitle"),
+    # 70s poster: condensed shapes, sunset bands, halftone.
+    "retro": (
+        "1970s screen-print poster style, limited three-colour palette, halftone dot shading, "
+        "sun-ray or horizontal band motif, slightly distressed ink texture, transparent background, "
+        "a wide empty rectangle across the centre where large type will sit"),
+    # Tiny left-chest or centre-chest motif; the garment colour carries the product.
+    "minimal": (
+        "one small simple motif, clean minimal line art, two colours at most, generous margins, "
+        "no background elements, transparent background, reads clearly at three inches, "
+        "small empty space beneath for a short caption"),
+}
+DEFAULT_STYLE = "engraving"
+
+# Applies to every style. "NO text" is not optional: AI-rendered type is malformed and every word we
+# ship is hand-set in PIL afterwards.
+PROMPT_TAIL_COMMON = (
+    "print-ready artwork for a garment, no mockup, no t-shirt, no person, no frame, no border box, "
+    "no drop shadow, no photorealism, transparent background, "
+    "NO text, NO letters, NO words, NO numbers, NO numerals, no watermark, no signature"
 )
+
+# Banning letters makes the model draw the CONTAINER for letters instead: empty ribbons, blank scrolls,
+# vacant plaques. On a finished tee that reads as unfinished artwork — the same defect as the "leave every
+# label COMPLETELY EMPTY" prompts that shipped blank bands to buyers. Our words are typeset afterwards in
+# their own zone, so the illustration needs no label at all.
+#
+# Conditional, because some concepts ARE a banner or a crest ("a guild banner carrying the guild name").
+# Forbidding the subject the concept asks for is the contradiction this whole pass exists to remove, so
+# the clause is dropped whenever the subject names one of these shapes.
+NO_LABEL_CLAUSE = "no ribbons, no banners, no scrolls, no plaques, no empty label shapes waiting to be filled"
+_LABEL_WORDS = re.compile(r"\b(banner|ribbon|scroll|plaque|placard|pennant|crest|shield|badge|patch|"
+                          r"plate|sign|label|tag|nameplate)\b", re.I)
+
+
+def wants_label_shape(subject: str | None) -> bool:
+    return bool(subject and _LABEL_WORDS.search(subject))
+
+# Comfort Colors is garment-dyed, so the ink that reads best is the one the winners use: a warm
+# off-white on dark shades, deep earth tones on light ones. Naming it stops the model reaching for pure
+# white and neon, which look like a sticker on washed cotton.
+PALETTE_HINT = (
+    "colour palette: two to five colours only, muted and slightly desaturated, "
+    "warm cream #F2E8D5 as the light ink, deep charcoal #2B2B2B, and earth tones "
+    "(rust #B5563A, olive #6B7250, ochre #C9A227, faded indigo #3F4A6E); no neon, no pure white"
+)
+
+
+# The stored design_prompt is the FULL assembled prompt from the batch that created the product, tail and
+# all — `stage_seed` saves `c["_prompt"]`, not the subject line. So appending a new style tail produced a
+# prompt that asked for "flat solid colors only, no shading" AND "engraving with fine cross-hatching" in
+# the same breath, and the model split the difference. 128 of 264 stored prompts carry an old tail.
+#
+# These markers open the old style block. Everything from the earliest one is dropped; the concept's own
+# `Palette:` clause is kept, because a palette chosen for that design beats a generic one.
+OLD_TAIL_MARKERS = (
+    "Centered composition with", "flat vector emblem", "Flat solid colors only",
+    "flat solid colors only", "artwork in rich colours", "bold graphic patch design",
+)
+PREAMBLE = re.compile(r"^\s*(vintage illustrated t-shirt print|flat vector embroidery preview graphic)"
+                      r"[^.]*\.\s*", re.I)
+PALETTE_CLAUSE = re.compile(r"(Palette:\s*[^.]+\.)", re.I)
+
+
+def subject_of(prompt: str) -> tuple[str, bool]:
+    """The concept itself, without the style directives baked in by an earlier batch.
+
+    Returns the subject text and whether it already names a palette — when it does, the generic palette
+    hint is left out rather than argued with.
+    """
+    text = (prompt or "").strip()
+    palette = ""
+    m = PALETTE_CLAUSE.search(text)
+    if m:
+        palette = m.group(1).strip()
+    cuts = [text.find(mk) for mk in OLD_TAIL_MARKERS if text.find(mk) > 0]
+    if cuts:
+        text = text[:min(cuts)]
+    text = PALETTE_CLAUSE.sub("", text)
+    text = PREAMBLE.sub("", text).strip().rstrip(",.;— ")
+    # Legacy prompts come in several shapes and not all of them survive a mechanical cut: one embroidery
+    # prompt reduced to "5mm. Isolated on a plain solid deep pine green background", subject gone. Returning
+    # that would generate confident nonsense. When the remainder does not look like a subject — too short,
+    # or opening on a leftover fragment — the caller is told so and uses the original prompt instead, and the
+    # product is flagged for a rewritten concept. Better a design in the old style than a design of nothing.
+    looks_broken = (len(text) < 60
+                    or re.match(r"^\s*(\d|isolated\b|exclusions\b|no\b)", text, re.I) is not None)
+    if looks_broken:
+        return "", bool(palette)
+    if palette:
+        text = f"{text}. {palette}"
+    return text, bool(palette)
+
+
+def style_tail(style: str | None, with_palette: bool = True, subject: str | None = None) -> str:
+    """The full instruction tail for a concept's style.
+
+    `subject` is the concept's own shape description; pass it so a concept that genuinely asks for a
+    crest or a banner is not told to leave one out.
+    """
+    key = (style or DEFAULT_STYLE).strip().lower()
+    parts = [STYLE_TAILS.get(key, STYLE_TAILS[DEFAULT_STYLE])]
+    if with_palette:
+        parts.append(PALETTE_HINT)
+    if not wants_label_shape(subject):
+        parts.append(NO_LABEL_CLAUSE)
+    parts.append(PROMPT_TAIL_COMMON)
+    return ", ".join(parts)
+
+
+# Kept for callers that still reference the old single tail.
+PROMPT_TAIL = f"{STYLE_TAILS[DEFAULT_STYLE]}, {PALETTE_HINT}, {PROMPT_TAIL_COMMON}"
 
 # Plain-English names for the 15 Printful threads. The generator ignores a bare hex but obeys
 # "golden yellow #FFCC00", so both go in.
@@ -253,8 +401,9 @@ class Result:
 # small helpers
 # =================================================================================================
 
-def sh(cmd: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run([str(c) for c in cmd], capture_output=True, text=True)
+def sh(cmd: list[str], env: dict | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run([str(c) for c in cmd], capture_output=True, text=True,
+                          env={**os.environ, **(env or {})} if env else None)
 
 
 def hexes(seq) -> list[str]:
@@ -273,9 +422,14 @@ def open_rgba(path) -> Image.Image:
 # stage: generate (Higgsfield — the ONLY paid step)
 # =================================================================================================
 
-def hf(args: dict) -> dict:
-    """Call scripts/hf_gen.mts. Keeps all MCP/OAuth logic in worker/hf.ts where it already works."""
-    p = sh(["node", "--experimental-strip-types", HF_GEN, json.dumps(args)])
+def hf(args: dict, shop_id: int | None = None) -> dict:
+    """Call scripts/hf_gen.mts. Keeps all MCP/OAuth logic in worker/hf.ts where it already works.
+
+    HF_SHOP_ID decides WHOSE Higgsfield account pays. Without it every tenant's generation was billed to
+    the operator's account, because worker/hf.ts read a single hardcoded token row.
+    """
+    env = {"HF_SHOP_ID": str(shop_id)} if shop_id else None
+    p = sh(["node", "--experimental-strip-types", HF_GEN, json.dumps(args)], env=env)
     line = (p.stdout or "").strip().splitlines()
     try:
         return json.loads(line[-1]) if line else {"ok": False, "error": (p.stderr or "no output")[:300]}
@@ -283,12 +437,16 @@ def hf(args: dict) -> dict:
         return {"ok": False, "error": ((p.stderr or p.stdout) or "unparseable")[-300:]}
 
 
-def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool) -> Path | None:
+def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool,
+                   shop_id: int | None = None) -> Path | None:
     raw = d / "raw" / f"{c['slug']}-raw.png"
     emb = c["kind"] == "embroidery"
     pal = palette_line(c.get("threads")) if emb else ""
     lead = EMB_PROMPT_CLAUSE if emb else ""
-    prompt = f"{c['prompt_head'].strip().rstrip(',')}, {lead}{pal}{PROMPT_TAIL}"
+    # `style` picks the tail (engraving / plate / collection / character / retro / minimal). Absent, the
+    # engraving style is used: it is the formula behind the strongest sellers in the sample.
+    prompt = (f"{c['prompt_head'].strip().rstrip(',')}, {lead}{pal}"
+              f"{style_tail(c.get('style'), subject=c['prompt_head'])}")
     c["_prompt"] = prompt
     if raw.exists() and not force:
         return raw
@@ -304,7 +462,7 @@ def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool) -> Path 
               # 1800px). Compared side by side the 4k output has no visible advantage after the
               # resize. recraft_v4_1 is half the credits but could not draw the concepts — it
               # returned an unrecognisable dice tower — so the saving is resolution, not model.
-              "resolution": c.get("resolution", "2k")})
+              "resolution": c.get("resolution", "2k")}, shop_id=shop_id)
     if not out.get("ok"):
         r.error = f"generate: {out.get('error')}"
         return None
@@ -312,6 +470,129 @@ def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool) -> Path 
     c["_model"] = out.get("model")
     c["_job_id"] = out.get("job_id")
     return raw
+
+
+def drop_background_specks(im: Image.Image, light: int = 200, neutral: int = 14,
+                           open_frac: float = 0.0002, closed_frac: float = 0.0008
+                           ) -> tuple[Image.Image, int]:
+    """Clear the pale flecks of backdrop the cutout could not reach.
+
+    The generator paints on white and a cutout only removes what it can reach from outside, so the
+    counter of an "a", the triangle inside an "A" and the valleys of an "M" come through as pale
+    islands. On Ivory nobody sees them; on rust or Pepper they are visible dirt — this is what "you
+    cannot clean properly" means. `drop_smooth_pockets` cannot catch them: it works in percent-of-area
+    and these are three orders of magnitude smaller. Texture cannot either — a fleck that small sits
+    inside the boundary gradient of the thread around it, so its local variance reads HIGH (measured
+    2629 against 1223 for real thread).
+
+    Two measures do separate them:
+
+    * **Neutrality.** Backdrop residue is grey (measured 209,209,211). Thread sheen on navy stays
+      coloured (211,217,233). Requiring R≈G≈B keeps every highlight and drops only the paper.
+    * **Size.** Real satin fills are thousands of pixels; residue here ran to 77. An enclosed pocket is
+      allowed to be larger than an open one, because a wholly surrounded pale area cannot be a
+      deliberate edge highlight.
+
+    A genuine white-thread element (a white heart, a satin outline) is far above both limits and stays.
+    """
+    from scipy import ndimage
+
+    a = np.asarray(im).astype(np.uint8).copy()
+    opaque = a[:, :, 3] > 128
+    if not opaque.any():
+        return im, 0
+    rgb = a[:, :, :3].astype(int)
+    pale = opaque & (rgb.min(axis=2) >= light) & ((rgb.max(axis=2) - rgb.min(axis=2)) <= neutral)
+    if not pale.any():
+        return im, 0
+
+    lab, n = ndimage.label(pale)
+    sizes = ndimage.sum(pale, lab, range(1, n + 1))
+    area = float(opaque.sum())
+    limit_open = max(64.0, area * open_frac)
+    limit_closed = max(256.0, area * closed_frac)
+    # A component touching the transparent field is part of the silhouette, not an enclosed pocket.
+    outside_near = ndimage.binary_dilation(~opaque, iterations=1)
+    touches = ndimage.maximum(outside_near.astype(np.uint8), lab, range(1, n + 1)).astype(bool)
+
+    drop_ids = [i for i, (sz, t) in enumerate(zip(sizes, touches), start=1)
+                if sz <= (limit_open if t else limit_closed)]
+    if not drop_ids:
+        return im, 0
+    a[:, :, 3][np.isin(lab, drop_ids)] = 0
+    return Image.fromarray(a, "RGBA"), len(drop_ids)
+
+
+def drop_flat_white_pockets(im: Image.Image, light: int = 247, neutral: int = 14,
+                            rough: float = 6.0, max_frac: float = 0.15) -> tuple[Image.Image, int]:
+    """Open enclosed pockets of untouched backdrop, however large.
+
+    The cutout keeps every light area it cannot reach from the border. That rule exists for a reason —
+    it once erased the white interior of a personalisation ribbon — but it also keeps the gap between a
+    mascot's legs and the space behind a stack of books. Measured on one product those two pockets were
+    76 164 and 10 016 pixels, 7.3% of the artwork, flat white (251,251,251) at a standard deviation of
+    3.5. Composited, the garment's weave modulates that white and it reads as a dirty checkered patch.
+
+    Size cannot decide this and neither can enclosure alone. Three things together can:
+
+    * **very light** — 247+, the generator's paper. Our own light ink is cream #F2E8D5, and the palette
+      clause forbids pure white, so nothing we draw lands here.
+    * **neutral** — R≈G≈B. Cream is not (max-min = 29), nor is any tinted highlight.
+    * **smooth** — a real white shape drawn as ink or stitched as thread carries grain; backdrop does
+      not. This is what protects a white satin heart or a white halftone field from being erased.
+
+    Those three are still not enough, and a badge design proved it: a white disc inside a heavy dark
+    ring is flat, neutral and 251, and it is entirely deliberate — deleting it leaves bottles floating
+    in a hoop. What separates it from a gap between a mascot's legs is SHARE of the artwork. Measured
+    over 194 print files the residue pockets sit at a median of 3.1% of the opaque area and only seven
+    products exceed 15%; the badge field is 44%. So a pocket larger than `max_frac` is left alone and
+    reported instead — the same instinct as the ribbon rule this function refines, kept as a number.
+    """
+    from scipy import ndimage
+
+    a = np.asarray(im).astype(np.uint8).copy()
+    opaque = a[:, :, 3] > 128
+    if not opaque.any():
+        return im, 0
+    rgb = a[:, :, :3].astype(float)
+    pale = opaque & (rgb.min(axis=2) >= light) & ((rgb.max(axis=2) - rgb.min(axis=2)) <= neutral)
+    if not pale.any():
+        return im, 0
+
+    grey = rgb.mean(axis=2)
+    m = ndimage.uniform_filter(grey, 7)
+    sd = np.sqrt(np.maximum(ndimage.uniform_filter(grey * grey, 7) - m * m, 0))
+
+    lab, n = ndimage.label(pale)
+    outside_near = ndimage.binary_dilation(~opaque, iterations=1)
+    touches = ndimage.maximum(outside_near.astype(np.uint8), lab, range(1, n + 1)).astype(bool)
+    smoothness = ndimage.median(sd, lab, range(1, n + 1))
+    sizes = ndimage.sum(pale, lab, range(1, n + 1))
+    limit = opaque.sum() * max_frac
+
+    kept_big = 0
+    drop_ids = []
+    for i, (t, s, sz) in enumerate(zip(touches, smoothness, sizes), start=1):
+        if t or s >= rough:
+            continue
+        if sz > limit:
+            kept_big += int(sz)          # probably a deliberate white field, not paper
+            continue
+        drop_ids.append(i)
+    if kept_big:
+        print(f"  UYARI: {kept_big} px duz beyaz alan KORUNDU (opak alanin >%{max_frac*100:.0f}'i, "
+              f"kasitli tasarim olabilir — elle bakilmali)", file=sys.stderr)
+    if not drop_ids:
+        return im, 0
+    mask = np.isin(lab, drop_ids)
+    a[:, :, 3][mask] = 0
+    # The freshly opened edge is backdrop-coloured; pull colour in from what is left so later
+    # interpolation has only ink to blend with.
+    keep = a[:, :, 3] > 128
+    if keep.any():
+        idx = ndimage.distance_transform_edt(~keep, return_distances=False, return_indices=True)
+        a[:, :, :3] = a[:, :, :3][idx[0], idx[1]]
+    return Image.fromarray(a, "RGBA"), int(mask.sum())
 
 
 def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
@@ -383,12 +664,25 @@ def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
     if keepmask.any():
         idx = ndimage.distance_transform_edt(~keepmask, return_distances=False, return_indices=True)
         rgb = rgb[idx[0], idx[1]]
+    # The enclosed-pocket rule above keeps every light area it cannot reach from the border, which is
+    # right for a ribbon interior and wrong for the counter of an "a": those come through as pale
+    # flecks that are invisible on Ivory and read as dirt on rust. Drop the small neutral ones only.
+    art, specks = drop_background_specks(Image.fromarray(np.dstack([rgb, alpha]), "RGBA"))
+    if specks:
+        print(f"  {out.stem}: {specks} zemin lekesi temizlendi", file=sys.stderr)
+    # Same rule, the other end of the size range: whole pockets of untouched paper between a mascot's
+    # legs or behind a stack of books, kept by the enclosed-area rule and read as dirt once the weave
+    # modulates them.
+    art, pocket_px = drop_flat_white_pockets(art)
+    if pocket_px:
+        print(f"  {out.stem}: {pocket_px} px duz beyaz cep acildi", file=sys.stderr)
     out.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(np.dstack([rgb, alpha]), "RGBA").save(out)
+    art.save(out)
     return out
 
 
-def stage_cutout(raw: Path | None, c: dict, d: Path, r: Result, dry: bool, force: bool) -> Path | None:
+def stage_cutout(raw: Path | None, c: dict, d: Path, r: Result, dry: bool, force: bool,
+                 shop_id: int | None = None) -> Path | None:
     cut = d / "work" / f"{c['slug']}-cutout.png"
     if cut.exists() and not force:
         return cut
@@ -403,7 +697,7 @@ def stage_cutout(raw: Path | None, c: dict, d: Path, r: Result, dry: bool, force
     except Exception as e:
         r.note = f"yerel kesim basarisiz ({str(e)[:80]}), remove_bg'a dusuldu"
     r.hf_planned += 1
-    out = hf({"op": "remove_bg", "src": str(raw), "out": str(cut)})
+    out = hf({"op": "remove_bg", "src": str(raw), "out": str(cut)}, shop_id=shop_id)
     if not out.get("ok"):
         r.error = f"remove_bg: {out.get('error')}"
         return None
@@ -1137,8 +1431,8 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
         return r
 
     # --- generate -> cutout -> alpha
-    raw = stage_generate(c, d, r, dry, force)
-    cut = stage_cutout(raw, c, d, r, dry, force)
+    raw = stage_generate(c, d, r, dry, force, shop_id=spec.get("shop_id"))
+    cut = stage_cutout(raw, c, d, r, dry, force, shop_id=spec.get("shop_id"))
     gate_alpha(cut, r)
 
     # --- palette snap + threads (embroidery only)
@@ -1182,7 +1476,12 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
     shots, worn, cover = [], None, None
     mock_dir, cover_dir, card_dir = d / "mockups", d / "covers", d / "cards"
     have_mocks = mock_dir.exists() and any(mock_dir.glob("*.jpg"))
-    if final.exists() and not dry and r.gate("G7 personalise") != FAIL and (force or not have_mocks):
+    # `"mockups": false` in the spec turns the whole Printful path off. It has to be switchable: the
+    # shop no longer publishes Printful renders — listing images are composited onto our own licensed
+    # blanks by scripts/produce_images.py — but the cover gate below still judged the Printful cover,
+    # so a perfectly good batch was refused for missing text bands on an artefact nobody ships.
+    if (spec.get("mockups", True) and final.exists() and not dry
+            and r.gate("G7 personalise") != FAIL and (force or not have_mocks)):
         try:
             # Rerunning would park a duplicate copy of the print file in Shopify Files, so existing
             # mockups are reused unless --force. They are free, but they are not free of clutter.
@@ -1345,16 +1644,37 @@ def main() -> int:
             return 2
 
     results = []
+    # Report progress to the dashboard. This work runs on the operator's machine, so without a row in
+    # `jobs` the website shows nothing at all while it runs: approving a product and a dead pipeline
+    # look identical from there. A dry run is not reported — nothing is happening that anyone waits on.
+    job = None
+    if not a.dry_run:
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from joblog import Job
+            job = Job("design", f"{spec.get('campaign', 'batch')} · {len(concepts)} tasarim",
+                      total=len(concepts), shop_id=spec.get("shop_id")).start()
+        except Exception:
+            job = None                       # the batch matters, the status light does not
+
     for i, c in enumerate(concepts, 1):
         print(f"[{i}/{len(concepts)}] {c['slug']} ({c['kind']}{', personalised' if c.get('personalised') else ''})")
         try:
-            results.append(run_concept(c, spec, cur, a.dry_run, a.force))
+            res = run_concept(c, spec, cur, a.dry_run, a.force)
+            results.append(res)
+            if job:
+                job.tick(f"{c['slug']}: {res.error}" if res.error else c["slug"], failed=bool(res.error))
         except Exception as e:
             r = Result(slug=c.get("slug", "?"), kind=c.get("kind", "?"))
             r.error = f"{type(e).__name__}: {str(e)[:200]}"
             results.append(r)
+            if job:
+                job.tick(f"{r.slug}: {r.error}", failed=True)
         if conn and not a.dry_run:
             conn.commit()
+    if job:
+        job.finish("error" if any(x.error for x in results) else "done",
+                   f"{sum(1 for x in results if not x.error)}/{len(results)} tamam")
 
     if conn:
         if a.dry_run:

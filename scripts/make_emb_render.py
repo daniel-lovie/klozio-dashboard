@@ -13,7 +13,7 @@ A flat vector composited onto a shirt looks like a print because it is one. Proc
 it was tried — banding, rim shadow, ragged edge — and never convinced; the generator draws thread
 far better than a filter imitates it.
 
-    python3 scripts/make_emb_render.py <slug> [--force]
+    python3 scripts/make_emb_render.py <slug> [--force] [--head "shape description"]
 """
 import argparse
 import io
@@ -31,20 +31,32 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from batch_runner import local_cutout, palette_line                 # noqa: E402
+from batch_runner import local_cutout, palette_line, drop_background_specks                 # noqa: E402
 
 # NOT a patch. Asking for a patch got a patch: a white backing disc with a satin border round it,
 # which is a separate object sewn onto a shirt. We stitch into the garment itself, so the motif has
 # to be thread and nothing else — where there is no thread the customer sees their own shirt.
-STITCH_CLAUSE = (
+#
+# The clause is split because "NO text" cannot stand when the shape description IS lettering — a
+# prompt that asks for a stitched word and forbids letters in the same breath leaves the model to
+# resolve the contradiction at random, which is how 98 catalogue prompts ended up unpredictable.
+_STITCH_BASE = (
     "the motif stitched DIRECTLY onto fabric as machine embroidery, NOT a patch, NO backing disc, "
     "NO border ring around the outside, no badge edge, only the embroidered shapes themselves: "
     "dense satin stitch fills with visible individual thread strands, raised glossy rayon thread "
     "catching the light, stitch direction visible in every shape, thread sheen and depth, "
     "every shape complete and resting on nothing, "
-    "isolated on a plain pure white background, photographed straight on, "
-    "NO text, NO letters, NO numbers, no watermark"
+    # Asked for a stitched word once and got it sitting on a stitched sunburst: rays radiating behind
+    # the lettering, thread-textured so no cutout would ever drop them. Name what must not be behind.
+    "nothing behind the motif — no sunburst, no rays, no starburst, no halo, no panel or plaque, "
+    "bare background between and around every shape, "
+    "isolated on a plain pure white background, photographed straight on, no watermark"
 )
+_NO_LETTERS = ", NO text, NO letters, NO numbers"
+
+
+def stitch_clause(with_text: bool = False) -> str:
+    return _STITCH_BASE if with_text else _STITCH_BASE + _NO_LETTERS
 
 
 def drop_smooth_pockets(im: Image.Image, min_frac: float = 0.004) -> Image.Image:
@@ -92,7 +104,8 @@ def drop_smooth_pockets(im: Image.Image, min_frac: float = 0.004) -> Image.Image
     return Image.fromarray(a, "RGBA")
 
 
-def build(slug: str, force: bool = False) -> dict:
+def build(slug: str, force: bool = False, head_override: str | None = None,
+          with_text: bool = False) -> dict:
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
     cur.execute("""SELECT id, technique, thread_colors, emb_render IS NOT NULL
@@ -106,12 +119,16 @@ def build(slug: str, force: bool = False) -> dict:
     if have and not force:
         return {"slug": slug, "skipped": "zaten var"}
 
-    # The batch spec only covers the current campaign. Older products predate it, so their shape
-    # description comes from the row itself — visual_idea is the human sentence, design_prompt the
-    # generated one, and either describes the same emblem.
+    # A listing whose title promises stitched names has to SHOW them, and neither the stored idea nor
+    # the hook is written as an image prompt. --head takes the shape description directly so the
+    # lettering can be described properly; the model draws thread lettering cleanly, and the
+    # typesetting step never reaches embroidery because the listing composites emb_render, not
+    # print_file.
     spec = json.loads((HERE / "batch_gaming_01.json").read_text())
     concept = next((c for c in spec["concepts"] if c["slug"] == slug), None)
-    if concept:
+    if head_override:
+        head = head_override.strip().rstrip(",")
+    elif concept:
         head = concept["prompt_head"].strip().rstrip(",")
     else:
         cur.execute("SELECT visual_idea, design_prompt, hook FROM products WHERE id=%s", (pid,))
@@ -123,7 +140,8 @@ def build(slug: str, force: bool = False) -> dict:
         if not head:
             raise SystemExit(f"{slug}: sekil tarifi yok, elle prompt gerekiyor")
         head = head.rstrip(",")
-    prompt = f"{head}, {STITCH_CLAUSE}, {palette_line(threads or concept.get('threads'))}"
+    prompt = (f"{head}, {stitch_clause(with_text)}, "
+              f"{palette_line(threads or (concept or {}).get('threads'))}")
 
     tmp = Path(tempfile.mkdtemp())
     raw = tmp / f"{slug}-emb.png"
@@ -138,6 +156,9 @@ def build(slug: str, force: bool = False) -> dict:
 
     cut = local_cutout(raw, tmp / f"{slug}-cut.png")
     im = drop_smooth_pockets(Image.open(cut).convert("RGBA"))
+    im, cleared = drop_background_specks(im)
+    if cleared:
+        print(f"  {slug}: {cleared} beyaz zemin lekesi temizlendi", file=sys.stderr)
     buf = io.BytesIO()
     im.save(buf, "PNG")
     cur.execute("UPDATE products SET emb_render=%s, updated_at=now() WHERE id=%s",
@@ -150,8 +171,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("slug")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--head", help="shape description to use instead of the stored idea/concept")
+    ap.add_argument("--with-text", action="store_true",
+                    help="the shape description asks for stitched lettering; drop the no-letters ban")
     a = ap.parse_args()
-    print(json.dumps(build(a.slug, a.force)))
+    print(json.dumps(build(a.slug, a.force, a.head, a.with_text)))
 
 
 if __name__ == "__main__":

@@ -85,9 +85,100 @@ def guess_quad(path: Path) -> dict:
             "opacity": 0.94, "shade": 0.85}
 
 
+def rotate_quad(quad, deg: float) -> list:
+    """Turn the quad about its own centre so the print lies along the garment, not the frame.
+
+    Every folded flat in this set is shot at about -8 degrees. A print laid square to the image sits
+    visibly crooked on a shirt that is not — the most obvious tell in the first test set.
+    """
+    import math
+    pts = [(float(x), float(y)) for x, y in quad]
+    cx = sum(p[0] for p in pts) / 4
+    cy = sum(p[1] for p in pts) / 4
+    r = math.radians(deg)
+    cos, sin = math.cos(r), math.sin(r)
+    return [[int(cx + (x - cx) * cos - (y - cy) * sin),
+             int(cy + (x - cx) * sin + (y - cy) * cos)] for x, y in pts]
+
+
+def fit_quad(design: Image.Image, box, px_per_inch: float, inches: float,
+             angle: float = 0.0, x_frac: float | None = None,
+             y_frac: float | None = None) -> list:
+    """Size a quad inside the MEASURED print rectangle, keeping the artwork's own proportions.
+
+    Two things this exists to prevent, both of which shipped:
+
+    - A square quad stretches a tall design to fill it. The producer handed the artwork's four corners
+      straight to a square area, so a portrait design came out squashed on every listing.
+    - Size has to come from inches and a measured pixels-per-inch, not from a fraction of the garment.
+      `print_box` is the exact rectangle a real printed mockup of this same photograph occupies,
+      recovered by diffing that mockup against our blank; when it is present nothing else gets a vote.
+
+    x_frac/y_frac place a smaller badge inside the box (embroidery); omitted, the print is centred at
+    the top of the box the way a full-front print sits.
+    """
+    bb = design.getbbox() or (0, 0, design.width, design.height)
+    aw, ah = bb[2] - bb[0], bb[3] - bb[1]
+    long_px = inches * px_per_inch
+    w = long_px if aw >= ah else long_px * aw / ah
+    h = long_px if ah > aw else long_px * ah / aw
+
+    bx, by, bx1, by1 = [float(v) for v in box]
+    bw, bh = bx1 - bx, by1 - by
+    # Never exceed the printable rectangle: the physical area is 12x16 inches and a quad larger than
+    # the measured box is a print that cannot be produced.
+    fit = min(bw / w, bh / h, 1.0)
+    w, h = w * fit, h * fit
+
+    cx = bx + bw / 2 if x_frac is None else bx + bw * x_frac
+    top = by if y_frac is None else by + bh * y_frac
+    quad = [[cx - w / 2, top], [cx + w / 2, top], [cx + w / 2, top + h], [cx - w / 2, top + h]]
+    return rotate_quad(quad, angle) if angle else [[int(x), int(y)] for x, y in quad]
+
+
+def decontaminate(design: Image.Image) -> Image.Image:
+    """Push design colour into the transparent region so nothing else can bleed out of it.
+
+    A cutout only clears ALPHA. The RGB of every cleared pixel still holds the background the generator
+    drew — pure white for the embroidery renders, a solid green or blue field for the print files. That
+    colour is invisible until geometry runs: `resize`, `transform` and `displace` all interpolate RGB
+    and alpha independently (PIL has no premultiplied mode), so edge pixels come out as a blend of ink
+    and background, and the final blend `base*(1-a) + art*a` paints that blend onto the garment. On an
+    Ivory tee a white fringe is invisible; on rust or Pepper it is a halo round every letter, and a
+    green-backed print file haloes green.
+
+    Flooding the cleared area with the nearest opaque colour makes the interpolation harmless: what
+    bleeds is the ink itself, which is what a real print does as it sinks into the weave.
+
+    Run once per design, not per image — the distance transform is the expensive part of a composite.
+    """
+    a = np.array(design.convert("RGBA"))
+    opaque = a[:, :, 3] > 8
+    if not opaque.any() or opaque.all():
+        return design
+    from scipy import ndimage
+    idx = ndimage.distance_transform_edt(~opaque, return_distances=False, return_indices=True)
+    a[:, :, :3] = a[:, :, :3][idx[0], idx[1]]
+    return Image.fromarray(a, "RGBA")
+
+
 def warp(design: Image.Image, quad, size) -> Image.Image:
     """Map the design's corners onto the quad. PIL wants the inverse transform's coefficients."""
     (x0, y0), (x1, y1), (x2, y2), (x3, y3) = [(float(x), float(y)) for x, y in quad]
+
+    # Reduce with an AREA filter before warping. Image.transform samples the source through a small
+    # kernel with no mip-mapping, so a 3600px design squeezed into a 940px quad is point-sampled at
+    # roughly every fourth pixel. On flat shapes that merely softens; on the halftone dot screens these
+    # designs are built from it aliases catastrophically — a pink dotted face collapses into a dark
+    # clump and the whole print reads as a muddy smear. Resampling to about the destination size first
+    # averages each dot cluster into the mid-tone it is supposed to represent.
+    dst_w = max(x0, x1, x2, x3) - min(x0, x1, x2, x3)
+    dst_h = max(y0, y1, y2, y3) - min(y0, y1, y2, y3)
+    k = min(design.size[0] / max(dst_w, 1.0), design.size[1] / max(dst_h, 1.0))
+    if k > 1.2:
+        # 1.15x the destination leaves the warp a little detail to work with without re-aliasing.
+        design = design.resize((max(1, round(design.size[0] / k * 1.15)),
+                                max(1, round(design.size[1] / k * 1.15))), Image.LANCZOS)
     w, h = design.size
     src = [(0, 0), (w, 0), (w, h), (0, h)]
     dst = [(x0, y0), (x1, y1), (x2, y2), (x3, y3)]
@@ -168,8 +259,19 @@ def composite_pil(design: Image.Image, blank: Image.Image, tpl: dict) -> Image.I
     # through. Dividing by each garment's standard deviation gives every shade the same subtle grain,
     # which is what a print actually looks like.
     sd = float(np.std(lum[:, :, 0][inside])) if inside.any() else float(np.std(lum))
-    grain = (lum - ref) / max(sd, 1.0)                     # in units of this cloth's own variation
-    lit = np.clip(art[:, :, :3] * (1.0 + np.clip(grain, -3, 3) * shade), 0, 255)
+    # The divisor cannot be the standard deviation alone. A cleanly lit Ivory tee has sd ≈ 1.7 levels,
+    # so an ordinary five-level ripple became grain = -3, and with shade 0.85 the multiplier went
+    # NEGATIVE and clipped to zero: the garment's own sensor noise punched black holes through the
+    # print. Flooring the divisor at a few percent of the garment's brightness keeps folds visible on
+    # cloth that genuinely has them and stops noise being amplified on cloth that does not.
+    denom = max(sd, 0.06 * ref, 1.0)
+    grain = (lum - ref) / denom                            # in units of this cloth's own variation
+    # Bound the MODULATION, not the grain. Per-template `shade` values run to 0.85, so clamping grain
+    # alone still let the product go negative and clip to black. Ink on cloth loses at most about half
+    # its value in a deep fold and gains a little on a highlight; outside that range the result is not
+    # a shaded print, it is a hole.
+    mod = np.clip(grain * shade, -0.45, 0.30)
+    lit = np.clip(art[:, :, :3] * (1.0 + mod), 0, 255)
 
     return Image.fromarray(np.clip(base * (1 - alpha) + lit * alpha, 0, 255).astype(np.uint8))
 

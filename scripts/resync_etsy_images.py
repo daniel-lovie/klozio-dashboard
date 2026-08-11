@@ -173,14 +173,19 @@ def main() -> None:
                     raise
                 time.sleep(5 * (i + 1))
 
-    for sid in {r[4] for r in rows}:
-        creds[sid] = shop_creds(cur, sid)
+    shop_ids = {r[4] for r in rows}
     conn.close()
 
     for i in range(0, len(rows), BATCH):
         chunk = rows[i:i + BATCH]
         c = connect_retry()
         k = c.cursor()
+        # Refresh credentials on every batch, not once at the start. An Etsy access token lives one
+        # hour and a full push takes longer, so the tail of the run answers 401 "access token is
+        # expired" on listings that were fine — it looks like a permissions problem and is a clock.
+        # shop_creds() is a cheap read when the token is still valid and renews it when it is not.
+        for sid in shop_ids:
+            creds[sid] = shop_creds(k, sid)
         blobs = {}
         for pid, *_ in chunk:
             k.execute("""SELECT rank, filename, bytes FROM product_images
@@ -204,9 +209,33 @@ def main() -> None:
                     r = upload(h, shop, listing, rank, fn or "img.jpg", bytes(blob))
                     if r != "ok":
                         errs.append(f"r{rank}:{r}")
+                # Verify the deletes. This call used to be fired and forgotten, and a delete that
+                # answered 429 or 500 left an old image sitting in the listing beside the new set —
+                # visible to a buyer, invisible here, and reported as a success. Retry, then say so.
+                leftover = []
                 for oid in old_ids:
-                    requests.delete(f"{API}/shops/{shop}/listings/{listing}/images/{oid}",
-                                    headers=h, timeout=60)
+                    gone = False
+                    for attempt in (1, 2, 3, 4):
+                        d = requests.delete(f"{API}/shops/{shop}/listings/{listing}/images/{oid}",
+                                            headers=h, timeout=60)
+                        if d.status_code in (200, 204, 404):     # 404 = already gone, which is fine
+                            gone = True
+                            break
+                        if d.status_code == 429 or d.status_code >= 500:
+                            time.sleep(3 * attempt)
+                            continue
+                        break
+                    if not gone:
+                        leftover.append(oid)
+                # A leftover is NOT an upload failure: the new set is on the listing and correct. Counting
+                # it as one would send this product round again and add seven more images to a listing
+                # that already has them, which is how a listing hits Etsy's twenty-image cap. Record the
+                # ids for a delete-only cleanup pass instead.
+                if leftover:
+                    print(f"  ! {slug:14} eski gorsel silinemedi: {leftover}")
+                    with open("/tmp/etsy_leftover_images.txt", "a") as fh:
+                        for oid in leftover:
+                            fh.write(f"{sid} {listing} {oid}\n")
                 if errs:
                     fail += 1
                     print(f"  ✗ {slug:14} {'; '.join(errs)[:150]}")

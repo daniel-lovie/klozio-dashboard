@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { isLoggedIn } from "@/lib/auth";
 import { listShops, createShop, updateShopCreds } from "@/lib/shops";
-import { logEvent } from "@/lib/db";
+import { logEvent, q } from "@/lib/db";
 
 /** Credential keys the wizard may set. One list, or a field the form collects is silently dropped. */
 const CRED_KEYS = [
@@ -27,6 +27,17 @@ export async function POST(req: Request) {
     if (b[k]?.trim()) creds[k] = String(b[k]).trim();
   }
   const shop = await createShop({ name: b.name, creds });
+  // Whoever creates a shop owns it. Without this the wizard "worked" and then the shop was invisible:
+  // listShops() resolves through memberships for everyone except the admin, so a new customer finished
+  // onboarding and found an empty dropdown — the one flow that has to work for a stranger.
+  const { me, clerkConfigured } = await import("@/lib/user");
+  if (clerkConfigured()) {
+    const u = await me();
+    if (u) {
+      await q(`INSERT INTO memberships (user_id, shop_id, role) VALUES ($1,$2,'owner')
+               ON CONFLICT DO NOTHING`, [u.id, shop.id]);
+    }
+  }
   await logEvent("shop_created", { detail: `shop ${shop.id} '${shop.name}'` });
   return NextResponse.json({ ok: true, shop: { id: shop.id, slug: shop.slug, name: shop.name } });
 }

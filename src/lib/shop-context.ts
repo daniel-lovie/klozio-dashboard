@@ -17,6 +17,11 @@ export type ShopCtx = {
   /** platform key by default — shops may BYO via creds.printful_api_key */
   printfulApiKey: string;
   printfulStoreId: string;
+  /** Shopify is per shop with NO platform fallback beyond shop 1: an empty domain here must fail
+   *  rather than quietly resolve to the operator's own store and publish a stranger's products into it. */
+  shopifyDomain: string;
+  shopifyClientId: string;
+  shopifyClientSecret: string;
 };
 
 const als = new AsyncLocalStorage<ShopCtx>();
@@ -34,6 +39,9 @@ function envCtx(): ShopCtx {
       .split(",").map((s) => Number(s.trim())).filter(Boolean),
     printfulApiKey: process.env.PRINTFUL_API_KEY || "",
     printfulStoreId: process.env.PRINTFUL_STORE_ID || "",
+    shopifyDomain: process.env.SHOPIFY_STORE_DOMAIN || "",
+    shopifyClientId: process.env.SHOPIFY_CLIENT_ID || "",
+    shopifyClientSecret: process.env.SHOPIFY_CLIENT_SECRET || "",
   };
 }
 
@@ -41,6 +49,12 @@ function envCtx(): ShopCtx {
 export function hasEtsy(ctx?: ShopCtx): boolean {
   const c = ctx ?? shopCtx();
   return !!c.etsyShopId && c.apiKey.includes(":");
+}
+
+/** Does this shop have a usable Shopify connection? Checked where Shopify is actually called. */
+export function hasShopify(ctx?: ShopCtx): boolean {
+  const c = ctx ?? shopCtx();
+  return !!c.shopifyDomain && !!c.shopifyClientId && !!c.shopifyClientSecret;
 }
 
 export function shopCtx(): ShopCtx {
@@ -64,6 +78,11 @@ export async function runWithShop<T>(dbShopId: number, fn: () => Promise<T>): Pr
       .split(",").map((s: string) => Number(s.trim())).filter(Boolean),
     printfulApiKey: c.printful_api_key || process.env.PRINTFUL_API_KEY || "",
     printfulStoreId: c.printful_store_id || process.env.PRINTFUL_STORE_ID || "",
+    // No env fallback: shop 1 keeps its store through envCtx() above, and every other shop must bring
+    // its own. A shared default here would mean a new customer's first publish lands in our store.
+    shopifyDomain: c.shopify_domain || "",
+    shopifyClientId: c.shopify_client_id || "",
+    shopifyClientSecret: c.shopify_client_secret || "",
   };
   // Deliberately NOT a precondition. A new shop should be able to hold products, generate designs,
   // build listing images and fulfil orders before anyone has an Etsy developer account — Etsy is one

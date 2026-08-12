@@ -169,7 +169,7 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       return { result: clip(JSON.stringify(out)), summary: `etsy ▸ ${input.method} ${input.path}` };
     }
     if (name === "shopify") {
-      const out = await shopifyGql(input.query, input.variables ?? {});
+      const out = await withShop(() => shopifyGql(input.query, input.variables ?? {}));
       await logEvent("agent_tool", { detail: `shopify gql: ${String(input.query).slice(0, 140)}` });
       return { result: clip(JSON.stringify(out)), summary: "shopify ▸ gql" };
     }

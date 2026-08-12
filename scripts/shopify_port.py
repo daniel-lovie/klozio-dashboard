@@ -18,8 +18,36 @@ from PIL import Image
 
 # Read lazily, not at import: batch_runner.py imports normalize_image() for its Shopify image gate
 # and must be able to do that in --dry-run, with no Shopify credentials and no token minted.
+# The TARGET store is a property of the shop being ported, not of the environment. Reading it from env
+# meant `--shop 2` pushed HillsByElgin's products into Klozio's Shopify store — the shop filter chose whose
+# products to send and nothing chose where they landed. Every shop brings its own store; only shop 1 keeps
+# the env values, because that is where they came from.
 SHOP = os.environ.get("SHOPIFY_STORE_DOMAIN", "")
+CLIENT_ID = os.environ.get("SHOPIFY_CLIENT_ID", "")
+CLIENT_SECRET = os.environ.get("SHOPIFY_CLIENT_SECRET", "")
 API = f"https://{SHOP}/admin/api/2026-07/graphql.json"
+
+
+def configure_store(conn, shop_id: int | None) -> str:
+    """Point this run at the store belonging to `shop_id`. Returns the domain."""
+    global SHOP, CLIENT_ID, CLIENT_SECRET, API, TOKEN
+    if shop_id and shop_id != 1:
+        cur = conn.cursor()
+        cur.execute("SELECT name, creds FROM shops WHERE id=%s", (shop_id,))
+        row = cur.fetchone()
+        if not row:
+            raise SystemExit(f"shop {shop_id} yok")
+        name, creds = row[0], (row[1] or {})
+        dom = creds.get("shopify_domain")
+        if not dom:
+            raise SystemExit(f"shop {shop_id} ({name}) icin shopify_domain tanimli degil — "
+                             "kurulum sihirbazindan ekleyin; env'deki dukkana yazmayacagim")
+        SHOP, CLIENT_ID, CLIENT_SECRET = dom, creds.get("shopify_client_id", ""), creds.get("shopify_client_secret", "")
+    if not SHOP:
+        raise SystemExit("hedef dukkan cozulemedi (SHOPIFY_STORE_DOMAIN veya shops.creds)")
+    API = f"https://{SHOP}/admin/api/2026-07/graphql.json"
+    TOKEN = None
+    return SHOP
 UP = {"2X": 286, "3X": 572, "4X": 715}  # grossed anchor upcharges (cents)
 
 SLOT_TYPE = {"EMB": "Embroidered Shirt", "EMBH": "Embroidered Hat"}
@@ -41,8 +69,8 @@ def mint_token():
         raise RuntimeError("SHOPIFY_STORE_DOMAIN not set")
     r = requests.post(f"https://{SHOP}/admin/oauth/access_token", data={
         "grant_type": "client_credentials",
-        "client_id": os.environ["SHOPIFY_CLIENT_ID"],
-        "client_secret": os.environ["SHOPIFY_CLIENT_SECRET"]})
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET})
     r.raise_for_status()
     return r.json()["access_token"]
 
@@ -242,6 +270,9 @@ def main():
     a = ap.parse_args()
     conn = psycopg2.connect(os.environ["DATABASE_URL"], keepalives=1, keepalives_idle=20,
                             keepalives_interval=8, keepalives_count=3); cur = conn.cursor()
+    # Resolve the destination BEFORE reading products: whose catalogue and which store are one decision.
+    print(f"hedef dukkan: {configure_store(conn, a.shop)}"
+          f"{'' if a.shop else '  (--shop verilmedi, env dukkani)'}")
     q = """SELECT p.id, p.slug, p.title, p.description, p.tags, p.colorways, p.sizes,
                   p.price_cents, COALESCE(p.slot,'') AS slot, COALESCE(p.niche,'') AS niche
              FROM products p

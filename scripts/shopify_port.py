@@ -12,6 +12,7 @@ Idempotent-ish: skips products whose handle already exists on Shopify.
 Run: set -a && source .env && set +a && python3 scripts/shopify_port.py [--only slug] [--limit N]
 """
 import argparse, json, os, sys, time
+import re
 import requests, psycopg2
 from io import BytesIO
 from PIL import Image
@@ -92,10 +93,25 @@ def gql(query, variables=None, retries=3):
         return j["data"]
     raise RuntimeError("gql retries exhausted")
 
+def shopify_handle(slug: str) -> str:
+    """The handle Shopify will actually store for this slug.
+
+    Shopify collapses repeated hyphens, so our 'minimal-outdoors--1' lives there as
+    'minimal-outdoors-1'. Looking it up by the raw slug finds nothing, and the porter then treats a
+    product it has already published as missing: it creates a second one, Shopify appends a counter, and
+    the storefront gains a duplicate. This is the same normalisation that made 88 real products look like
+    copies during the cleanup.
+    """
+    return re.sub(r"-{2,}", "-", slug.strip().lower())
+
+
 def find_by_handle(handle):
-    d = gql("query($h:String!){ productByIdentifier(identifier:{handle:$h}){ id mediaCount { count } } }", {"h": handle})
-    n = d["productByIdentifier"]
-    return (n["id"], n["mediaCount"]["count"]) if n else (None, 0)
+    for h in dict.fromkeys([handle, shopify_handle(handle)]):     # raw first, normalised as fallback
+        d = gql("query($h:String!){ productByIdentifier(identifier:{handle:$h}){ id mediaCount { count } } }", {"h": h})
+        n = d["productByIdentifier"]
+        if n:
+            return (n["id"], n["mediaCount"]["count"])
+    return (None, 0)
 
 def eff(cents): return round(cents * 0.7 / 100, 2)
 
@@ -123,7 +139,7 @@ def build_input(p):
             })
     desc = "".join(f"<p>{ln}</p>" for ln in (p["description"] or "").split("\n") if ln.strip())
     return {
-        "title": p["title"], "handle": p["slug"], "descriptionHtml": desc,
+        "title": p["title"], "handle": shopify_handle(p["slug"]), "descriptionHtml": desc,
         "vendor": "Klozio", "productType": SLOT_TYPE.get(slot, "Graphic Tee"),
         "tags": (p["tags"] or []) + [slot or "misc", "klozio"],
         "status": "ACTIVE",
@@ -266,13 +282,32 @@ def main():
     # The store sells one shop's catalogue. Without this filter the porter published every product that
     # had images — 188 of another shop's Etsy-only listings ended up on the storefront.
     ap.add_argument("--shop", type=int, help="only this shop_id (zorunlu degil ama filtresiz cok riskli)")
+    # Whose products and which store are two decisions, and they are not always the same shop. The
+    # storefront is its own shop row ("Klozio Shopify") while the catalogue on it belongs to the shops
+    # that designed it, so the destination has to be nameable on its own — with no default, because a
+    # default is how another shop's products end up in the wrong store.
+    ap.add_argument("--store-shop", type=int, dest="store_shop",
+                    help="hedef dukkanin sahibi olan shop_id (verilmezse --shop'un dukkani)")
     ap.add_argument("--refresh-images", action="store_true", help="replace media on existing products")
+    # --refresh-images only swaps the pictures. A design rebuild usually changes the copy and sometimes
+    # the price too, and leaving those behind produces a storefront that is half updated in a way nobody
+    # can see. --refresh-all pushes the product itself (title, description, options, variant prices) and
+    # then the media.
+    ap.add_argument("--refresh-all", action="store_true", dest="refresh_all",
+                    help="mevcut urunde basligi/aciklamayi/fiyati da guncelle, sonra gorselleri")
+    # "Update the store" and "publish the catalogue" are different jobs. Without a way to name exactly
+    # what is already on the storefront, a refresh run also CREATES every product that is not there yet —
+    # which is how 188 Etsy-only listings once appeared on it.
+    ap.add_argument("--slugs-file", dest="slugs_file",
+                    help="sadece bu dosyadaki slug'lar (satir basina bir slug)")
     a = ap.parse_args()
     conn = psycopg2.connect(os.environ["DATABASE_URL"], keepalives=1, keepalives_idle=20,
                             keepalives_interval=8, keepalives_count=3); cur = conn.cursor()
     # Resolve the destination BEFORE reading products: whose catalogue and which store are one decision.
-    print(f"hedef dukkan: {configure_store(conn, a.shop)}"
-          f"{'' if a.shop else '  (--shop verilmedi, env dukkani)'}")
+    target = a.store_shop or a.shop
+    print(f"hedef dukkan: {configure_store(conn, target)}"
+          f"  (kimin urunleri: {('shop ' + str(a.shop)) if a.shop else 'FILTRESIZ'}"
+          f" | dukkan sahibi: {('shop ' + str(target)) if target else 'env'})")
     q = """SELECT p.id, p.slug, p.title, p.description, p.tags, p.colorways, p.sizes,
                   p.price_cents, COALESCE(p.slot,'') AS slot, COALESCE(p.niche,'') AS niche
              FROM products p
@@ -280,6 +315,12 @@ def main():
               AND p.title IS NOT NULL"""
     params = []
     if a.only: q += " AND p.slug=%s"; params.append(a.only)
+    if a.slugs_file:
+        wanted = [l.strip() for l in open(a.slugs_file) if l.strip()]
+        if not wanted:
+            raise SystemExit(f"{a.slugs_file} bos")
+        q += " AND p.slug = ANY(%s)"; params.append(wanted)
+        print(f"slug listesi: {len(wanted)} slug ({a.slugs_file})")
     if a.niche: q += " AND p.niche = ANY(%s)"; params.append(a.niche.split(","))
     if a.shop: q += " AND p.shop_id = %s"; params.append(a.shop)
     q += " ORDER BY p.slot, p.id"
@@ -294,9 +335,23 @@ def main():
     for p in rows:
         try:
             pid, media_n = find_by_handle(p["slug"])
-            if pid and media_n > 0 and not a.refresh_images:
+            if pid and media_n > 0 and not (a.refresh_images or a.refresh_all):
                 coll_members.setdefault(collection_for(p), []).append(pid)
                 print(f"{p['slug']}: exists, skip"); continue
+            if pid and a.refresh_all:
+                inp, nv = build_input(p)
+                inp["id"] = pid                      # id = update this product, not create another
+                product_set(inp, nv)
+                n = clear_media(pid)
+                cur.execute("SELECT filename, mime, bytes FROM product_images WHERE product_id=%s ORDER BY rank",
+                            (p["id"],))
+                srcs = [staged_upload(fn or "img.jpg", mime or "image/jpeg", bytes(blob))
+                        for fn, mime, blob in cur.fetchall()]
+                attach_media(pid, srcs)
+                coll_members.setdefault(collection_for(p), []).append(pid)
+                print(f"{p['slug']}: TAM GUNCELLENDI (metin+fiyat, {n} eski -> {len(srcs)} yeni gorsel)")
+                time.sleep(0.4)
+                continue
             if pid and a.refresh_images:
                 n = clear_media(pid)
                 cur.execute("SELECT filename, mime, bytes FROM product_images WHERE product_id=%s ORDER BY rank",
@@ -305,7 +360,7 @@ def main():
                         for fn, mime, blob in cur.fetchall()]
                 attach_media(pid, srcs)
                 coll_members.setdefault(collection_for(p), []).append(pid)
-                print(f"{p['slug']}: REFRESHED ({n} eski -> {len(srcs)} yeni)")
+                print(f"{p['slug']}: GORSELLER YENILENDI ({n} -> {len(srcs)})")
                 time.sleep(0.4)
                 continue
             healed = bool(pid)

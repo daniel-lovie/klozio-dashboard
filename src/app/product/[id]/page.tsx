@@ -30,7 +30,7 @@ export default async function ProductPage(
   const st = active ? STATUS_STYLE[active.status] ?? STATUS_STYLE.pending : null;
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-8">
+    <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
       <a href="/" className="mb-4 inline-block text-sm text-muted hover:text-espresso">← Calendar</a>
 
       <div className="mb-6 flex flex-wrap items-start gap-4">

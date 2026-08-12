@@ -3,6 +3,7 @@ import Link from "next/link";
 import { isLoggedIn } from "@/lib/auth";
 import { q } from "@/lib/db";
 import { currentShopId } from "@/lib/shops";
+import { buildWeeks, defaultWeek } from "@/lib/weeks";
 import { money, dayKeyTZ, timeInShopTZ, TZ_LABEL } from "@/lib/fmt";
 import { ContentApprove, BulkApprove } from "@/components/ContentApprove";
 
@@ -18,15 +19,6 @@ type Row = {
   scheduled_at: string; sched_status: string; image_count: number;
 };
 
-/** Rendering all 200 descriptions at once is ~2 MB of HTML. Default to one week; the
- *  slot and status filters are the other ways in. `week=all` is still available. */
-const WEEKS = [
-  { key: "1", label: "W1 · Aug 3–9",  from: "2026-08-03", to: "2026-08-09", rate: "4/day" },
-  { key: "2", label: "W2 · Aug 10–16", from: "2026-08-10", to: "2026-08-16", rate: "6/day" },
-  { key: "3", label: "W3 · Aug 17–23", from: "2026-08-17", to: "2026-08-23", rate: "8/day" },
-  { key: "4", label: "W4 · Aug 24–31", from: "2026-08-24", to: "2026-08-31", rate: "10/day" },
-];
-
 export default async function PlanPage({
   searchParams,
 }: { searchParams: Promise<{ slot?: string; status?: string; week?: string }> }) {
@@ -38,16 +30,27 @@ export default async function PlanPage({
   if (sp.slot) { params.push(sp.slot); where.push(`p.slot = $${params.length}`); }
   if (sp.status) { params.push(sp.status); where.push(`p.content_status = $${params.length}`); }
 
-  // week filter applies only when neither slot nor status narrows the set
-  const wantWeek = sp.week ?? (sp.slot || sp.status ? "all" : "1");
-  const wk = WEEKS.find((w) => w.key === wantWeek);
+  const shopId = await currentShopId();
+
+  // Weeks come from this shop's own schedule, so the bar cannot drift out of date.
+  const dayCounts = await q<{ day: string; n: number }>(
+    `SELECT (s.scheduled_at AT TIME ZONE 'America/Chicago')::date::text AS day, count(*)::int AS n
+       FROM schedule s JOIN products p ON p.id = s.product_id
+      WHERE p.shop_id = ${shopId} AND p.slot IS NOT NULL
+      GROUP BY 1 ORDER BY 1`);
+  const today = new Date();
+  const weeks = buildWeeks(dayCounts, today);
+  // Default to the week containing today; if that week is empty, the nearest week that has rows — opening
+  // on a week with nothing in it reads as "the plan is gone".
+  const fallback = defaultWeek(weeks, today);
+  const wantWeek = sp.week ?? (sp.slot || sp.status ? "all" : fallback?.key ?? "all");
+  const wk = weeks.find((w) => w.key === wantWeek);
   if (wk) {
     params.push(wk.from, wk.to);
     where.push(`(s.scheduled_at AT TIME ZONE 'America/Chicago')::date
                 BETWEEN $${params.length - 1}::date AND $${params.length}::date`);
   }
 
-  const shopId = await currentShopId();
   const rows = await q<Row>(
     `SELECT p.id AS pid, p.slug, p.slot, p.tree, p.niche, p.concept_no, p.variant,
             p.title, p.tags, p.description, p.hook, p.visual_idea, p.personalised,
@@ -72,7 +75,7 @@ export default async function PlanPage({
   const days = [...new Set(rows.map((r) => dayKeyTZ(r.scheduled_at)))];
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-8">
+    <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">August plan — content review</h1>
@@ -94,17 +97,18 @@ export default async function PlanPage({
 
       {/* week navigation */}
       <nav className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        {WEEKS.map((w) => (
+        {weeks.map((w) => (
           <Link key={w.key} href={`/plan?week=${w.key}`}
             className={`rounded-lg border px-3 py-1.5 ${
               wk?.key === w.key ? "border-espresso bg-espresso/10 font-medium" : "border-espresso/20"}`}>
-            {w.label} <span className="text-muted">{w.rate}</span>
+            {w.current ? "bu hafta" : w.label}
+            <span className="ml-1 text-muted">{w.current ? w.label : `${w.count}`}</span>
           </Link>
         ))}
         <Link href="/plan?week=all"
           className={`rounded-lg border px-3 py-1.5 ${
             !wk ? "border-espresso bg-espresso/10 font-medium" : "border-espresso/20"}`}>
-          all 4 weeks <span className="text-muted">heavy</span>
+          tüm haftalar <span className="text-muted">ağır</span>
         </Link>
       </nav>
 
@@ -112,7 +116,7 @@ export default async function PlanPage({
       <section className="mb-8 rounded-xl border border-espresso/15 bg-white/60 p-4">
         <div className="mb-2 flex items-center gap-3">
           <h2 className="text-sm font-medium">Slots</h2>
-          <Link href="/plan?week=1" className="text-xs text-muted underline">clear filter</Link>
+          <Link href="/plan" className="text-xs text-muted underline">clear filter</Link>
           <Link href="/plan?status=draft" className="text-xs text-muted underline">only un-reviewed</Link>
         </div>
         <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">

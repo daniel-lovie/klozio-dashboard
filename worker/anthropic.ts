@@ -33,6 +33,14 @@ export async function forcedJson(opts: {
     body: JSON.stringify({
       model: MODEL,
       max_tokens: opts.maxTokens ?? 1024,
+      // Thinking off, explicitly. Leaving this unset does NOT mean "no thinking" on Opus 5 or Sonnet 5 —
+      // it runs adaptive thinking, and max_tokens is a ceiling on thinking PLUS output. With a 1024-token
+      // budget and a forced tool_choice, reasoning can consume the whole allowance and return no tool_use
+      // block at all, so the read below throws "no tool_use block in response" on a request the model was
+      // perfectly able to answer. The web agent lost a whole thread to this same default (see
+      // src/lib/agent/loop.ts); here the call wants one deterministic structured answer and has nothing to
+      // gain from reasoning tokens.
+      thinking: { type: "disabled" },
       system: opts.system,
       messages: [{ role: "user", content: opts.user }],
       tools: [{ name: opts.toolName, description: "Return the structured answer.", input_schema: opts.schema }],

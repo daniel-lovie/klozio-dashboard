@@ -118,7 +118,10 @@ export default function Calendar() {
 
       {msg && <div className="mb-4 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-sm">{msg}</div>}
 
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border border-espresso/15 bg-espresso/10">
+      {/* Month grid from sm up. On a 375px phone seven columns give ~50px per day, which fits a date and
+          nothing else — so the phone gets the same cards in a vertical list of the days that have work. The
+          card itself is ONE component used by both, or the two views drift apart. */}
+      <div className="hidden grid-cols-7 gap-px overflow-hidden rounded-xl border border-espresso/15 bg-espresso/10 sm:grid">
         {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
           <div key={d} className="bg-ivory px-2 py-1.5 text-center text-xs font-medium uppercase tracking-wide text-muted">{d}</div>
         ))}
@@ -134,47 +137,35 @@ export default function Calendar() {
                 </div>
               )}
               <div className="space-y-1">
-                {items.map((r) => {
-                  const s = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending;
-                  return (
-                    <div key={r.id} className={`rounded-lg border p-1.5 ${s.bg}`}>
-                      <a href={`/product/${r.product_id}?s=${r.id}`} className="flex gap-1.5">
-                        {r.cover_image_id ? (
-                          <img src={`/api/images/${r.cover_image_id}`} alt=""
-                               className="h-11 w-11 flex-none rounded object-cover" />
-                        ) : (
-                          <div className="grid h-11 w-11 flex-none place-items-center rounded bg-white/60 text-[9px] text-muted">no img</div>
-                        )}
-                        <div className="min-w-0">
-                          <div className={`truncate text-[11px] font-medium leading-tight ${s.text}`}>{r.title}</div>
-                          <div className="text-[10px] text-muted">
-                            {timeInShopTZ(r.scheduled_at)}{" · "}{money(r.price_cents)}
-                          </div>
-                          <div className={`text-[10px] ${s.text}`}>{s.label}</div>
-                        </div>
-                      </a>
-                      {r.status === "pending" && (
-                        <button onClick={() => approve(r.id, true)}
-                                className="mt-1 w-full rounded bg-emerald-700 px-1 py-0.5 text-[10px] font-medium text-white hover:opacity-90">
-                          Approve
-                        </button>
-                      )}
-                      {r.status === "approved" && (
-                        <button onClick={() => approve(r.id, false)}
-                                className="mt-1 w-full rounded border border-espresso/25 px-1 py-0.5 text-[10px] hover:bg-white">
-                          Un-approve
-                        </button>
-                      )}
-                      {r.status === "failed" && r.last_error && (
-                        <div className="mt-1 line-clamp-3 text-[9px] text-red-800">{r.last_error}</div>
-                      )}
-                    </div>
-                  );
-                })}
+                {items.map((r) => <ItemCard key={r.id} r={r} approve={approve} />)}
               </div>
             </div>
           );
         })}
+      </div>
+
+      <div className="space-y-3 sm:hidden">
+        {cells.filter((d): d is Date => !!d)
+              .filter((d) => (byDay.get(dayKey(d)) ?? []).length > 0)
+              .map((d) => {
+          const items = byDay.get(dayKey(d)) ?? [];
+          const isToday = dayKey(d) === dayKey(today);
+          return (
+            <section key={dayKey(d)} className="rounded-xl border border-espresso/15 bg-ivory p-2">
+              <div className={`mb-2 flex items-center gap-2 text-sm ${isToday ? "font-bold text-amber" : "text-muted"}`}>
+                <span>{d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })}</span>
+                {isToday && <span className="rounded-full bg-amber/20 px-2 py-0.5 text-[11px]">bugün</span>}
+                <span className="ml-auto text-[11px]">{items.length} ürün</span>
+              </div>
+              <div className="space-y-2">
+                {items.map((r) => <ItemCard key={r.id} r={r} approve={approve} />)}
+              </div>
+            </section>
+          );
+        })}
+        {!loading && rows.length > 0 && cells.filter((d) => d && (byDay.get(dayKey(d)) ?? []).length).length === 0 && (
+          <p className="text-sm text-muted">Bu ayda planlanmış ürün yok.</p>
+        )}
       </div>
 
       {loading && <p className="mt-4 text-sm text-muted">Loading…</p>}
@@ -182,6 +173,46 @@ export default function Calendar() {
         <p className="mt-4 text-sm text-muted">
           Nothing scheduled this month. Seed products with <code className="rounded bg-white px-1">npm run db:seed</code>.
         </p>
+      )}
+    </div>
+  );
+}
+
+/** One scheduled product, as shown in both the month grid and the phone list. Two copies of this markup
+ *  would drift: a fix applied to the grid would silently miss the view most operators use on the road. */
+function ItemCard({ r, approve }: { r: Row; approve: (id: number, ok: boolean) => void }) {
+  const s = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending;
+  return (
+    <div className={`rounded-lg border p-1.5 ${s.bg}`}>
+      <a href={`/product/${r.product_id}?s=${r.id}`} className="flex gap-1.5">
+        {r.cover_image_id ? (
+          <img src={`/api/images/${r.cover_image_id}`} alt=""
+               className="h-11 w-11 flex-none rounded object-cover" />
+        ) : (
+          <div className="grid h-11 w-11 flex-none place-items-center rounded bg-white/60 text-[9px] text-muted">no img</div>
+        )}
+        <div className="min-w-0">
+          <div className={`truncate text-[11px] font-medium leading-tight ${s.text}`}>{r.title}</div>
+          <div className="text-[10px] text-muted">
+            {timeInShopTZ(r.scheduled_at)}{" · "}{money(r.price_cents)}
+          </div>
+          <div className={`text-[10px] ${s.text}`}>{s.label}</div>
+        </div>
+      </a>
+      {r.status === "pending" && (
+        <button onClick={() => approve(r.id, true)}
+                className="mt-1 w-full rounded bg-emerald-700 px-1 py-0.5 text-[10px] font-medium text-white hover:opacity-90">
+          Approve
+        </button>
+      )}
+      {r.status === "approved" && (
+        <button onClick={() => approve(r.id, false)}
+                className="mt-1 w-full rounded border border-espresso/25 px-1 py-0.5 text-[10px] hover:bg-white">
+          Un-approve
+        </button>
+      )}
+      {r.status === "failed" && r.last_error && (
+        <div className="mt-1 line-clamp-3 text-[9px] text-red-800">{r.last_error}</div>
       )}
     </div>
   );

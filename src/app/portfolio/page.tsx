@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { isLoggedIn } from "@/lib/auth";
 import { q } from "@/lib/db";
 import { currentShopId } from "@/lib/shops";
+import { AddNiche, StageSelect } from "@/components/NicheControls";
 
 const MAX_SLOTS = Number(process.env.MAX_NICHE_SLOTS || 3);
 
@@ -17,20 +18,33 @@ export default async function Portfolio() {
   if (!(await isLoggedIn())) redirect("/login");
 
   const shopId = await currentShopId();
+  // Filtered by shop: the portfolio is this shop's decision record, and the table used to be keyed on slug
+  // alone so a second shop would have seen the first one's niches as its own.
   const niches = await q<any>(`
     SELECT n.*,
            (SELECT count(*) FROM products p WHERE p.niche = n.slug AND p.shop_id=${shopId}) AS products,
            (SELECT count(*) FROM products p WHERE p.niche = n.slug AND p.shop_id=${shopId} AND p.etsy_state='active') AS live
       FROM niches n
+     WHERE n.shop_id=${shopId}
      ORDER BY CASE n.stage WHEN 'scaling' THEN 0 WHEN 'validating' THEN 1 WHEN 'candidate' THEN 2
                            WHEN 'harvesting' THEN 3 ELSE 4 END, n.family, n.slug`);
+
+  // What the catalogue is ALREADY doing. The page asked the operator to choose a niche while 47 of them
+  // were in use and none were registered; the answer to "how do I choose" is mostly "adopt what exists".
+  const used = await q<{ niche: string; products: number; live: number }>(`
+    SELECT p.niche, count(*)::int AS products,
+           count(*) FILTER (WHERE p.etsy_state='active')::int AS live
+      FROM products p
+     WHERE p.shop_id=${shopId} AND p.niche IS NOT NULL AND btrim(p.niche) <> ''
+       AND NOT EXISTS (SELECT 1 FROM niches n WHERE n.shop_id=${shopId} AND n.slug = p.niche)
+     GROUP BY 1 ORDER BY live DESC, products DESC, 1`);
 
   const inFlight = niches.filter((n) => n.stage === "validating" || n.stage === "scaling");
   const free = MAX_SLOTS - inFlight.length;
   const families = [...new Set(niches.map((n) => n.family))];
 
   return (
-    <main className="mx-auto max-w-[1400px] px-6 py-8">
+    <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
       <a href="/" className="mb-4 inline-block text-sm text-muted hover:text-espresso">← Calendar</a>
       <h1 className="text-2xl font-semibold tracking-tight">Niche portfolio</h1>
       <p className="mt-1 max-w-3xl text-sm text-muted">
@@ -41,20 +55,11 @@ export default async function Portfolio() {
 
       {niches.length === 0 && (
         <div className="mt-5 rounded-xl border border-amber/50 bg-amber/10 px-4 py-4">
-          <div className="text-lg font-semibold">No niche selected yet</div>
+          <div className="text-lg font-semibold">Portföyde henüz niş yok</div>
           <p className="mt-1 max-w-3xl text-sm">
-            This is deliberate, not missing data. The niche decision comes out of a dedicated research pass
-            (pipeline S1, <code className="rounded bg-white px-1">etsy-tshirt-research</code>) that has not
-            happened yet.
-          </p>
-          <p className="mt-2 max-w-3xl text-sm text-muted">
-            The two products already built were <strong>machinery tests</strong> — they proved
-            design → listing → publish works end to end. They are not a strategy and are deliberately not
-            registered here as chosen niches.
-          </p>
-          <p className="mt-2 text-sm text-muted">
-            Add the first row to <code className="rounded bg-white px-1">catalog/niches.csv</code> and run{" "}
-            <code className="rounded bg-white px-1">npm run db:seed</code> once research names a family.
+            Bu bir karar kaydı: hangi nişte kaç slot harcadığını burada tutuyorsun. Aşağıda kataloğun
+            <strong> zaten kullandığı</strong> nişler var — birini seçip aşamasıyla portföye ekle. Slot
+            bütçesi ({MAX_SLOTS}) burada uygulanır, sadece anlatılmaz.
           </p>
         </div>
       )}
@@ -107,12 +112,34 @@ export default async function Portfolio() {
                     {n.stage === "scaling" && <> · target 15–20</>}
                   </div>
                   {n.notes && <p className="mt-2 text-[12px] leading-snug">{n.notes}</p>}
+                  <StageSelect slug={n.slug} family={n.family} stage={n.stage} />
                 </div>
               );
             })}
           </div>
         </section>
       ))}
+
+      {used.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">
+            Kataloğun kullandığı, portföyde olmayan nişler
+          </h2>
+          <p className="mb-3 max-w-3xl text-sm text-muted">
+            Ürünler bu nişlerle üretilmiş ama karar kaydı yok. Aşamasını seçip ekle: aday ise slot
+            harcamaz, doğrulanıyor/büyütülüyor ise slot bütçesine girer.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {used.map((u) => (
+              <div key={u.niche} className="rounded-xl border border-espresso/15 bg-white/60 p-3">
+                <div className="font-medium">{u.niche}</div>
+                <div className="mt-1 text-xs text-muted">{u.live}/{u.products} canlı</div>
+                <AddNiche slug={u.niche} family={u.niche} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-10 rounded-xl border border-espresso/15 bg-white/60 p-4 text-sm">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Gates</h2>

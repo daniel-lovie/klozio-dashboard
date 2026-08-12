@@ -73,14 +73,25 @@ export const TOOL_DEFS = [
   },
   {
     name: "produce",
-    description: "Onayli bir urunun tasarimini ve 7-9 ilan gorselini uretir (Higgsfield ~$0.03 + kompozit). "
+    description: "TEK bir urunun tasarimini ve 7-9 ilan gorselini uretir (Higgsfield ~$0.03 + kompozit). "
       + "content_status='approved' ve design_prompt dolu olmali. Zaten gorseli olan urunu tekrar uretmez. "
-      + "Bir urun icin product_id, birden fazlasi icin slug listesi degil TEK id ver; her cagri bir urun.",
+      + "PAHALI VE YAVAS: bir cagri DAKIKALAR surer ve bu turu bloklar; tur basina en fazla 2 cagri kabul "
+      + "edilir. SADECE tek bir urunu yeniden denemek icin kullan (ornek: design_state='error' olan bir "
+      + "urun duzeltildikten sonra). TOPLU URETIM ICIN KULLANMA — onayli satirlari INSERT et, producer "
+      + "dongusu 90 sn'de bir birini alir; ilerlemeyi 'production_status' ile bildir.",
     input_schema: {
       type: "object",
       properties: { product_id: { type: "number", description: "products.id" } },
       required: ["product_id"],
     },
+  },
+  {
+    name: "production_status",
+    description: "Uretim kuyrugunun durumu: design_state'e gore urun sayilari, kuyrukta bekleyen "
+      + "(approved + design_prompt dolu + gorseli yok) urun sayisi ve tahmini bitis suresi, son hatalar "
+      + "(redo_note ile). Uretmez, sadece okur ve ucretsizdir. Kullanici 'ne oldu / nerede kaldi / "
+      + "hazir mi' diye sordugunda BUNU cagir; urun uretmeye kalkma.",
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "update_product",
@@ -158,6 +169,13 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
       return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
     }
+    if (name === "production_status") {
+      const out = await productionStatus();
+      return {
+        result: clip(JSON.stringify(out)),
+        summary: `durum ▸ ${out.queued} kuyrukta · ${out.by_state.ready ?? 0} hazir · ${out.by_state.error ?? 0} hata`,
+      };
+    }
     if (name === "update_product") {
       const out = await updateProduct(input);
       await logEvent("agent_tool", { productId: Number(input.product_id), detail: `update_product: ${out.changed.join(", ") || "degisiklik yok"}` });
@@ -183,6 +201,76 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
     const msg = String(e?.message ?? e).slice(0, 1200);
     return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ HATA` };
   }
+}
+
+/** What the production queue is doing, without producing anything.
+ *
+ * The agent had no way to answer "what happened, where did it get to" other than by running `produce`
+ * again — which costs minutes per product and blocks the turn. Asked for fifty designs it did exactly
+ * that and the request died. This reads the same rows the producer claims, so the answer describes the
+ * real queue rather than the agent's memory of what it inserted.
+ *
+ * The queue predicate is copied from producer.claim() and must stay identical to it: a status page that
+ * counts a different set from the one the worker drains is worse than no status page.
+ */
+async function productionStatus(): Promise<{
+  producer_enabled: boolean; warning?: string;
+  by_state: Record<string, number>; queued: number; generating: number;
+  interval_seconds: number; eta_minutes: number | null; recent_errors: any[];
+  blocked_no_design_model?: any[]; blocked_warning?: string;
+}> {
+  const states = await agentQuery(
+    `SELECT COALESCE(design_state, 'none') AS state, count(*)::int AS n
+       FROM products GROUP BY 1 ORDER BY 1`);
+  const by_state: Record<string, number> = {};
+  for (const r of states.rows ?? []) by_state[r.state] = r.n;
+
+  const queued = await agentQuery(
+    `SELECT count(*)::int AS n FROM products p
+      WHERE p.content_status = 'approved'
+        AND (p.design_state IS NULL OR p.design_state = 'redo')
+        AND p.design_prompt IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM product_images g WHERE g.product_id = p.id)`);
+
+  const errors = await agentQuery(
+    `SELECT id, slug, left(redo_note, 240) AS redo_note, updated_at
+       FROM products WHERE design_state = 'error' ORDER BY updated_at DESC LIMIT 10`);
+
+  // Rows that look queued but can never produce. The queue claims on design_prompt alone, so a row with
+  // no design_model is picked up, hands a null model to the image tool, fails validation twice and parks
+  // as 'error'. Measured: of the products with a null design_model, none has ever reached 'ready'. Report
+  // them apart from the queue — a count that includes them is a promise the queue cannot keep.
+  const blocked = await agentQuery(
+    `SELECT id, slug FROM products
+      WHERE content_status = 'approved' AND design_prompt IS NOT NULL AND design_model IS NULL
+      ORDER BY id LIMIT 20`);
+
+  const n = queued.rows?.[0]?.n ?? 0;
+  // The ticker takes one product per pass, so the queue drains at the tick interval — not in parallel.
+  const intervalSeconds = Number(process.env.PRODUCER_INTERVAL_MS || 90000) / 1000;
+  // Whether anything will actually drain the queue. The agent is told to insert approved rows and let
+  // the ticker produce them, so if the ticker is off that instruction becomes a promise nothing keeps —
+  // rows pile up and the operator is told work is under way. Report the flag and let the agent say so.
+  const producerEnabled = process.env.ENABLE_PRODUCER !== "false";
+  return {
+    producer_enabled: producerEnabled,
+    ...(producerEnabled ? {} : {
+      warning: "URETIM TICKER'I KAPALI (ENABLE_PRODUCER=false): kuyruk kendiliginden bosalmaz. "
+        + "Kullaniciya bunu ACIKCA soyle — satirlari yazdiysan bile uretim baslamayacak.",
+    }),
+    by_state,
+    queued: n,
+    generating: by_state.generating ?? 0,
+    interval_seconds: intervalSeconds,
+    eta_minutes: n ? Math.ceil((n * intervalSeconds) / 60) : null,
+    recent_errors: errors.rows ?? [],
+    ...((blocked.rows ?? []).length ? {
+      blocked_no_design_model: blocked.rows,
+      blocked_warning: "Bu satirlarda design_model BOS: kuyruk onlari alir ama uretim 'Invalid input at "
+        + "params' ile patlar. UPDATE products SET design_model='nano_banana_pro' ile duzelt, sonra "
+        + "design_state=NULL yaparak kuyruga geri koy. Kullaniciya bunlarin uretilmeyecegini soyle.",
+    } : {}),
+  };
 }
 
 /** Change a product's price or copy in one place, and carry it to the live listing.

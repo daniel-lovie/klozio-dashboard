@@ -2,17 +2,26 @@
 import { q, one } from "../db";
 import { AGENT_SYSTEM } from "./prompt";
 import { TOOL_DEFS, execTool } from "./tools";
+import { sanitiseHistory } from "./history";
 
-// Sonnet by default, not Opus. Measured on this agent's own traffic, a step costs $0.248 on Opus and the
-// bill is dominated by output tokens ($75/MTok) and cache traffic; the same step on Sonnet is roughly a
-// fifth of that, and the work here — read some rows, write product copy, run SQL — is not what Opus is
-// for. Override per deployment with PERSONALIZER_MODEL if a task genuinely needs the bigger model.
+// Sonnet by default, not Opus. The bill is dominated by output tokens and cache traffic, and the work
+// here — read some rows, write product copy, run SQL — is not what Opus is for. Opus 5 output is $25/MTok
+// against Sonnet 5's $15, so the gap is narrower than it was when this comment first cited $75, but the
+// reasoning holds. Override per deployment with PERSONALIZER_MODEL if a task genuinely needs the bigger
+// model; re-measure before assuming the old ~5x cost ratio still applies.
 const MODEL = process.env.PERSONALIZER_MODEL || "claude-sonnet-5";
 const MAX_STEPS = 25;
+/** Inline image generations allowed per turn. Each one costs minutes; see the cap in the tool loop. */
+const MAX_PRODUCE_PER_TURN = 2;
 
 /** USD per million tokens, per model. Keep in step with the vendor's price list. */
 const RATES: Record<string, { in: number; cacheWrite: number; cacheRead: number; out: number }> = {
-  "claude-opus-5":   { in: 15,   cacheWrite: 18.75, cacheRead: 1.5,  out: 75 },
+  // Opus 5 is $5/$25, not the $15/$75 this table used to carry — those were Opus 4.1 rates, one
+  // generation stale. It mattered beyond the Opus row: an unknown model falls back to this entry, so
+  // every unrecognised model was invoiced at three times its real output price.
+  "claude-opus-5":   { in: 5,    cacheWrite: 6.25,  cacheRead: 0.5,  out: 25 },
+  // Sticker price. Sonnet 5 runs an introductory $2/$10 through 2026-08-31, so this over-reports by
+  // about a third until then — left alone deliberately, per the over-reporting rule below.
   "claude-sonnet-5": { in: 3,    cacheWrite: 3.75,  cacheRead: 0.3,  out: 15 },
   "claude-haiku-4-5-20251001": { in: 1, cacheWrite: 1.25, cacheRead: 0.1, out: 5 },
 };
@@ -48,44 +57,6 @@ function promisedWork(said: string): boolean {
   return PROMISE.test(said) || PROMISED_SQL.test(said);
 }
 
-/** Make a message list satisfy the API's tool-pairing contract, whatever slicing did to it.
- *
- * A tool_result does not ride in its own message — it is content inside a USER message. So "trim until
- * the first user message" is not a clean boundary: it happily leaves a tool_result whose tool_use was
- * dropped by the window slice, and the API answers 400 "unexpected tool_use_id found in tool_result
- * blocks". That failure is permanent rather than transient, because the broken prefix is what gets
- * persisted and replayed on every later message — the operator sees the agent die on every attempt and
- * clearing the chat is the only way out.
- *
- * Both ends of the round trip slice a window (40 on load, 60 on save), so both ends need this.
- */
-function sanitiseHistory(messages: any[]): any[] {
-  const out: any[] = [];
-  let offered = new Set<string>();          // tool_use ids the previous assistant message asked for
-  for (const m of messages) {
-    if (m?.role === "assistant") {
-      const blocks = Array.isArray(m.content) ? m.content : [];
-      offered = new Set(blocks.filter((b: any) => b?.type === "tool_use").map((b: any) => b.id));
-      if (typeof m.content === "string" ? m.content.length > 0 : blocks.length > 0) out.push(m);
-      continue;
-    }
-    if (!Array.isArray(m?.content)) {
-      if (typeof m?.content === "string" && m.content.length) out.push(m);
-      offered = new Set();
-      continue;
-    }
-    const kept = m.content.filter((b: any) => b?.type !== "tool_result" || offered.has(b.tool_use_id));
-    if (kept.length) out.push({ ...m, content: kept });
-    offered = new Set();
-  }
-  // A tool_use whose results never arrived cannot be the last thing we send or store.
-  while (out.length && out[out.length - 1].role === "assistant"
-         && (out[out.length - 1].content as any[])?.some?.((b: any) => b.type === "tool_use")) {
-    out.pop();
-  }
-  return out;
-}
-
 export type AgentEvent =
   | { t: "text"; d: string }
   | { t: "tool"; d: string }
@@ -116,7 +87,19 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
       // mid-sentence, stop_reason came back "max_tokens", the loop treated it as a finished turn and
       // the operator got half a reply. Five product concepts with titles, descriptions, tags and
       // prompts is comfortably more than 4k tokens.
-      model: MODEL, max_tokens: 16000, stream: true,
+      //
+      // 16000 then turned out to be too tight for a different reason: max_tokens is a ceiling on
+      // thinking AND response text together. One step spent all 16000 inside a thinking block and
+      // emitted no text and no tool call at all, which is what bricked the thread on 2026-08-12.
+      model: MODEL, max_tokens: 32000, stream: true,
+      // Say what we want instead of inheriting it. Leaving `thinking` unset does NOT mean "no
+      // thinking" on Sonnet 5 — it runs adaptive thinking, a silent change from Sonnet 4.6 where the
+      // same omission meant thinking off. This loop was using the feature without knowing it.
+      thinking: { type: "adaptive" },
+      // Sonnet 5 defaults to effort "high". This workload is SQL plus product copy, and "medium" is
+      // about where Sonnet 4.6's "high" sat — enough for the job and cheaper per turn. Worth measuring
+      // "low" against the golden cases before going further down.
+      output_config: { effort: "medium" },
       // cache breakpoint on the system block caches tools+system (~90% input cost cut)
       system: [{ type: "text", text: AGENT_SYSTEM, cache_control: { type: "ephemeral" } }],
       tools: TOOL_DEFS, messages: send,
@@ -157,27 +140,43 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
         usage.cache_read += ev.message?.usage?.cache_read_input_tokens ?? 0;
         usage.cache_write += ev.message?.usage?.cache_creation_input_tokens ?? 0;
       } else if (ev.type === "content_block_start") {
-        // Keep the block's real type. This used to coerce everything that was not a tool_use into an
-        // empty text block, and the next branch only accumulated `text_delta` — so a `thinking` block
-        // arrived, collected nothing, and was dropped as empty. A response made of thinking plus a cut
-        // therefore came back with NO content at all, which surfaced to the operator as "model boş
-        // yanıt döndü" on a request that had in fact been answered.
+        // Build each block in the shape the API will accept back. Coercing everything that was not a
+        // tool_use into a text block is what bricked a thread: a thinking block's text belongs in a
+        // `thinking` field, and one stored under `text` instead is rejected for ever after with
+        // "messages.N.content.0.thinking.thinking: Field required" — on every later turn, because the
+        // malformed block is what gets persisted and replayed.
         curJson = "";
-        cur = ev.content_block?.type === "tool_use"
-          ? { type: "tool_use", id: ev.content_block.id, name: ev.content_block.name, input: {} }
-          : { type: ev.content_block?.type || "text", text: ev.content_block?.text ?? "" };
+        const type = ev.content_block?.type || "text";
+        if (type === "tool_use") {
+          cur = { type: "tool_use", id: ev.content_block.id, name: ev.content_block.name, input: {} };
+        } else if (type === "thinking") {
+          cur = { type: "thinking", thinking: ev.content_block?.thinking ?? "" };
+        } else if (type === "redacted_thinking") {
+          cur = { type: "redacted_thinking", data: ev.content_block?.data ?? "" };
+        } else {
+          cur = { type, text: ev.content_block?.text ?? "" };
+        }
       } else if (ev.type === "content_block_delta") {
         const d = ev.delta ?? {};
         if (d.type === "text_delta") { cur.text += d.text; yield { kind: "text", text: d.text }; }
         else if (d.type === "input_json_delta") curJson += d.partial_json;
         // Thinking is not shown to the operator, but it must count as content so an answer that
         // consists of reasoning plus a tool call is not mistaken for an empty response.
-        else if (d.type === "thinking_delta") cur.text = (cur.text ?? "") + (d.thinking ?? "");
+        else if (d.type === "thinking_delta") cur.thinking = (cur.thinking ?? "") + (d.thinking ?? "");
         else if (d.type === "signature_delta") cur.signature = d.signature;
       } else if (ev.type === "content_block_stop") {
         if (cur?.type === "tool_use") { try { cur.input = curJson ? JSON.parse(curJson) : {}; } catch { cur.input = {}; } }
-        // empty text blocks are rejected by the API when echoed back — drop them
-        if (cur && !(cur.type === "text" && !cur.text)) content.push(cur);
+        // Drop blocks the API would reject on the way back, per type. An empty text block is rejected.
+        // An empty THINKING block is not junk: with thinking.display defaulting to "omitted" the text
+        // is empty by design and only the signature comes back, and that block still has to be echoed
+        // unchanged. So keep a thinking block that carries either text or a signature, and drop only
+        // the one that carries neither.
+        const keep = cur && (
+          cur.type === "thinking" ? Boolean(cur.thinking || cur.signature)
+          : cur.type === "redacted_thinking" ? Boolean(cur.data)
+          : cur.type === "text" ? Boolean(cur.text)
+          : true);
+        if (keep) content.push(cur);
         cur = null;
       } else if (ev.type === "message_delta") {
         if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
@@ -202,6 +201,8 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
 
   let wrote = false;                  // did this turn change anything, or only read?
   let nudges = 0;                     // how many times we have pushed it to keep its word
+  let produceCalls = 0;               // image generations run inline this turn (see the cap below)
+  let finished = false;               // did the model answer, or did we run out of steps?
 
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
@@ -238,11 +239,17 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
           ? `model yanit vermedi: ${String(lastErr.message).slice(0, 200)}`
           : "model bos yanit dondu (akis 3 kez kesildi) — istegi bolerek deneyin");
       }
-      // Echo back only what the API accepts on the next turn. Thinking blocks counted as content above
-      // so a reasoning-only response is not mistaken for empty, but replaying them without extended
-      // thinking enabled is rejected.
-      const echo = assistant.content.filter((b: any) => b.type === "text" || b.type === "tool_use");
-      messages.push({ role: "assistant", content: echo.length ? echo : assistant.content });
+      // Echo the turn back as received. Thinking blocks are part of that contract: on the same model
+      // they must be replayed unchanged, signature included — the API rejects a tampered one, and
+      // dropping them can break block ordering.
+      //
+      // There used to be a fallback here that pushed the raw content when this filter came back empty.
+      // That is precisely how a malformed thinking block reached the history and poisoned every later
+      // turn: the filter excluded thinking, went empty, and the fallback put the block back. An empty
+      // result now means nothing usable was returned, which the check above already treats as an error.
+      const echo = assistant.content.filter((b: any) =>
+        b.type === "text" || b.type === "tool_use" || b.type === "thinking" || b.type === "redacted_thinking");
+      messages.push({ role: "assistant", content: echo });
       const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 };
       // Rates are per model, not a constant. They were hardcoded to Opus, so changing MODEL to a cheaper
       // one would have kept billing customers Opus prices — the usage page is the billing base, and a
@@ -275,11 +282,26 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
             + "nedenini soyle; 'yaziyorum' deyip bitirme." });
           continue;
         }
+        finished = true;      // answered in prose; the loop is done, not out of steps
         break;
       }
 
       const results: any[] = [];
       for (const block of assistant.content.filter((b: any) => b.type === "tool_use")) {
+        // `produce` blocks the turn for minutes per product — one Higgsfield call plus seven composites.
+        // Asked for fifty designs, the model reached for it fifty times, which fits neither MAX_STEPS nor
+        // the 800s request ceiling: the turn could only die. Prompting alone can't guarantee restraint on
+        // a number, so cap it here and hand the model the queue instead. Batches belong to the producer
+        // ticker, which drains approved rows at one per 90s without anyone waiting on a request.
+        if (block.name === "produce" && produceCalls >= MAX_PRODUCE_PER_TURN) {
+          const refusal = `ERROR: bu turda ${MAX_PRODUCE_PER_TURN} 'produce' cagrisi siniri asildi. `
+            + "Toplu uretim bu aracin isi degil: content_status='approved' ve design_prompt dolu satirlari "
+            + "INSERT et, producer dongusu 90 sn'de bir birini alir. Durumu 'production_status' ile bildir.";
+          yield { t: "tool", d: "produce ▸ tur siniri — kuyruga yonlendirildi" };
+          results.push({ type: "tool_result", tool_use_id: block.id, content: refusal });
+          continue;
+        }
+        if (block.name === "produce") produceCalls++;
         const { result, summary } = await execTool(block.name, block.input);
         // Remember whether this turn changed anything, so the promise check below can tell an answer
         // that did the work from one that only talked about it.
@@ -291,8 +313,23 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
       }
       messages.push({ role: "user", content: results });
     }
+    // Running out of steps used to end the turn in silence: no event, no note, just `done`. After a
+    // reload the operator saw their question with no answer under it and no way to tell a hung request
+    // from an exhausted one. Say so, and persist it — the model should also know why it was cut off.
+    // Keyed on `finished` rather than the step count, because a turn that answers on the very last step
+    // has also used all of them and is not truncated.
+    if (!finished) {
+      const note = `⚠️ Adim siniri doldu (${MAX_STEPS}). Is yarim kalmis olabilir — kalan kismi tekrar isteyin.`;
+      yield { t: "error", d: note };
+      messages.push({ role: "assistant", content: [{ type: "text", text: note }] });
+    }
   } catch (e: any) {
-    yield { t: "error", d: String(e?.message ?? e).slice(0, 400) };
+    const note = `⚠️ ${String(e?.message ?? e).slice(0, 400)}`;
+    yield { t: "error", d: note };
+    // Keep the failure in the transcript. The error event is only an SSE frame, so reloading the page
+    // erased it and left three unanswered questions on screen — which is how a thread that was loudly
+    // reporting a 400 on every turn looked, to the operator, like an agent that had frozen.
+    messages.push({ role: "assistant", content: [{ type: "text", text: note }] });
   } finally {
     // Never persist a message the API will reject on the next turn: an empty content array, a tool_use
     // whose result never arrived, or a tool_result the window slice separated from its tool_use.

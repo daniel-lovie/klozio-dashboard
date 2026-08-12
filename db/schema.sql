@@ -122,6 +122,21 @@ CREATE TABLE IF NOT EXISTS niches (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- A niche portfolio belongs to a shop, not to the platform. The table shipped keyed on slug alone, so the
+-- second shop would have inherited the first one's portfolio and two shops could never both work
+-- "halloween". Safe to restructure in place: the table was still empty when this landed.
+ALTER TABLE niches ADD COLUMN IF NOT EXISTS shop_id INT NOT NULL DEFAULT 1;
+DO $do$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'niches_pkey'
+               AND pg_get_constraintdef(oid) = 'PRIMARY KEY (slug)') THEN
+    ALTER TABLE niches DROP CONSTRAINT niches_pkey;
+    ALTER TABLE niches ADD PRIMARY KEY (shop_id, slug);
+  END IF;
+END
+$do$;
+CREATE INDEX IF NOT EXISTS niches_shop_idx ON niches (shop_id, stage);
+
 CREATE INDEX IF NOT EXISTS niches_stage_idx ON niches (stage);
 
 -- ---------------------------------------------------------------- month-1 plan columns

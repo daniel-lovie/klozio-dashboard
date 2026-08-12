@@ -192,10 +192,6 @@ export default function AgentChat() {
         <button onClick={clearSession} className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs">temizle</button>
       </div>
 
-      {/* Production progress lives HERE, next to the conversation that starts it — it used to sit up by
-          the nav, far from the screen the operator is actually watching while a design builds. */}
-      <JobBar />
-
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
@@ -238,6 +234,13 @@ export default function AgentChat() {
           </div>
         ))}
         <div ref={bottom} />
+      </div>
+
+      {/* Production progress sits directly above the composer: it belongs next to the conversation that
+          starts it, and at the BOTTOM because that is where the eye already is — pinned above the
+          transcript it scrolled out of view the moment the answer grew. Renders nothing when idle. */}
+      <div className="mt-2">
+        <JobBar />
       </div>
 
       {attach.length > 0 && (

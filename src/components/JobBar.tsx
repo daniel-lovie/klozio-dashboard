@@ -46,8 +46,11 @@ export function JobBar() {
 
   if (!jobs.length) return null;
 
+  // No page-level wrapper: this used to carry `mx-auto max-w-[1200px] px-6`, which was right under the nav
+  // and wrong inside the chat column — the strip came out centred and narrower than the composer it sits
+  // above. Spacing belongs to whoever places it.
   return (
-    <div className="mx-auto max-w-[1200px] px-6 pt-3">
+    <div className="w-full">
       <div className="space-y-2">
         {jobs.map((j) => {
           const pct = j.total > 0 ? Math.min(100, Math.round(((j.done + j.failed) / j.total) * 100)) : null;

@@ -221,6 +221,11 @@ export async function* runAgentTurn(
       }
     : { role: "user", content: banner });
   await titleFromFirstMessage(chatId, userText);
+  // Persist the question BEFORE the model runs. The whole turn used to be written in `finally`, so a
+  // refresh while the agent was working showed neither the message the operator had just sent nor any sign
+  // that something was happening — the transcript reappeared only when the turn ended, minutes later.
+  await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`,
+          [JSON.stringify(sanitiseHistory(messages)), chatId]);
 
   let wrote = false;                  // did this turn change anything, or only read?
   let nudges = 0;                     // how many times we have pushed it to keep its word

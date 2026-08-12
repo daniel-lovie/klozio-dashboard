@@ -104,19 +104,49 @@ export async function GET(req: Request) {
   const sid = await currentShopId();
   const chatId = await resolveSession(sid, Number(new URL(req.url).searchParams.get("chatId")) || null);
   const rows = await q<any>(`SELECT messages FROM agent_chats WHERE id=$1`, [chatId]);
-  const msgs = (rows[0]?.messages ?? [])
-    .filter((m: any) => typeof m.content === "string" || (Array.isArray(m.content) && m.content.some((b: any) => b.type === "text")))
-    .map((m: any) => ({
-      role: m.role,
-      // Count attachments instead of shipping the base64 back: the history endpoint runs on every page
-      // load and a few reference photos would make it megabytes.
-      images: Array.isArray(m.content) ? m.content.filter((b: any) => b.type === "image").length : 0,
-      // Strip the injected shop banner. It is context for the model, not something the operator wrote,
-      // and echoing it back rendered every request twice — once with the banner, once without.
-      text: (typeof m.content === "string" ? m.content
-        : m.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join(""))
-        .replace(/^\[Aktif mağaza:[^\]]*\]\n?/, ""),
-    }))
-    .filter((m: any) => m.text?.trim());
+  /* Rebuild the transcript the way the operator watched it happen.
+   *
+   * A single turn is stored as several assistant messages — one per tool round — so replaying them one by
+   * one turned one answer into three bubbles, none of them the shape of what was on screen. The tool chips
+   * were dropped entirely, so a reload also lost the record of what the agent actually ran. Both made a
+   * refresh feel like a different conversation.
+   */
+  type Out = { role: "user" | "assistant"; text: string; images?: number; tools?: string[] };
+  const raw: any[] = rows[0]?.messages ?? [];
+  const msgs: Out[] = [];
+  let pending: Out | null = null;                     // the assistant turn being assembled
+
+  const flush = () => { if (pending && (pending.text.trim() || pending.tools?.length)) msgs.push(pending); pending = null; };
+
+  for (const m of raw) {
+    const blocks = Array.isArray(m.content) ? m.content : null;
+    if (m.role === "assistant") {
+      pending ??= { role: "assistant", text: "", tools: [] };
+      const text = blocks
+        ? blocks.filter((b: any) => b.type === "text").map((b: any) => b.text).join("")
+        : String(m.content ?? "");
+      if (text.trim()) pending.text += (pending.text ? "\n\n" : "") + text.trim();
+      for (const b of blocks ?? []) {
+        if (b.type !== "tool_use") continue;
+        // Live, the chip is the tool's own summary; that is not stored, so show the call and a hint of its
+        // input — enough to recognise the step without pretending to be the original label.
+        const hint = String(b.input?.query ?? b.input?.path ?? b.input?.product_id ?? "")
+          .replace(/\s+/g, " ").trim().slice(0, 40);
+        pending.tools!.push(hint ? `${b.name} ▸ ${hint}` : b.name);
+      }
+      continue;
+    }
+    // A user message carrying only tool results is machinery, not something the operator typed.
+    const isToolResult = blocks?.length && blocks.every((b: any) => b.type === "tool_result");
+    if (isToolResult) continue;
+    flush();
+    const text = (blocks ? blocks.filter((b: any) => b.type === "text").map((b: any) => b.text).join("")
+                         : String(m.content ?? ""))
+      .replace(/^\[Aktif mağaza:[^\]]*\]\n?/, "");
+    const images = blocks ? blocks.filter((b: any) => b.type === "image").length : 0;
+    if (text.trim() || images) msgs.push({ role: "user", text: text.trim(), images });
+  }
+  flush();
+
   return Response.json({ chatId, messages: msgs });
 }

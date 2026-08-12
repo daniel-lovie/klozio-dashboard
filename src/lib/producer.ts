@@ -12,7 +12,7 @@
  */
 import { spawn } from "child_process";
 import path from "path";
-import { q, logEvent } from "./db";
+import { q, one, logEvent } from "./db";
 
 const SCRIPT = path.join(process.cwd(), "scripts", "produce_product.py");
 
@@ -91,7 +91,36 @@ export async function produceOne(productId: number): Promise<{ ok: boolean; out:
         AND (design_state IS NULL OR design_state IN ('redo', 'error'))
       RETURNING id, slug`, [productId]);
   if (!rows.length) {
-    return { ok: false, out: "uygun degil: onayli mi, promptu var mi, baska bir islem tarafindan alinmis mi?" };
+    // Say WHICH condition failed. The old message listed all of them as questions, so the agent could not
+    // tell "not approved" from "already produced" — watched live it guessed, forced design_state='redo'
+    // with raw SQL and produced the same product four times at a paid call each.
+    const cur = await one<any>(
+      `SELECT content_status, design_state, design_prompt IS NOT NULL AS has_prompt,
+              (SELECT count(*)::int FROM product_images g WHERE g.product_id = p.id) AS images
+         FROM products p WHERE id = $1`, [productId]);
+    if (!cur) return { ok: false, out: `urun ${productId} yok` };
+    const why = cur.content_status !== "approved"
+      ? `content_status='${cur.content_status}' — onaylanmadan uretilmez`
+      : !cur.has_prompt
+        ? "design_prompt bos — once konsept yazilmali"
+        : cur.design_state === "generating"
+          ? "baska bir islem su an bu urunu uretiyor"
+          : cur.design_state === "ready"
+            ? `zaten uretilmis (${cur.images} gorsel). Yeniden uretmek icin design_state='redo' yap ve `
+              + "redo_note'a NEYIN degisecegini yaz — aksi halde ayni sonucu tekrar odersin`"
+            : `design_state='${cur.design_state}' uygun degil`;
+    return { ok: false, out: why };
+  }
+
+  // A DTF design with no hook is the empty-banner failure waiting to happen: the prompt reserves a text
+  // zone, nothing is typeset into it, and the tee ships with a blank ribbon. Cheaper to say so before the
+  // paid call than to redo it — which is exactly what happened four times to one product.
+  const pre = await one<any>(
+    `SELECT technique, coalesce(btrim(hook), '') AS hook FROM products WHERE id = $1`, [productId]);
+  if (pre && pre.technique !== "embroidery" && !pre.hook) {
+    await q(`UPDATE products SET design_state=NULL, updated_at=now() WHERE id=$1`, [productId]);
+    return { ok: false, out: "hook bos — bu tasarimda yazi olmaz ve sablon bos serit birakir. "
+      + "Once hook'a sloganini yaz (kazananlarin neredeyse hepsinde yazi var), sonra uret." };
   }
   const res = await run(productId);
   if (res.ok) {

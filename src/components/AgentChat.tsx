@@ -18,6 +18,7 @@ export default function AgentChat() {
   const [chatId, setChatId] = useState<number | null>(null);
   const [attach, setAttach] = useState<Attachment[]>([]);
   const [note, setNote] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -111,33 +112,84 @@ export default function AgentChat() {
     setMsgs([]); loadSessions();
   }
 
-  async function deleteSession() {
-    if (!chatId) return;
+  async function removeSession(id: number) {
     if (!confirm("Bu sohbet tamamen silinsin mi?")) return;
-    await fetch(`/api/agent/sessions?id=${chatId}`, { method: "DELETE" });
-    setChatId(null);
+    await fetch(`/api/agent/sessions?id=${id}`, { method: "DELETE" });
     await loadSessions();
-    await loadHistory();                  // falls back to the newest remaining session
+    // Only reload the transcript when the open session is the one that went; deleting an old thread from
+    // the list should not throw away what is on screen.
+    if (id === chatId) { setChatId(null); await loadHistory(); }
   }
 
-  const label = (s: Session) =>
-    `${s.title || "(başlıksız)"} · ${new Date(s.updated_at).toLocaleDateString("tr-TR", { day: "numeric", month: "short" })}`;
+  const when = (iso: string) => {
+    const d = new Date(iso), now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+      ? d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+      : d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+  };
+
+  /** The session list. Rendered twice — as a fixed column on a desktop and as a drawer on a phone — from
+   *  one function, because a list that exists in two copies gets fixed in one of them. */
+  const sessionList = (
+    <div className="flex h-full flex-col">
+      <button onClick={() => { newSession(); setDrawer(false); }}
+        className="mb-2 flex items-center gap-2 rounded-lg border border-espresso/20 px-3 py-2 text-sm font-medium hover:bg-white">
+        <span className="text-base leading-none">＋</span> Yeni sohbet
+      </button>
+      <div className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wide text-muted">Sohbetler</div>
+      <div className="flex-1 space-y-0.5 overflow-y-auto">
+        {sessions.length === 0 && <p className="px-1 text-xs text-muted">henüz sohbet yok</p>}
+        {sessions.map((s) => (
+          <div key={s.id}
+            className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm ${
+              s.id === chatId ? "bg-espresso text-white" : "hover:bg-espresso/10"}`}>
+            <button
+              onClick={() => { setChatId(s.id); loadHistory(s.id); setDrawer(false); }}
+              className="min-w-0 flex-1 truncate text-left">
+              {s.title || "(başlıksız)"}
+              <span className={`ml-1 text-[11px] ${s.id === chatId ? "text-white/60" : "text-muted"}`}>
+                {when(s.updated_at)}
+              </span>
+            </button>
+            <button
+              onClick={() => removeSession(s.id)}
+              title="sohbeti sil"
+              className={`shrink-0 rounded px-1 text-xs opacity-0 group-hover:opacity-100 ${
+                s.id === chatId ? "text-white/70" : "text-muted"}`}>
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="flex h-[calc(100vh-190px)] flex-col sm:h-[calc(100vh-160px)]">
-      {/* Session bar. A select rather than a sidebar: it is the one control that works the same on a
-          phone and on a desktop, and this screen is used on both. */}
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <select
-          value={chatId ?? ""}
-          onChange={(e) => { const id = Number(e.target.value); setChatId(id); loadHistory(id); }}
-          className="min-w-0 max-w-[60vw] flex-1 truncate rounded-md border border-espresso/20 bg-white/80 px-2 py-1 text-sm sm:max-w-xs">
-          {sessions.length === 0 && <option value="">sohbet yok</option>}
-          {sessions.map((s) => <option key={s.id} value={s.id}>{label(s)}</option>)}
-        </select>
-        <button onClick={newSession} className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs">+ yeni</button>
+    <div className="flex h-[calc(100vh-170px)] gap-4 sm:h-[calc(100vh-150px)]">
+      <aside className="hidden w-56 shrink-0 border-r border-espresso/10 pr-3 md:block">
+        {sessionList}
+      </aside>
+
+      {/* Phone: the same list as a drawer. A permanent 224px column would leave the conversation about
+          150px wide on a 375px screen. */}
+      {drawer && (
+        <div className="fixed inset-0 z-50 flex md:hidden" onClick={() => setDrawer(false)}>
+          <div className="h-full w-64 bg-ivory p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            {sessionList}
+          </div>
+          <div className="flex-1 bg-espresso/20" />
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="mb-2 flex items-center gap-2">
+        <button onClick={() => setDrawer(true)}
+          className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs md:hidden">☰ sohbetler</button>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+          {sessions.find((s) => s.id === chatId)?.title || "Yeni sohbet"}
+        </span>
         <button onClick={clearSession} className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs">temizle</button>
-        <button onClick={deleteSession} className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs text-muted">sil</button>
       </div>
 
       {/* Production progress lives HERE, next to the conversation that starts it — it used to sit up by
@@ -224,6 +276,7 @@ export default function AgentChat() {
           className="rounded-xl bg-espresso px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "…" : "Gönder"}
         </button>
+      </div>
       </div>
     </div>
   );

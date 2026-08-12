@@ -320,6 +320,21 @@ export async function activateListing(listingId: number) {
   return apiForm("PATCH", `/shops/${shopId()}/listings/${listingId}`, { state: "active" });
 }
 
+/** Change the copy on a live listing. Price is NOT here on purpose: on Etsy the price lives in the
+ *  inventory offerings, not on the listing, so a listing PATCH carrying `price` is accepted and changes
+ *  nothing the buyer sees. Use updateInventory for that. */
+export async function updateListingFields(
+  listingId: number,
+  fields: { title?: string; description?: string; tags?: string[] }
+) {
+  const body: Record<string, any> = {};
+  if (fields.title !== undefined) body.title = fields.title;
+  if (fields.description !== undefined) body.description = fields.description;
+  if (fields.tags !== undefined) body.tags = fields.tags;
+  if (!Object.keys(body).length) return null;
+  return apiForm("PATCH", `/shops/${shopId()}/listings/${listingId}`, body);
+}
+
 export async function getReturnPolicies() {
   return apiGet(`/shops/${shopId()}/policies/return`);
 }

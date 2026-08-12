@@ -21,7 +21,7 @@ import { printfulRaw } from "../printful";
  * Both are LOCAL: they die with the transaction, so a leaked role cannot outlive one statement. If the
  * shop cannot be resolved the query is refused rather than run unconfined.
  */
-async function agentQuery(sql: string) {
+async function agentQuery(sql: string, params?: any[]) {
   const { currentShopId, NO_SHOP } = await import("../shops");
   const shopId = await currentShopId();
   if (!shopId || shopId === NO_SHOP) {
@@ -32,7 +32,7 @@ async function agentQuery(sql: string) {
     await client.query("BEGIN");
     await client.query("SET LOCAL ROLE klozio_agent");
     await client.query("SELECT set_config('app.shop_id', $1, true)", [String(shopId)]);
-    const res = await client.query(sql);
+    const res = await client.query(sql, params);
     await client.query("COMMIT");
     return res;
   } catch (e) {
@@ -44,6 +44,21 @@ async function agentQuery(sql: string) {
     await client.query("RESET ROLE").catch(() => {});
     client.release();
   }
+}
+
+/** Run channel work under the ACTIVE shop's credentials.
+ *
+ * lib/etsy.ts reads its keys from the async-local shop context and falls back to the environment, which
+ * is Klozio (shop 1). The agent's etsy and printful tools called straight through, so an operator working
+ * on the second shop had their agent talking to the FIRST shop's Etsy account — the SQL side was confined
+ * by row-level security while the API side was not.
+ */
+async function withShop<T>(fn: () => Promise<T>): Promise<T> {
+  const { currentShopId, NO_SHOP } = await import("../shops");
+  const { runWithShop } = await import("../shop-context");
+  const shopId = await currentShopId();
+  if (!shopId || shopId === NO_SHOP) throw new Error("aktif magaza cozulemedi — cagri yapilmadi");
+  return runWithShop(shopId, fn);
 }
 
 export const TOOL_DEFS = [
@@ -64,6 +79,24 @@ export const TOOL_DEFS = [
     input_schema: {
       type: "object",
       properties: { product_id: { type: "number", description: "products.id" } },
+      required: ["product_id"],
+    },
+  },
+  {
+    name: "update_product",
+    description: "Bir urunun fiyatini/basligini/aciklamasini/etiketlerini degistirir ve CANLI ilana da yazar. "
+      + "Fiyat Etsy'de ilanin uzerinde degil envanter tekliflerinde durur; bu arac dogru yere yazar ve "
+      + "beden ek ucretlerini korur. Sadece verdigin alanlar degisir. Fiyat degisikligi para politikasina "
+      + "tabidir: kullanici bu konusmada acikca istemediyse cagirma.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "number", description: "products.id" },
+        price_cents: { type: "number", description: "yeni cikis fiyati, kurus (ornek 2999 = $29.99)" },
+        title: { type: "string" },
+        description: { type: "string" },
+        tags: { type: "array", items: { type: "string" }, description: "en fazla 13, her biri <=20 karakter" },
+      },
       required: ["product_id"],
     },
   },
@@ -125,8 +158,13 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
       return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
     }
+    if (name === "update_product") {
+      const out = await updateProduct(input);
+      await logEvent("agent_tool", { productId: Number(input.product_id), detail: `update_product: ${out.changed.join(", ") || "degisiklik yok"}` });
+      return { result: clip(JSON.stringify(out)), summary: `update ▸ ${input.product_id} ${out.changed.join("+") || "-"}` };
+    }
     if (name === "etsy") {
-      const out = await etsyRaw(input.method, input.path, input.body);
+      const out = await withShop(() => etsyRaw(input.method, input.path, input.body));
       await logEvent("agent_tool", { detail: `etsy ${input.method} ${input.path}` });
       return { result: clip(JSON.stringify(out)), summary: `etsy ▸ ${input.method} ${input.path}` };
     }
@@ -136,7 +174,7 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       return { result: clip(JSON.stringify(out)), summary: "shopify ▸ gql" };
     }
     if (name === "printful") {
-      const out = await printfulRaw(input.method, input.path, input.body);
+      const out = await withShop(() => printfulRaw(input.method, input.path, input.body));
       await logEvent("agent_tool", { detail: `printful ${input.method} ${input.path}` });
       return { result: clip(JSON.stringify(out)), summary: `printful ▸ ${input.method} ${input.path}` };
     }
@@ -145,6 +183,112 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
     const msg = String(e?.message ?? e).slice(0, 1200);
     return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ HATA` };
   }
+}
+
+/** Change a product's price or copy in one place, and carry it to the live listing.
+ *
+ * The agent could already run `UPDATE products SET price_cents=...` — and that is exactly the problem:
+ * on Etsy the price lives in the inventory offerings, not on the listing, so our row would say $24.99
+ * while every buyer still paid the old price. Nobody would notice until a sale came in at the wrong
+ * amount. Same for the copy: a title in our database that never reached Etsy is a lie we tell ourselves.
+ *
+ * So the write is one operation: validate against the platform's limits BEFORE touching anything, write
+ * the row, push to the channel, then read the listing back and compare. Size upcharges survive because
+ * this calls the same updateInventory the publisher uses rather than a second copy of the price maths.
+ */
+async function updateProduct(input: any): Promise<{
+  product_id: number; changed: string[]; etsy: string; verified: any; note?: string;
+}> {
+  const pid = Number(input.product_id);
+  if (!Number.isFinite(pid)) throw new Error("product_id gecersiz");
+
+  const cur = await agentQuery(
+    `SELECT id, slug, title, price_cents, etsy_listing_id, etsy_state, colorways, sizes, quantity
+       FROM products WHERE id = $1`, [pid]);
+  const p = cur.rows?.[0];
+  // RLS makes an out-of-shop product indistinguishable from a missing one, which is the point.
+  if (!p) throw new Error(`urun ${pid} bu magazada bulunamadi`);
+
+  // Placeholders, not string building: the values come from the model, and hand-escaping a title with an
+  // apostrophe in it is exactly the kind of thing that works until it does not.
+  const sets: string[] = [];
+  const vals: any[] = [];
+  const changed: string[] = [];
+  const put = (col: string, v: any) => { vals.push(v); sets.push(`${col}=$${vals.length}`); };
+
+  if (input.price_cents !== undefined) {
+    const cents = Math.round(Number(input.price_cents));
+    if (!Number.isFinite(cents) || cents < 300 || cents > 50000) {
+      throw new Error(`price_cents ${input.price_cents} makul aralikta degil (300-50000 kurus)`);
+    }
+    if (cents !== p.price_cents) { put("price_cents", cents); changed.push("price"); }
+  }
+  if (input.title !== undefined) {
+    const t = String(input.title).trim();
+    // Etsy rejects over 140 and the copy playbook wants 125-140; refusing here beats a 400 mid-write.
+    if (t.length < 10 || t.length > 140) throw new Error(`title ${t.length} karakter — Etsy siniri 140, playbook 125-140`);
+    if (t !== p.title) { put("title", t); changed.push("title"); }
+  }
+  if (input.description !== undefined) {
+    const d = String(input.description);
+    if (d.trim().length < 40) throw new Error("description cok kisa (>=40 karakter)");
+    put("description", d); changed.push("description");
+  }
+  if (input.tags !== undefined) {
+    const tags = (Array.isArray(input.tags) ? input.tags : []).map((s: any) => String(s).trim()).filter(Boolean);
+    if (!tags.length || tags.length > 13) throw new Error(`tags ${tags.length} adet — Etsy en fazla 13 kabul eder`);
+    const tooLong = tags.filter((t: string) => t.length > 20);
+    if (tooLong.length) throw new Error(`Etsy etiketi 20 karakteri gecemez: ${tooLong.join(", ")}`);
+    put("tags", tags); changed.push("tags");
+  }
+  if (!sets.length) {
+    return { product_id: pid, changed: [], etsy: "atlandi", verified: null, note: "istenen degerler zaten boyle" };
+  }
+
+  vals.push(pid);
+  await agentQuery(`UPDATE products SET ${sets.join(", ")}, updated_at=now() WHERE id = $${vals.length}`, vals);
+
+  if (!p.etsy_listing_id) {
+    return { product_id: pid, changed, etsy: "ilan yok — yayinlanınca bu degerlerle gider", verified: null };
+  }
+
+  const listingId = Number(p.etsy_listing_id);
+  const { updateListingFields, updateInventory, getListing } = await import("../etsy");
+  const { shopCtx, hasEtsy } = await import("../shop-context");
+  return withShop(async () => {
+    if (!hasEtsy()) {
+      return { product_id: pid, changed, etsy: "magazanin Etsy baglantisi yok — sadece veritabani guncellendi", verified: null };
+    }
+    if (changed.some((c) => c !== "price")) {
+      await updateListingFields(listingId, {
+        title: input.title !== undefined ? String(input.title).trim() : undefined,
+        description: input.description !== undefined ? String(input.description) : undefined,
+        tags: input.tags !== undefined ? input.tags : undefined,
+      });
+    }
+    if (changed.includes("price")) {
+      await updateInventory(listingId, {
+        colorways: p.colorways ?? [],
+        sizes: p.sizes ?? ["S", "M", "L", "XL", "2X", "3X"],
+        priceCents: Math.round(Number(input.price_cents)),
+        quantity: p.quantity ?? 999,
+        readinessStateId: shopCtx().readinessStateId,
+        skuPrefix: (p.slug || "SKU").slice(0, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
+      });
+    }
+    // "Sent" is not "applied". Read the listing back and report what Etsy actually holds.
+    const live: any = await getListing(listingId).catch(() => null);
+    return {
+      product_id: pid,
+      changed,
+      etsy: `listing ${listingId} guncellendi`,
+      verified: live ? {
+        title: live.title,
+        price: live.price ? `${live.price.amount / live.price.divisor} ${live.price.currency_code}` : null,
+        state: live.state,
+      } : "ilan geri okunamadi — elle dogrula",
+    };
+  });
 }
 
 /** Turn a database error the agent cannot see the cause of into an instruction it can act on.

@@ -273,6 +273,7 @@ def key_clause(key: str = KEY_COLOR, name: str = KEY_NAME) -> str:
 # stops it returning the product instead of the print. The silhouette half is the other repair: unsaid, the
 # model centres everything in a square, and a wide or tall idea gets squeezed into it — spending a fraction
 # of a 10 inch envelope on a design that was meant to fill it.
+ARTIFACT_MARK = "isolated front-print artwork"        # how to recognise the contract in a stored prompt
 ARTIFACT_CONTRACT = (
     "one isolated front-print artwork on a plain generation canvas, the graphic only, "
     "not rendered on clothing, a person, paper, a wall or inside a scene; "

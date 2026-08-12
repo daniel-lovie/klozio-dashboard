@@ -96,8 +96,11 @@ def generate(p: dict, work: Path) -> Path:
         # the colour, so any background sentence in the concept is removed first — leaving both would be a
         # contradiction resolved at random.
         subject = br.strip_background_talk(subject)
-        # The artifact contract leads: what the file IS, before any description of what is in it.
-        full = (f"{br.ARTIFACT_CONTRACT}. {subject.rstrip(',')}, {lead}{pal}"
+        # The artifact contract leads: what the file IS, before any description of what is in it. Unless the
+        # stored concept already carries it — whoever wrote that prompt was told to send the concept only, and
+        # prepending a second copy is the same duplication that once put two style orders in one prompt.
+        head = "" if br.ARTIFACT_MARK in subject.lower() else f"{br.ARTIFACT_CONTRACT}. "
+        full = (f"{head}{subject.rstrip(',')}, {lead}{pal}"
                 f"{br.style_tail(style, with_palette=not has_palette, subject=subject)}")
     else:
         # The legacy prompt could not be reduced to a subject. Use it unchanged — it produced something

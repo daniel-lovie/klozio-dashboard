@@ -81,8 +81,28 @@ export const TOOL_DEFS = [
       + "dongusu 90 sn'de bir birini alir; ilerlemeyi 'production_status' ile bildir.",
     input_schema: {
       type: "object",
-      properties: { product_id: { type: "number", description: "products.id" } },
+      properties: {
+        product_id: { type: "number", description: "products.id" },
+        stage: { type: "string", enum: ["artwork", "all"],
+                 description: "artwork = tasarimi ve tek onizleme karesini uret, ONAY BEKLE (parti isinde ilk urun icin bunu kullan). all = tam set." },
+      },
       required: ["product_id"],
+    },
+  },
+  {
+    name: "ask",
+    description: "Operatore TIKLANABILIR secenekli kisa bir soru sor. Brief alirken kullan (DTF mi nakis mi, "
+      + "konu ne, yazi olsun mu gibi). Soruyu sorduktan sonra TURU BITIR — cevap sonraki mesaj olarak gelir. "
+      + "Ayni turda birden fazla soru sorma; tek soru, net secenekler.",
+    input_schema: {
+      type: "object",
+      properties: {
+        question: { type: "string" },
+        options: { type: "array", items: { type: "string" }, description: "2-6 kisa secenek" },
+        multi: { type: "boolean", description: "birden fazla secilebilir mi" },
+        allow_other: { type: "boolean", description: "operator kendi cevabini yazabilir (varsayilan true)" },
+      },
+      required: ["question", "options"],
     },
   },
   {
@@ -164,8 +184,9 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       // Same entrypoint the scheduler uses. The agent gets no private path to image building: one
       // implementation, or the version nobody tested is the one customers see.
       const pid = Number(input.product_id);
+      const stage = input.stage === "artwork" ? "artwork" : "all";
       const { produceOne } = await import("../producer");
-      const out = await produceOne(pid);
+      const out = await produceOne(pid, stage);
       await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
       return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
     }
@@ -174,6 +195,21 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       return {
         result: clip(JSON.stringify(out)),
         summary: `durum ▸ ${out.queued} kuyrukta · ${out.by_state.ready ?? 0} hazir · ${out.by_state.error ?? 0} hata`,
+      };
+    }
+    if (name === "ask") {
+      // The question itself is the side effect: the loop turns this call into an `ask` event and the UI
+      // renders the options as buttons. Nothing is stored, and the answer arrives as the operator's next
+      // message — so the only useful thing to tell the model is to stop talking and wait.
+      const q = String(input.question ?? "").trim();
+      const opts = (Array.isArray(input.options) ? input.options : []).map((o: any) => String(o)).filter(Boolean);
+      if (!q || opts.length < 2) {
+        return { result: "ERROR: question ve en az 2 option gerekli", summary: "ask ▸ gecersiz" };
+      }
+      return {
+        result: "Soru operatore secenekleriyle gosterildi. TURU BITIR ve cevabi bekle — cevap bir sonraki "
+          + "kullanici mesaji olarak gelecek. Tekrar sorma, tahmin etme.",
+        summary: `soru ▸ ${q.slice(0, 40)}`,
       };
     }
     if (name === "update_product") {

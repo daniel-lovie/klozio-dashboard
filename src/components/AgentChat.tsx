@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { JobBar } from "./JobBar";
+import { ApprovalCard } from "./ApprovalCard";
 
-type Msg = { role: "user" | "assistant"; text: string; tools?: string[]; images?: number; previews?: string[] };
+type Ask = { question: string; options: string[]; multi?: boolean; allow_other?: boolean };
+type Msg = { role: "user" | "assistant"; text: string; tools?: string[]; images?: number;
+             previews?: string[]; ask?: Ask };
 type Session = { id: number; title: string | null; updated_at: string; messages_n: number };
 type Attachment = { id: string; name: string; dataUrl: string };
 
@@ -52,8 +55,12 @@ export default function AgentChat() {
     }
   }
 
-  async function send() {
-    const text = input.trim();
+  /** Send a specific text — an option chip, or a decision from the approval card — through the same path
+   *  as the keyboard, so all three behave identically. */
+  const sendText = (text: string) => send(text);
+
+  async function send(override?: string) {
+    const text = (override ?? input).trim();
     if ((!text && attach.length === 0) || busy) return;
     const sending = attach;
     setInput(""); setAttach([]); setBusy(true); setNote(null);
@@ -90,6 +97,7 @@ export default function AgentChat() {
           const c = [...m]; const last = { ...c[c.length - 1] };
           if (ev.t === "text") last.text += ev.d;
           else if (ev.t === "tool") last.tools = [...(last.tools ?? []), ev.d];
+          else if (ev.t === "ask") last.ask = ev.d;
           else if (ev.t === "error") last.text += `\n\n⚠️ ${ev.d}`;
           c[c.length - 1] = last; return c;
         });
@@ -230,6 +238,22 @@ export default function AgentChat() {
                 <div className="mb-1 text-[11px] opacity-70">🖼 {m.images} görsel</div>
               ) : null}
               {m.text || (busy && i === msgs.length - 1 ? "…" : "")}
+              {m.ask && (
+                <div className="mt-2 border-t border-espresso/10 pt-2">
+                  <div className="mb-1.5 text-[13px] font-medium">{m.ask.question}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {m.ask.options.map((o) => (
+                      <button key={o} disabled={busy} onClick={() => sendText(o)}
+                        className="rounded-full border border-espresso/25 bg-white/70 px-3 py-1 text-xs hover:bg-white disabled:opacity-50">
+                        {o}
+                      </button>
+                    ))}
+                  </div>
+                  {m.ask.allow_other !== false && (
+                    <p className="mt-1.5 text-[11px] text-muted">ya da kendi cevabını yaz</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -240,6 +264,8 @@ export default function AgentChat() {
           starts it, and at the BOTTOM because that is where the eye already is — pinned above the
           transcript it scrolled out of view the moment the answer grew. Renders nothing when idle. */}
       <div className="mt-2">
+        {/* Approval first: it is a decision waiting on the operator, progress is only information. */}
+        <ApprovalCard onDecision={(m) => sendText(m)} />
         <JobBar />
       </div>
 
@@ -275,7 +301,7 @@ export default function AgentChat() {
           placeholder="Agent'a yaz… görsel yapıştırabilir veya sürükleyebilirsin"
           className="min-w-0 flex-1 rounded-xl border border-espresso/20 bg-white/80 px-3 py-2 text-sm"
         />
-        <button onClick={send} disabled={busy}
+        <button onClick={() => send()} disabled={busy}
           className="rounded-xl bg-espresso px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "…" : "Gönder"}
         </button>

@@ -60,6 +60,9 @@ function promisedWork(said: string): boolean {
 export type AgentEvent =
   | { t: "text"; d: string }
   | { t: "tool"; d: string }
+  /** A question with clickable options. It travels as its own event so the UI can render real buttons
+   *  instead of parsing choices out of prose. */
+  | { t: "ask"; d: { question: string; options: string[]; multi?: boolean; allow_other?: boolean } }
   | { t: "error"; d: string }
   | { t: "done" };
 
@@ -330,6 +333,17 @@ export async function* runAgentTurn(
           continue;
         }
         if (block.name === "produce") produceCalls++;
+        if (block.name === "ask") {
+          // The payload travels as its own event: the UI renders real buttons, instead of the browser
+          // having to parse options out of prose.
+          const opts = (Array.isArray(block.input?.options) ? block.input.options : []).map(String).filter(Boolean);
+          if (String(block.input?.question ?? "").trim() && opts.length >= 2) {
+            yield { t: "ask", d: {
+              question: String(block.input.question).trim(), options: opts.slice(0, 6),
+              multi: !!block.input.multi, allow_other: block.input.allow_other !== false,
+            } };
+          }
+        }
         const { result, summary } = await execTool(block.name, block.input);
         // Remember whether this turn changed anything, so the promise check below can tell an answer
         // that did the work from one that only talked about it.

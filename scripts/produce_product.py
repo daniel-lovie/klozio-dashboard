@@ -157,7 +157,7 @@ def fill_placeholders(text: str) -> str:
     return PLACEHOLDER.sub(lambda m: EXAMPLES.get(m.group(1).strip().upper(), "YOURS"), text)
 
 
-def pick_garment(art_path: Path) -> tuple[str, str]:
+def pick_garment(art_path: Path) -> tuple[str, str, float]:
     """Choose the hero garment for this artwork, and the ink the type must be set in.
 
     Returns (colourway, ink hex). The garment is whichever model blank the artwork reads most strongly
@@ -172,14 +172,14 @@ def pick_garment(art_path: Path) -> tuple[str, str]:
     a = np.asarray(Image.open(art_path).convert("RGBA"))
     m = a[:, :, 3] > 128
     if not m.any() or not blanks:
-        return "Ivory", "#2B2B2B"
+        return "Ivory", "#2B2B2B", 247.0
     ink_lum = float((0.2126 * a[:, :, 0] + 0.7152 * a[:, :, 1] + 0.0722 * a[:, :, 2])[m].mean())
     best = max(blanks, key=lambda t: abs(ink_lum - float(np.asarray(t[1]).mean())))
     garment_lum = float(np.asarray(best[1]).mean())
     ink = "#F2E8D5" if garment_lum < 128 else "#2B2B2B"
     print(f"  garment {best[0]} secildi (tasarim {ink_lum:.0f}, kumas {garment_lum:.0f}); "
           f"yazi {ink}", file=sys.stderr)
-    return best[0], ink
+    return best[0], ink, garment_lum
 
 
 def dominant_ink(art_path: Path) -> str:
@@ -229,19 +229,66 @@ def set_type(p: dict, art_path: Path, work: Path) -> Path:
     hook = fill_placeholders(hook)
     style = (p.get("design_params") or {}).get("style") if isinstance(p.get("design_params"), dict) else None
 
-    garment, ink = pick_garment(art_path)
+    garment, ink, garment_lum = pick_garment(art_path)
     # Record it now so produce_images features the same garment the type was set for.
     c = conn(); k = c.cursor()
     k.execute("UPDATE products SET hero_colorway=%s WHERE id=%s", (garment, p["id"]))
     c.commit(); c.close()
 
     out = work / f"{p['slug']}-typed.png"
-    canvas, drawn = typeset.compose(Image.open(art_path), hook, style=style or "engraving", ink=ink)
+    canvas, drawn, type_mask = typeset.compose(Image.open(art_path), hook,
+                                               style=style or "engraving", ink=ink)
     if not drawn:
         return art_path
+
+    # Measure what was actually drawn, not what was asked for. A product shipped with a dark caption on a
+    # Pepper hero — unreadable — while the log for that very run reported cream ink. I could not reproduce
+    # the divergence (typeset honours the ink it is given, verified both ways), so this checks the OUTPUT
+    # instead of trusting the decision: if the caption does not separate from the garment it will sit on,
+    # set it again in the opposite ink and say so.
+    canvas, ink = _ensure_readable(canvas, type_mask, art_path, hook, style, ink, garment_lum)
+
     canvas.save(out)
-    print(f"  yazi dizildi: {drawn} satir, murekkep {ink} (tasarimin baskin murekkebi)", file=sys.stderr)
+    print(f"  yazi dizildi: {drawn} satir, murekkep {ink}", file=sys.stderr)
     return out
+
+
+def _caption_lum(canvas: Image.Image, type_mask: Image.Image) -> float | None:
+    """Mean luminance of the type, measured through the mask typeset drew it with."""
+    import numpy as np
+    a = np.asarray(canvas.convert("RGBA")).astype(float)
+    m = np.asarray(type_mask) > 128
+    if m.sum() < 200:                         # no measurable type: nothing to judge
+        return None
+    return float((0.2126 * a[:, :, 0] + 0.7152 * a[:, :, 1] + 0.0722 * a[:, :, 2])[m].mean())
+
+
+def _ensure_readable(canvas: Image.Image, type_mask: Image.Image, art_path: Path, hook: str,
+                     style: str | None, ink: str, garment_lum: float,
+                     floor: float = 100.0) -> tuple[Image.Image, str]:
+    """Re-set the type in the opposite ink when it would not read on the chosen garment.
+
+    The floor is 100, not the ~60 a pure luminance difference would suggest. Dark type on Pepper measures
+    a difference of 84 and is still unreadable on the finished mockup: the compositor multiplies the ink by
+    the garment's shading and lays it at 0.94 opacity, and thin serif strokes lose far more separation than
+    a flat tone comparison predicts — this is the exact case that shipped an invisible caption.
+
+    With only two hero blanks (Ivory 247, Pepper 127) this floor reduces to a rule the pipeline already
+    intends: dark garment gets cream type, light garment gets dark. So the gate adds no new policy — it
+    catches any path that produced something else, which is what happened and what I could not reproduce.
+    """
+    lum = _caption_lum(canvas, type_mask)
+    if lum is None:
+        return canvas, ink
+    contrast = abs(lum - garment_lum)
+    if contrast >= floor:
+        return canvas, ink
+    flipped = "#2B2B2B" if garment_lum >= 128 else "#F2E8D5"
+    print(f"  UYARI yazi kumasa karsi okunmuyor (yazi {lum:.0f} vs kumas {garment_lum:.0f}, "
+          f"kontrast {contrast:.0f} < {floor:.0f}) — murekkep {flipped} ile tekrar diziliyor",
+          file=sys.stderr)
+    again, _, _ = typeset.compose(Image.open(art_path), hook, style=style or "engraving", ink=flipped)
+    return again, flipped
 
 
 def store_print_file(p: dict, art: Path) -> None:
@@ -255,8 +302,11 @@ def store_print_file(p: dict, art: Path) -> None:
     c.commit(); c.close()
 
 
-def build_images(pid: int) -> int:
-    r = subprocess.run([sys.executable, str(HERE / "produce_images.py"), str(pid)],
+def build_images(pid: int, only_cover: bool = False) -> int:
+    cmd = [sys.executable, str(HERE / "produce_images.py"), str(pid)]
+    if only_cover:
+        cmd.append("--only-cover")
+    r = subprocess.run(cmd,
                        capture_output=True, text=True)
     last = (r.stdout or r.stderr or "").strip().splitlines()[-1:] or [""]
     try:
@@ -268,13 +318,19 @@ def build_images(pid: int) -> int:
     return int(out.get("images", 0))
 
 
+def set_state(pid: int, state: str) -> None:
+    c = conn(); k = c.cursor()
+    k.execute("UPDATE products SET design_state=%s, updated_at=now() WHERE id=%s", (state, pid))
+    c.commit(); c.close()
+
+
 def mark_ready(pid: int) -> None:
     c = conn(); k = c.cursor()
     k.execute("UPDATE products SET design_state='ready', updated_at=now() WHERE id=%s", (pid,))
     c.commit(); c.close()
 
 
-def produce(pid: int, redo: bool = False) -> dict:
+def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
     """Build (or rebuild) one product's artwork and listing images.
 
     `redo` clears the existing print file and images so the design is drawn again — and it does that HERE,
@@ -330,6 +386,17 @@ def produce(pid: int, redo: bool = False) -> dict:
             else:
                 job.tick("print_file zaten var")
                 job.tick("arka plan atlandi")
+            # Two stages, because approval is worth money. "artwork" stops at a design the operator can
+            # look at — the print file plus a lead shot and a close crop, about twenty seconds of
+            # compositing. "finish" buys the other eight frames and the schedule slot, and only runs on
+            # something a human said yes to. Producing thirty designs to the end and asking afterwards is
+            # how a rejected style costs half an hour of composites.
+            if stage == "artwork":
+                n = build_images(pid, only_cover=True)
+                job.tick(f"{n} onizleme gorseli")
+                set_state(pid, "awaiting_approval")
+                return {"ok": True, "slug": p["slug"], "images": n, "stage": "artwork",
+                        "state": "awaiting_approval"}
             n = build_images(pid)
             job.tick(f"{n} ilan gorseli")
     mark_ready(pid)
@@ -339,10 +406,11 @@ def produce(pid: int, redo: bool = False) -> dict:
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     redo = "--redo" in sys.argv
+    stage = "artwork" if "--artwork" in sys.argv else "finish" if "--finish" in sys.argv else "all"
     if not args:
-        sys.exit("kullanim: produce_product.py <product_id> [--redo]")
+        sys.exit("kullanim: produce_product.py <product_id> [--redo] [--artwork|--finish]")
     try:
-        print(json.dumps(produce(int(args[0]), redo=redo), ensure_ascii=False))
+        print(json.dumps(produce(int(args[0]), redo=redo, stage=stage), ensure_ascii=False))
     except Exception as e:
         # The caller is a loop or a chat tool; both need the reason as data, not a traceback.
         print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"[:300]}, ensure_ascii=False))

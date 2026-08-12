@@ -194,8 +194,11 @@ def main() -> None:
             out_dir = Path(sys.argv[i + 1]).expanduser()
             argv = [x for x in argv if x != sys.argv[i + 1]]
     if not argv:
-        sys.exit("kullanim: produce_images.py <product_id> [--out KLASOR]")
+        sys.exit("kullanim: produce_images.py <product_id> [--out KLASOR] [--only-cover]")
     pid = int(argv[0])
+    # One frame instead of nine: the approval gate needs something to LOOK at before the full set is worth
+    # building. A design nobody has approved should not cost nine composites and a schedule slot.
+    only_cover = "--only-cover" in sys.argv
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
     cur.execute("SELECT slug, technique, print_file, emb_render FROM products WHERE id=%s", (pid,))
@@ -281,7 +284,7 @@ def main() -> None:
     MIN_MODEL_CONTRAST = 35.0
     # Embroidery already spent models[0] on the two placement shots above; DTF still needs its lead.
     lead = [] if emb else [models[0]]
-    rest = [n for n in models[1:] if _contrast(n) >= MIN_MODEL_CONTRAST]
+    rest = [] if only_cover else [n for n in models[1:] if _contrast(n) >= MIN_MODEL_CONTRAST]
     skipped = [blanks[n]["colorway"] for n in models[1:] if n not in rest]
     if skipped:
         print(f"model karesi atlandi (tasarim okunmuyor): {skipped}", file=sys.stderr)
@@ -301,19 +304,23 @@ def main() -> None:
     # four listing images where the words could not be read at all — checked on a Pepper frame where
     # "THE MILLER HAUNT — EST. 2026" was invisible. The cover already follows measured contrast; the
     # flats now follow the same rule, so a buyer only ever sees colourways this print actually reads on.
-    flats = sorted((n for n in CHART if n in blanks), key=_contrast, reverse=True)[:len(FLATS)]
-    if not flats:
+    # Approval preview: the lead shot and the close crop, nothing else. Those two are what the design is
+    # judged on; the flats and the colour chart are another eight composites and about ninety seconds, and
+    # they are what approval buys.
+    flats = [] if only_cover else sorted((n for n in CHART if n in blanks), key=_contrast, reverse=True)[:len(FLATS)]
+    if not flats and not only_cover:
         flats = [n for n in FLATS if n in blanks]
     dropped = [blanks[n]["colorway"] for n in FLATS if n in blanks and n not in flats]
-    if dropped:
+    if dropped and not only_cover:
         print(f"düz kareler kontrasta göre secildi: {[blanks[n]['colorway'] for n in flats]} "
               f"(atlanan: {dropped})", file=sys.stderr)
     for name in flats:
         b = blanks[name]
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-flat.jpg",
                        "flat", b["colorway"], jpeg(composite(design, b["image"], b, emb))))
-    images.append((f"{slug}-color-chart.jpg", "colorway-chart", "All colors",
-                   jpeg(build_chart(design, blanks, emb), 91)))
+    if not only_cover:
+        images.append((f"{slug}-color-chart.jpg", "colorway-chart", "All colors",
+                       jpeg(build_chart(design, blanks, emb), 91)))
 
     if out_dir is not None:
         out_dir.mkdir(parents=True, exist_ok=True)

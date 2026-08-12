@@ -49,11 +49,12 @@ async function claim(): Promise<{ id: number; slug: string; priorState: string |
   return rows[0] ?? null;
 }
 
-function run(pid: number, redo = false): Promise<{ ok: boolean; out: string }> {
+function run(pid: number, redo = false, stage: "all" | "artwork" | "finish" = "all"): Promise<{ ok: boolean; out: string }> {
   return new Promise((resolve) => {
     // A generation is one Higgsfield call plus seven composites: minutes, not seconds. The timeout is
     // generous but present, because a hung child would hold the claim for ever.
-    const child = spawn("python3", [SCRIPT, String(pid), ...(redo ? ["--redo"] : [])], {
+    const stageArg = stage === "artwork" ? ["--artwork"] : stage === "finish" ? ["--finish"] : [];
+    const child = spawn("python3", [SCRIPT, String(pid), ...(redo ? ["--redo"] : []), ...stageArg], {
       env: process.env, timeout: 15 * 60_000,
     });
     let out = "";
@@ -95,7 +96,7 @@ export async function produceDue(max = 1): Promise<{ produced: number; failed: n
  * It re-checks eligibility itself rather than trusting the caller: the agent picks the id from a SELECT
  * it ran earlier, and by the time the tool runs the row may already be claimed by the scheduler.
  */
-export async function produceOne(productId: number): Promise<{ ok: boolean; out: string }> {
+export async function produceOne(productId: number, stage: "all" | "artwork" = "all"): Promise<{ ok: boolean; out: string }> {
   const rows = await q<any>(
     `WITH picked AS (
         SELECT id, design_state AS prior_state FROM products
@@ -148,4 +149,36 @@ export async function produceOne(productId: number): Promise<{ ok: boolean; out:
     await logEvent("produce_fail", { detail: `${rows[0].slug}: ${res.out.slice(-200)}` });
   }
   return res;
+}
+
+/** Take a design past the approval gate: build the remaining frames and mark it ready.
+ *
+ * Deliberately not routed through produceOne. That function's job is to CLAIM unproduced work, so its guard
+ * refuses anything already in flight — including a design sitting at 'awaiting_approval', which is exactly
+ * what this is for. The claim here is the operator's decision.
+ */
+export async function finishApproved(productId: number): Promise<{ ok: boolean; out: string }> {
+  const row = await one<{ slug: string; design_state: string | null }>(
+    `SELECT slug, design_state FROM products WHERE id = $1`, [productId]);
+  if (!row) return { ok: false, out: `urun ${productId} yok` };
+  if (row.design_state !== "awaiting_approval") {
+    return { ok: false, out: `design_state='${row.design_state}' — onay bekleyen bir tasarim degil` };
+  }
+  const res = await run(productId, false, "finish");
+  if (res.ok) {
+    await logEvent("design_approved", { productId, detail: `${row.slug}: tam set kuruldu` });
+  } else {
+    await q(`UPDATE products SET design_state='error', redo_note=$2, updated_at=now() WHERE id=$1`,
+            [productId, res.out.slice(-400)]);
+  }
+  return res;
+}
+
+/** Reject a design. The preview stays so the operator can still see what was turned down, and the reason
+ *  is stored where the next generation reads it. */
+export async function rejectDesign(productId: number, note: string): Promise<{ ok: boolean }> {
+  await q(`UPDATE products SET design_state='rejected', redo_note=$2, updated_at=now() WHERE id=$1`,
+          [productId, note.slice(0, 400) || "operator reddetti"]);
+  await logEvent("design_rejected", { productId, detail: note.slice(0, 200) || "sebep verilmedi" });
+  return { ok: true };
 }

@@ -168,8 +168,14 @@ STYLE_LAYOUT = {
 
 
 def compose(art: Image.Image, text: str | None, style: str = "engraving",
-            ink: str = "#F2E8D5", size: int = 2048) -> tuple[Image.Image, int]:
-    """Place the artwork and set the words. Returns the canvas and how many lines were drawn.
+            ink: str = "#F2E8D5", size: int = 2048) -> tuple[Image.Image, int, Image.Image]:
+    """Place the artwork and set the words. Returns the canvas, how many lines were drawn, and a MASK of
+    the type itself.
+
+    The mask exists so a caller can measure the type it just set. Inferring which pixels are type by
+    diffing the canvas against the original artwork does not work: the artwork is resized and repositioned
+    here, so the difference is mostly moved illustration — measured that way, cream type read as luminance
+    186 instead of 242. Drawing the words on their own layer makes the answer exact.
 
     `ink` defaults to the warm cream the winners print on dark garment-dyed cotton; pass a dark value
     for light shirts. Nothing is drawn when there is no text — a wordless design is still valid, it is
@@ -178,7 +184,9 @@ def compose(art: Image.Image, text: str | None, style: str = "engraving",
     art = art.convert("RGBA")
     art = art.crop(art.getbbox() or (0, 0, art.width, art.height))
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(canvas)
+    # Type goes on its own layer, composited at the end; its alpha is the mask returned to the caller.
+    type_layer = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(type_layer)
     fill = tuple(int(ink.lstrip("#")[i:i + 2], 16) for i in (0, 2, 4)) + (255,)
     pad = int(size * 0.03)
     inner = size - 2 * pad
@@ -187,7 +195,7 @@ def compose(art: Image.Image, text: str | None, style: str = "engraving",
         s = min(inner / art.width, inner / art.height)
         art = art.resize((int(art.width * s), int(art.height * s)), Image.LANCZOS)
         canvas.alpha_composite(art, ((size - art.width) // 2, (size - art.height) // 2))
-        return canvas, 0
+        return canvas, 0, type_layer.getchannel("A")
 
     words = text.strip().upper()
     layout = STYLE_LAYOUT.get(style, "caption")
@@ -202,7 +210,7 @@ def compose(art: Image.Image, text: str | None, style: str = "engraving",
         ax = (size - art.width) // 2
         canvas.alpha_composite(art, (ax, pad + band))
         radius = int(size * 0.46)
-        draw_arc(canvas, words, f, fill, size // 2, pad + radius + int(f.size * 0.2),
+        draw_arc(type_layer, words, f, fill, size // 2, pad + radius + int(f.size * 0.2),
                  radius=radius, spread_deg=86.0)
         drawn = 1
     elif layout == "frame":
@@ -260,4 +268,6 @@ def compose(art: Image.Image, text: str | None, style: str = "engraving",
             y += band_h
             drawn += 1
 
-    return canvas, drawn
+    # Type over artwork: the layer is composited last so the words are never buried by the illustration.
+    canvas.alpha_composite(type_layer)
+    return canvas, drawn, type_layer.getchannel("A")

@@ -183,8 +183,12 @@ def best_colorway(art: Path, preferred: str) -> tuple[str, float]:
 STYLE_TAILS = {
     # An antique engraving or scientific plate: the "serious picture, silly caption" formula.
     "engraving": (
+        # "single ink colour" used to sit here, and it fought the palette layer in the same breath — 209 of
+        # 290 products asked for one ink AND for two to five roled colours, and the model split the
+        # difference into the washed-out look we kept rejecting. Colour is decided in one place, the palette
+        # layer; the style layer describes the MEDIUM only. Cross-hatching is not a monochrome technique.
         "vintage 19th-century engraving style, fine cross-hatched line work, etched texture, "
-        "single ink colour, aged printmaking feel, high contrast, "
+        "aged printmaking feel, high contrast, "
         "detailed but readable at 10 inches, centred subject with clear empty space above and below "
         "for a caption"),
     # Dense botanical / naturalist plate with muted earth tones.
@@ -243,6 +247,20 @@ def strip_background_talk(text: str) -> str:
     return re.sub(r"\s{2,}", " ", _BG_SENTENCE.sub("", text or "")).strip()
 
 
+# The print envelope, in one place. The producer prints at 300 PPI and the largest area on a Comfort Colors
+# 1717 front is 10 inches across, so 3000 px is simultaneously the ceiling (a bigger file is wasted bytes the
+# DTF software resamples away) and the floor (a smaller one prints soft). Both directions matter: the old
+# 2048 cap was 205 PPI, and CLAUDE.md has always said 300.
+PRINT_PPI = 300
+PRINT_MAX_IN = 10.0
+PRINT_MAX_PX = int(PRINT_PPI * PRINT_MAX_IN)
+# What the generator can actually deliver, measured rather than assumed: "4k" on our model returns 2880 px
+# for a square, which is a true 300 PPI print 9.6 inches wide. So the useful question is not "is it 300 PPI
+# at 10 inches" — nothing we generate passes that — but "how wide can this file print before it drops below
+# 300". Anything at 9.5 inches or better fills the envelope; the old 2048 files managed 6.8.
+PRINT_MIN_IN = 9.5
+
+
 def key_clause(key: str = KEY_COLOR, name: str = KEY_NAME) -> str:
     """The only background instruction any prompt should carry."""
     return (f"the artwork sits alone on a plain solid uniform {name} {key} background that fills the entire "
@@ -250,12 +268,34 @@ def key_clause(key: str = KEY_COLOR, name: str = KEY_NAME) -> str:
             f"{key} appears NOWHERE inside the artwork itself")
 
 
+# Layer 1 of the compiler, and the one we had only in negative form. "no mockup, no t-shirt, no person"
+# tells the model what to avoid; the positive sentence tells it what the file IS, which is what actually
+# stops it returning the product instead of the print. The silhouette half is the other repair: unsaid, the
+# model centres everything in a square, and a wide or tall idea gets squeezed into it — spending a fraction
+# of a 10 inch envelope on a design that was meant to fill it.
+ARTIFACT_CONTRACT = (
+    "one isolated front-print artwork on a plain generation canvas, the graphic only, "
+    "not rendered on clothing, a person, paper, a wall or inside a scene; "
+    "the outer silhouette may be organic, irregular, wide, tall or asymmetrical — "
+    "do not force it into a square, a circle, a badge or a border unless the concept asks for one; "
+    "the whole design stays inside the canvas with an even margin and nothing cropped at the edges"
+)
+
+# Grain and halftone belong INSIDE the artwork. Asked for over the whole image, the model textures the key
+# matte as well, and every speck of texture sitting on the matte survives keying as dirt on the garment.
+# This is where the residue that took a catalogue-wide cleaning pass came from.
+TEXTURE_CLAUSE = ("any halftone, grain or distress texture stays strictly inside the artwork shapes, "
+                  "never over the background")
+
+# Focused exclusions only — four to eight, scenario-specific. A long generic ban list dilutes the
+# instruction that matters, and half of the old list is now stated positively in ARTIFACT_CONTRACT.
+# What is left is fatal HERE: our words are typeset afterwards in a licensed font, so any generated
+# lettering is waste, and soft shadow or glow keys out as a white fringe on dark cotton.
+# NOT "transparent background": the generator cannot draw transparency, so it paints something — a
+# checkerboard, or worse, whatever colour suits the subject. Naming the key colour is the whole point.
 PROMPT_TAIL_COMMON = (
-    "print-ready artwork for a garment, no mockup, no t-shirt, no person, no frame, no border box, "
-    # NOT "transparent background": the generator cannot draw transparency, so it paints something — a
-    # checkerboard, or worse, whatever colour suits the subject. Naming the key colour is the whole point.
-    "no drop shadow, no photorealism, "
-    "NO text, NO letters, NO words, NO numbers, NO numerals, no watermark, no signature"
+    "flat print-ready artwork for a garment, no drop shadow, no glow, no photorealism, "
+    "NO text, NO letters, NO words, NO numbers, no watermark, no signature"
 )
 
 # Banning letters makes the model draw the CONTAINER for letters instead: empty ribbons, blank scrolls,
@@ -277,10 +317,15 @@ def wants_label_shape(subject: str | None) -> bool:
 # Comfort Colors is garment-dyed, so the ink that reads best is the one the winners use: a warm
 # off-white on dark shades, deep earth tones on light ones. Naming it stops the model reaching for pure
 # white and neon, which look like a sticker on washed cotton.
+#
+# Each colour also gets a job. A palette listed as four hexes invites the model to spread all four evenly
+# and the result reads as a swatch; naming which colour carries the shapes, which draws the contour and
+# which is the sparing accent is what produces the restrained look the winners have.
 PALETTE_HINT = (
-    "colour palette: two to five colours only, muted and slightly desaturated, "
-    "warm cream #F2E8D5 as the light ink, deep charcoal #2B2B2B, and earth tones "
-    "(rust #B5563A, olive #6B7250, ochre #C9A227, faded indigo #3F4A6E); no neon, no pure white"
+    "colour palette: two to five colours only, muted and slightly desaturated, each with a role — "
+    "warm cream #F2E8D5 or deep charcoal #2B2B2B carries the main shapes, the other of the two draws "
+    "contour and shadow, and one earth tone (rust #B5563A, olive #6B7250, ochre #C9A227, faded indigo "
+    "#3F4A6E) is the accent, used sparingly; no neon, no pure white"
 )
 
 
@@ -343,6 +388,7 @@ def style_tail(style: str | None, with_palette: bool = True, subject: str | None
         parts.append(PALETTE_HINT)
     if not wants_label_shape(subject):
         parts.append(NO_LABEL_CLAUSE)
+    parts.append(TEXTURE_CLAUSE)
     parts.append(PROMPT_TAIL_COMMON)
     parts.append(key_clause(key_hex))
     return ", ".join(parts)
@@ -649,7 +695,11 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
 
     kr, kg, kb = int(key[1:3], 16), int(key[3:5], 16), int(key[5:7], 16)
     im = Image.open(raw).convert("RGB")
-    im.thumbnail((2048, 2048), Image.LANCZOS)
+    # The cap is the print envelope, not an arbitrary number: PRINT_MAX_PX across is exactly 300 PPI at the
+    # 10 inch print width, which is the standard the producer needs. It was 2048 — 205 PPI — so every file in
+    # the catalogue was a fifth short of the resolution we tell ourselves we ship. `thumbnail` only ever
+    # shrinks, so a small source is left alone and reported as under-resolution rather than fake-upscaled.
+    im.thumbnail((PRINT_MAX_PX, PRINT_MAX_PX), Image.LANCZOS)
     a = np.asarray(im).astype(int)
     dist = np.sqrt(((a - np.array([kr, kg, kb])) ** 2).sum(axis=2))
     bg = dist <= tol
@@ -671,10 +721,18 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
 
     opaque = keep.sum()
     leftover = int((bg & keep).sum())
+    # A subject that runs off the canvas is a fatal defect that looks fine in the raw frame — the crop is
+    # only obvious once the design is on a garment and a wing or a boot ends in a straight line. It is also
+    # free to detect: the matte fills the canvas edge to edge, so artwork touching the border means either
+    # the composition was cut off or the matte failed there. Measured across 30 shipped files: 0 touch.
+    edge_contact = max(float(b.mean()) for b in
+                       (keep[:2, :], keep[-2:, :], keep[:, :2], keep[:, -2:]))
     report = {
         "opaque_frac": round(float(opaque) / keep.size, 4),
         "bg_frac": round(float(bg.sum()) / bg.size, 4),
         "leftover_key_px": leftover,
+        "edge_contact": round(edge_contact, 4),
+        "size_in_at_300": round(max(im.size) / PRINT_PPI, 1),
     }
     return out, report
 

@@ -96,7 +96,8 @@ def generate(p: dict, work: Path) -> Path:
         # the colour, so any background sentence in the concept is removed first — leaving both would be a
         # contradiction resolved at random.
         subject = br.strip_background_talk(subject)
-        full = (f"{subject.rstrip(',')}, {lead}{pal}"
+        # The artifact contract leads: what the file IS, before any description of what is in it.
+        full = (f"{br.ARTIFACT_CONTRACT}. {subject.rstrip(',')}, {lead}{pal}"
                 f"{br.style_tail(style, with_palette=not has_palette, subject=subject)}")
     else:
         # The legacy prompt could not be reduced to a subject. Use it unchanged — it produced something
@@ -105,8 +106,17 @@ def generate(p: dict, work: Path) -> Path:
         full = f"{br.strip_background_talk(prompt)}, {br.key_clause()}"
         print(f"UYARI {p['slug']}: eski prompt yeni stile cevrilemedi, konu oldugu gibi kullanildi — "
               f"konsept yeniden yazilmali", file=sys.stderr)
-    out = br.hf({"op": "generate", "prompt": full, "out": str(raw),
-                 "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "2k"},
+    # 2k generated a 2048 px source, and after keying that is a 205 PPI print file — a fifth short of the
+    # 300 PPI the producer prints at. 4k comes back near 4096, which the cutout resamples DOWN to exactly
+    # 3000: supersampled rather than stretched, so the resolution is real.
+    #
+    # A square canvas is a default, not a decision. Forced on a wide or tall concept it squeezes the design
+    # and leaves most of the 10 inch envelope empty, so a concept may declare its natural shape and the
+    # generator is asked for that instead.
+    params = p.get("design_params") or {}
+    ratio = params.get("aspect_ratio") if isinstance(params, dict) else None
+    out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
+                 "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
                 shop_id=p["shop_id"])
     if not out.get("ok"):
         raise RuntimeError(f"higgsfield: {out.get('error')}")
@@ -123,7 +133,8 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # must not ship.
     cut, rep = br.key_cutout(raw, work / f"{p['slug']}-cutout.png")
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
-          f"kalan anahtar piksel {rep['leftover_key_px']}", file=sys.stderr)
+          f"kalan anahtar piksel {rep['leftover_key_px']}, kenar temasi %{rep['edge_contact']*100:.1f}, "
+          f"300 PPI'da {rep['size_in_at_300']} inc", file=sys.stderr)
     if rep["bg_frac"] < 0.15:
         raise RuntimeError(
             f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
@@ -133,6 +144,17 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
                            "zemin temizlenemedi, dosya yayina verilmez")
     if not 0.03 <= rep["opaque_frac"] <= 0.95:
         raise RuntimeError(f"opak alan %{rep['opaque_frac']*100:.1f} — tasarim ya kayboldu ya zemin kaldi")
+    # Artwork on the border means the composition ran off the canvas. It is invisible in the raw frame and
+    # unmissable on a tee, where a wing or a boot ends in a straight cut. Same treatment as a failed cut:
+    # the caller regenerates once. 2% tolerates the odd anti-aliased pixel; 30 shipped files measure 0.
+    if rep["edge_contact"] > 0.02:
+        raise RuntimeError(f"tasarim kenara degiyor (%{rep['edge_contact']*100:.1f}) — kompozisyon "
+                           "canvas disina tasmis, kirpilmis dosya baskiya verilmez")
+    # Not fatal: a short file still prints, just softer. Say it out loud rather than shipping quietly under
+    # standard, because nothing downstream measures this again.
+    if rep["size_in_at_300"] < br.PRINT_MIN_IN:
+        print(f"  UYARI dosya 300 PPI'da yalnizca {rep['size_in_at_300']} inc basilabilir "
+              f"({br.PRINT_MIN_IN} inc tabaninin altinda) — daha buyuk uretilmeli", file=sys.stderr)
     if p["technique"] == "embroidery" and p["thread_colors"]:
         br.stage_palette_snap(cut, br.hexes(p["thread_colors"]), final)
     else:

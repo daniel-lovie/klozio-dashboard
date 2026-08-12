@@ -319,6 +319,57 @@ Soru her seferinde şu: müşterinin gördüğü baytı hangi kod üretiyor, ve 
   satırı işaret eder. Yeni ürün yazarken slug'ı TAHMİN ETME, prefix değiştirerek deneme:
   SELECT next_free_slug('sta-c1-v1') çağır, ne dönerse onu kullan.
 
+# TASARIM PROMPTU 10 KATMANDA DERLENİR (sıra sabit; her katman tek bir soruyu yanıtlar)
+1 ESER SÖZLEŞMESİ: dosya NE? "tek başına duran ön baskı grafiği; giysi/insan/sahne DEĞİL; dış silueti
+  organik, düzensiz, geniş, uzun ya da asimetrik olabilir — kare/daire/badge/çerçeveye ZORLAMA".
+2 FİKİR ÇEKİRDEĞİ: bir konu, bir eylem, bir mesaj, en fazla bir yardımcı motif ailesi.
+3 KOMPOZİSYON: doğal dış siluet + hiyerarşi. Siluet tam görünür, kenar boşluğu eşit.
+4 STİL DİLBİLGİSİ: ortam + çizgi karakteri + şekil dili + doku davranışı + dönem/ruh hali. TEK ortam.
+5 PALET VE GİYSİ ARAYÜZÜ: 2-5 renk, HER RENGE GÖREV ver (hangisi ana şekli taşır, hangisi kontur,
+  hangisi az kullanılan aksan) + hedef giysi rengiyle kontrast.
+6 TİPOGRAFİ: bizde yazı promptta değil, sonradan lisanslı fontla dizilir. Prompt harf istemez.
+7 BASKI DAVRANIŞI: opak şekiller, sağlam çizgi kalınlığı, kırılgan toz yok, halftone/grain SADECE
+  tasarımın içinde (tüm görselin üstünde değil — matte'i kirletir ve kesimden sonra kir olarak kalır).
+8 ARKA PLAN: anahtar renk matte. "transparent" kelimesine asla güvenme, model onu boyar.
+9 ODAKLI YASAKLAR: 4-8 tane, bu işe özel. Uzun genel yasak listesi ana talimatı sulandırır.
+10 MODEL PARAMETRELERİ: model, en-boy oranı, kalite, çözünürlük.
+BUNLARIN ÇOĞUNU HAT KENDİ EKLİYOR. produce çağrıldığında 1, 5 (jenerik), 7, 8, 9, 10 otomatik eklenir
+(batch_runner: ARTIFACT_CONTRACT, PALETTE_HINT, TEXTURE_CLAUSE, PROMPT_TAIL_COMMON, key_clause).
+Bu yüzden design_prompt alanına SADECE 2, 3, 4 ve varsa kendi "Palette:" cümlesini yaz. Tamamını
+yazarsan prompt aynı şeyi iki kez söyler ve eski tuzağa düşer: iki farklı stil emri, ortalanmış sonuç.
+En-boy oranı kare değilse design_params.aspect_ratio ile ver (fikir geniş ya da uzunsa kareye sıkıştırma).
+
+# YARATICILIK: KLİŞE FİLTRESİ, ÜÇ AÇI, SEÇİM KAPISI
+"Yaratıcı/özgün/beğenilir bir şey yap" denince ya da brief genelse, ilk akla geleni yazma.
+- KLİŞELERİ AT: uluyan kurt, jenerik dağ/çam badge'i, palmiyeli retro gün batımı, buharı tüten kahve
+  fincanı, uzayda süzülen astronot, güllü kuru kafa, ironisiz el yazısı sloganlar.
+- ÜÇ AÇI ÜRET: (a) Literal ama Yükseltilmiş — fikri aynen al, beklenmedik bir ortamda uygula;
+  (b) Zekice Çelişki — iki ilgisiz temayı birleştirip yeni bir niş kur; (c) İçeriden Şaka — o nişin
+  gerçek meraklısının anlayacağı özel detay ("kod yazmayı severim" değil, "DROP TABLE" görsel şakası).
+- 0-5 PUANLA: yenilik, kimlik rezonansı, ilk bakışta okunurluk, giyilebilirlik, basılabilirlik, IP
+  güvenliği. Herhangi biri 3'ün altındaysa konsepti at. Eşitlikte silueti net, öğesi az olan kazanır.
+- Kullanıcı "seçeyim" derse üç seçeneği puanlarıyla göster; "sen yap" derse en yükseğini al ve devam et.
+- BEĞENİLİRLİK EVRENSEL SEVİMLİLİK DEĞİL: kazanan konsept hedef nişe "bu benim gibiler için" dedirtir.
+  Formül: sınırlı ve kasıtlı palet + göğüste doğal duran siluet + 3 metreden okunan tek odak noktası.
+- Yenilik tutarlı olmalı: bir baskın fikir, en fazla iki yenilik kolu. Yaratıcı görünmek için ilgisiz
+  öğe birleştirme.
+
+# ÜRETİLENİ ÖLÇMEDEN ONAYLAMA (ölümcül hatalar; biri varsa puanlama yok, yeniden üret)
+Yanlış yazı · IP ihlali · tasarım giysi/sahne üstünde çıkmış · konu kenardan kırpılmış · arka plan
+konuya kaynamış · sahte şeffaflık (dama deseni) · geniş/uzun fikir zorla kareye sokulmuş.
+Bunların üçünü hat otomatik ölçüyor ve reddediyor: matte bulunamadı, kesimden sonra anahtar piksel
+kaldı, tasarım kenara değiyor (kırpılma). Kalanlara SEN bakacaksın — üretilen dosyaya, prompta değil.
+Baskı zarfı: 300 PPI'da en az 9.5 inç basılabilmeli. Hat bunu her üretimde yazdırır; altındaysa uyarır.
+
+# DÜZELTME DİLBİLGİSİ: TEK MODÜL (prompt'u baştan yazmak kabul edilmiş her şeyi yok eder)
+"Sadece [hedef] değişsin. Aynen koru: kompozisyon, siluet, palet, tipografi, doku, arka plan/alpha ve
+hedef dışındaki her şey." Bir turda tek boyut düzelt. Hangi katmanın bozulduğunu söyle, o katmanı
+değiştir. Reddedilen tasarımın notu bu cümlenin hedefidir — notu boşa harcamayıp katmana çevir.
+Kalite dili yerine ÜRETİM dili kullan: "masterpiece, 8k, ultra detailed" değil; "temiz mürekkep çizgisi,
+flat cel shading, kalın kontur, halftone nokta, serigrafi dokusu". Kamera dili (lens, bokeh, film) sahne
+çağırır — onu grafiğe çevir: kırpma, bakış açısı, odak ölçeği, kenar sertliği, ton kontrastı.
+Detay: .claude/skills/tshirt-design-prompt-engineer (SKILL.md + references/) — açıp okuyabilirsin.
+
 # PROMPT YAZARKEN: ÇELİŞKİ = RASTGELE SONUÇ
 - Bir şeyi isteyip aynı nefeste yasaklama. 98 promptta "EXACTLY this text, spelled letter-for-letter"
   ile "NO letters" birlikteydi; model çelişkiyi rastgele çözdü ve kişiselleştirme vaadi görselde hiç

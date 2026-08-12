@@ -218,6 +218,7 @@ async function productionStatus(): Promise<{
   by_state: Record<string, number>; queued: number; generating: number;
   interval_seconds: number; eta_minutes: number | null; recent_errors: any[];
   blocked_no_design_model?: any[]; blocked_warning?: string;
+  wordless_no_hook?: any[]; wordless_warning?: string;
 }> {
   const states = await agentQuery(
     `SELECT COALESCE(design_state, 'none') AS state, count(*)::int AS n
@@ -245,6 +246,18 @@ async function productionStatus(): Promise<{
       WHERE content_status = 'approved' AND design_prompt IS NOT NULL AND design_model IS NULL
       ORDER BY id LIMIT 20`);
 
+  // Rows that will produce, but weakly. An empty hook makes the producer skip two steps in silence: the
+  // slogan is never typeset onto the artwork, and the measured garment pick never runs either — it lives
+  // inside set_type, after the hook check. The row still reaches 'ready', so nothing surfaces this except
+  // looking at the finished product. Reported apart from `blocked`: these are a quality warning, not a
+  // failure, and conflating the two would make a wordless product look like a broken one.
+  const wordless = await agentQuery(
+    `SELECT id, slug FROM products
+      WHERE content_status = 'approved' AND design_prompt IS NOT NULL
+        AND COALESCE(hook, '') = ''
+        AND (design_state IS NULL OR design_state IN ('redo', 'generating'))
+      ORDER BY id LIMIT 20`);
+
   const n = queued.rows?.[0]?.n ?? 0;
   // The ticker takes one product per pass, so the queue drains at the tick interval — not in parallel.
   const intervalSeconds = Number(process.env.PRODUCER_INTERVAL_MS || 90000) / 1000;
@@ -269,6 +282,12 @@ async function productionStatus(): Promise<{
       blocked_warning: "Bu satirlarda design_model BOS: kuyruk onlari alir ama uretim 'Invalid input at "
         + "params' ile patlar. UPDATE products SET design_model='nano_banana_pro' ile duzelt, sonra "
         + "design_state=NULL yaparak kuyruga geri koy. Kullaniciya bunlarin uretilmeyecegini soyle.",
+    } : {}),
+    ...((wordless.rows ?? []).length ? {
+      wordless_no_hook: wordless.rows,
+      wordless_warning: "Bu satirlarda hook BOS: uretilirler ama slogan tasarima DIZILMEZ ve olculmus "
+        + "kumaş secimi hic kosmaz (pick_garment set_type'in icinde). Hata vermezler, 'ready' olurlar, "
+        + "sadece zayif cikarlar. Uretime girmeden once UPDATE products SET hook='...' ile duzelt.",
     } : {}),
   };
 }

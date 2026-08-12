@@ -273,6 +273,14 @@ CREATE TABLE IF NOT EXISTS agent_chats (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Chat sessions (many per shop). The table shipped with a unique index on shop_id, which made "one
+-- endless thread per shop" a database rule: the operator could not keep a design conversation and an
+-- order conversation apart, and clearing one to start another destroyed the only copy of the first.
+ALTER TABLE agent_chats ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE agent_chats ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
+DROP INDEX IF EXISTS agent_chats_shop_uidx;
+CREATE INDEX IF NOT EXISTS agent_chats_shop_idx ON agent_chats (shop_id, updated_at DESC);
+
 -- multi-shop (Faz 1): shops + shop_id scoping; Klozio = shop 1 (docs/multi-shop-spec.md)
 CREATE TABLE IF NOT EXISTS shops (
   id serial PRIMARY KEY, slug text UNIQUE NOT NULL, name text NOT NULL,

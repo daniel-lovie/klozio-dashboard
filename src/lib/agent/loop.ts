@@ -187,17 +187,40 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
   yield { kind: "assistant", content, stopReason, usage };
 }
 
-export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Klozio", byoKey?: string): AsyncGenerator<AgentEvent> {
+/** One image the operator attached, already normalised by the route. */
+export type TurnImage = { mime: string; data: string };
+
+export async function* runAgentTurn(
+  userText: string,
+  shopId = 1,
+  shopName = "Klozio",
+  byoKey?: string,
+  opts: { chatId?: number; images?: TurnImage[] } = {},
+): AsyncGenerator<AgentEvent> {
   const apiKey = byoKey || process.env.ANTHROPIC_API_KEY || "";
   const byo = !!byoKey;
-  await q(`INSERT INTO agent_chats (id, shop_id) SELECT COALESCE(max(id),0)+1, $1 FROM agent_chats
-           HAVING NOT EXISTS (SELECT 1 FROM agent_chats WHERE shop_id=$1)
-           ON CONFLICT (shop_id) DO NOTHING`, [shopId]);
-  const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE shop_id=$1 ORDER BY id LIMIT 1`, [shopId]);
+  const { resolveSession, titleFromFirstMessage } = await import("./sessions");
+  const chatId = await resolveSession(shopId, opts.chatId);
+  const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE id=$1`, [chatId]);
   // Slice the window first, then repair what the slice broke. Doing it the other way round would let a
   // freshly orphaned tool_result through.
   let messages: any[] = sanitiseHistory((row?.messages ?? []).slice(-40));
-  messages.push({ role: "user", content: `[Aktif mağaza: ${shopName} (shop_id=${shopId}) — tüm SQL sorgularında bu mağazaya filtrele]\n${userText}` });
+  const banner = `[Aktif mağaza: ${shopName} (shop_id=${shopId}) — tüm SQL sorgularında bu mağazaya filtrele]\n${userText}`;
+  // Images go BEFORE the text: the model reads the reference first and then the instruction about it,
+  // which is the order the operator means when they paste an example and say "like this, but…".
+  messages.push(opts.images?.length
+    ? {
+        role: "user",
+        content: [
+          ...opts.images.map((im) => ({
+            type: "image",
+            source: { type: "base64", media_type: im.mime, data: im.data },
+          })),
+          { type: "text", text: banner },
+        ],
+      }
+    : { role: "user", content: banner });
+  await titleFromFirstMessage(chatId, userText);
 
   let wrote = false;                  // did this turn change anything, or only read?
   let nudges = 0;                     // how many times we have pushed it to keep its word
@@ -334,7 +357,7 @@ export async function* runAgentTurn(userText: string, shopId = 1, shopName = "Kl
     // Never persist a message the API will reject on the next turn: an empty content array, a tool_use
     // whose result never arrived, or a tool_result the window slice separated from its tool_use.
     const clean = sanitiseHistory(messages.slice(-60));
-    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE shop_id=$2`, [JSON.stringify(clean), shopId]);
+    await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }
   yield { t: "done" };
 }

@@ -1,6 +1,5 @@
 import "./globals.css";
 import { Nav } from "@/components/Nav";
-import { JobBar } from "@/components/JobBar";
 import { listShops, currentShopId } from "@/lib/shops";
 import { isLoggedIn } from "@/lib/auth";
 import { clerkConfigured, clerkClientConfigured, me } from "@/lib/user";
@@ -34,7 +33,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en">
       <body className="min-h-screen antialiased">
         <Nav shops={shops} active={active} isAdmin={isAdmin} clerk={clerkConfigured()} />
-        <JobBar />
         {children}
       </body>
     </html>

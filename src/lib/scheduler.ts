@@ -55,6 +55,18 @@ export function startScheduler() {
   // Producer: approved products with no artwork become publish-ready without anyone asking. One at a
   // time on purpose — each pass is a paid Higgsfield call plus seven composites, and serialising keeps a
   // burst of approvals from running the container out of memory or the account out of credit.
+  //
+  // ⚠️ IN PRODUCTION THIS TICKER IS OFF AND THAT IS DELIBERATE. Production is the `agent` service's job:
+  // scripts/personalizer.mts runs worker/producer.ts on its own container, which keeps minutes-long image
+  // work off the process that serves HTTP. ENABLE_PRODUCER=false is set on the web service for that
+  // reason. This ticker is the same work behind a flag, kept for local development and for a deployment
+  // that runs the web service alone.
+  //
+  // Do not enable it to "get production going": both tickers claim from the same rows, so running both
+  // means two workers racing and paying twice for one product. Someone (2026-08-12) read the flag as an
+  // oversight, turned it on, and got exactly that — the flag was never why production looked stuck. If
+  // nothing is being produced, check that the `agent` service is deployed and its loop is alive
+  // (`railway logs --service agent` → "[personalizer] loop started") before touching this.
   const produceInterval = Number(process.env.PRODUCER_INTERVAL_MS || 90000);
   const produceTick = async () => {
     try {

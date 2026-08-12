@@ -1,12 +1,26 @@
-/** Producer agent — autonomous design/mockup generation after content approval.
- *  Spec: docs/producer-agent-spec.md. Shares the personalizer's loop, HF client and DB pool. */
+/** Producer agent — autonomous design/image generation after content approval.
+ *  Spec: docs/producer-agent-spec.md. Shares the personalizer's loop and DB pool.
+ *
+ *  This file used to carry its own production pipeline: a Higgsfield call, process_design.py, a vision QA
+ *  pass, its own print-file write, then produce_images.py. `scripts/produce_product.py` did the same job a
+ *  different way, and the two drifted exactly as this codebase's own rule warns they will. Measured before
+ *  the merge: 132 products came out of this path and 93 out of the script, and the two disagreed on things
+ *  that reach the customer —
+ *
+ *    - this path never typeset the hook onto the artwork, so its designs shipped wordless, against the
+ *      measured finding that nearly every product that sells carries words;
+ *    - it never ran the measured contrast garment pick, so `hero_colorway` stayed whatever was in the row
+ *      rather than the colour the artwork is actually readable on;
+ *    - its print files came out up to 4096px where every product from the script is 2048.
+ *
+ *  So the pipeline is gone and this now runs the one script. What stays here is the part the script does
+ *  not do: claiming work. This claim is the better of the two — it picks up 'redo', reclaims a 'generating'
+ *  row whose worker died over 30 minutes ago, and skips anything already published.
+ */
 import pg from "pg";
-import { spawnSync } from "child_process";
-import { writeFileSync, readFileSync, unlinkSync, existsSync } from "fs";
-import { callTool, jobIdOf, rawUrlOf, statusOf } from "./hf.ts";
-import { forcedJson } from "./anthropic.ts";
+import { spawn } from "child_process";
 
-const scriptPath = (f: string) => new URL(`../scripts/${f}`, import.meta.url).pathname;
+const SCRIPT = new URL("../scripts/produce_product.py", import.meta.url).pathname;
 
 export function makeProducer(pool: pg.Pool) {
   const q = async (sql: string, params: any[] = []) => (await pool.query(sql, params)).rows;
@@ -35,136 +49,47 @@ export function makeProducer(pool: pg.Pool) {
     return rows[0] ?? null;
   }
 
-  async function generateDesign(p: any): Promise<{ jobId: string; file: Buffer; isSvg: boolean }> {
-    const params: any = { model: p.design_model, prompt: p.design_prompt, aspect_ratio: "1:1" };
-    if (p.redo_note) params.prompt += ` REVISION REQUEST from the reviewer — you MUST honor it: ${p.redo_note}`;
-    const dp = typeof p.design_params === "string" ? JSON.parse(p.design_params || "{}") : (p.design_params ?? {});
-    if (p.design_model === "recraft_v4_1") {
-      if (dp.colors) params.colors = dp.colors;
-      if (dp.background_color) params.background_color = dp.background_color;
-      if (dp.model_type) params.model_type = dp.model_type;
-    } else {
-      params.resolution = "4k";
-    }
-    const gen = await callTool("generate_image", { params });
-    const jobId = jobIdOf(gen);
-    if (!jobId) throw new Error("no design job id: " + JSON.stringify(gen).slice(0, 150));
-    for (let i = 0; i < 45; i++) {
-      await new Promise((r) => setTimeout(r, 8000));
-      const st = await callTool("job_status", { jobId, sync: true });
-      const status = statusOf(st);
-      if (status === "completed") {
-        const url = rawUrlOf(st);
-        if (!url) throw new Error("design completed without rawUrl");
-        const buf = Buffer.from(await (await fetch(url)).arrayBuffer());
-        return { jobId, file: buf, isSvg: url.includes(".svg") };
-      }
-      if (["failed", "nsfw", "error"].includes(status)) throw new Error(`design ${status}`);
-    }
-    throw new Error("design generation timeout");
-  }
-
-  /** Build the listing images the way the batch pipeline does: composited onto our own licensed
-   *  blank photographs, at the placement the product is actually fulfilled at, plus the colour
-   *  chart. Replaces three AI-generated mockups a product (~$0.54) that knew none of the rules —
-   *  they rendered type, ignored the thread palette, and showed a full-front print on garments
-   *  stitched as a 4-inch chest badge. Two production paths that disagree is the defect. */
-  async function buildImages(productId: number): Promise<number> {
-    const proc = spawnSync("python3", [scriptPath("produce_images.py"), String(productId)],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    if (proc.status !== 0) {
-      throw new Error("image build failed: " + (proc.stdout + proc.stderr).slice(0, 300));
-    }
-    const line = proc.stdout.trim().split("\n").pop() ?? "{}";
-    return JSON.parse(line).images ?? 0;
-  }
-
-  function pngDims(buf: Buffer): { w: number; h: number } {
-    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
-  }
-
-  /** Cover thumbnails are ads, not mood shots (see .claude/skills/listing-covers). */
-  function coverTexts(p: any): { banner: string; strip: string } {
-    const pers = !!p.personalised;
-    if (p.slot === "EMB") return {
-      banner: pers ? "CUSTOM EMBROIDERY · YOUR NAMES STITCHED" : "REAL EMBROIDERY · NOT A PRINT",
-      strip: "COMFORT COLORS 1717 · REAL STITCHING · S-4XL" };
-    if (p.slot === "EMBH") return {
-      banner: pers ? "CUSTOM EMBROIDERED DAD HAT" : "EMBROIDERED DAD HAT · NOT A PRINT",
-      strip: "YUPOONG 6245CM · 10 COLORS · ADJUSTABLE" };
-    return {
-      banner: pers ? "PERSONALIZED WITH YOUR NAMES" : "COMFORT COLORS GARMENT-DYED TEE",
-      strip: "COMFORT COLORS 1717 · 22 COLORS · S-4XL" };
-  }
-
-  async function visionQaDesign(p: any, printPng: Buffer): Promise<string | null> {
-    // best-effort: skipped silently when Anthropic is unavailable/unfunded
-    try {
-      const v = await forcedJson({
-        system: "You QA a t-shirt print design. Check that ALL text in the image is correctly spelled English (per the brief), no duplicated or mangled words, no stray color patches.",
-        user: [
-          { type: "text", text: `Brief (what the design should contain):\n${p.design_prompt.slice(0, 900)}` },
-          { type: "image", source: { type: "base64", media_type: "image/png", data: printPng.toString("base64") } },
-        ],
-        toolName: "design_qa",
-        schema: { type: "object", properties: { ok: { type: "boolean" }, problems: { type: "string" } }, required: ["ok", "problems"] },
-      });
-      return v.ok ? null : String(v.problems || "unspecified");
-    } catch (e: any) {
-      console.log(`[product ${p.id}] vision QA skipped:`, String(e).slice(0, 100));
-      return null;
-    }
-  }
-
-  /** Store the print file only. Images are built from it afterwards by produce_images.py, which
-   *  owns the composition rules — this used to insert three AI mockups plus a static colour chart. */
-  async function storePrintFile(p: any, printPng: Buffer): Promise<void> {
-    const d = pngDims(printPng);
-    await q(`UPDATE products SET print_file=$2, print_file_name=$3, print_file_w=$4, print_file_h=$5,
-               print_dpi=$6, design_state='ready', redo_note=NULL, updated_at=now() WHERE id=$1`,
-      [p.id, printPng, `${p.slug}-print.png`, d.w, d.h, Math.round(d.w / 9.5)]);
+  /** Run the one production implementation. Same shape as src/lib/producer.ts's `run` — deliberately, so
+   *  the agent's single-product `produce` tool and this queue behave identically. The timeout is generous
+   *  but present: a hung child would hold the claim until the 30-minute reclaim above. */
+  function run(pid: number): Promise<{ ok: boolean; out: string }> {
+    return new Promise((resolve) => {
+      const child = spawn("python3", [SCRIPT, String(pid)], { env: process.env, timeout: 15 * 60_000 });
+      let out = "";
+      child.stdout.on("data", (d) => { out += d.toString(); });
+      child.stderr.on("data", (d) => { out += d.toString(); });
+      child.on("close", (code) => resolve({ ok: code === 0, out: out.trim().slice(-800) }));
+      child.on("error", (e) => resolve({ ok: false, out: String(e).slice(0, 300) }));
+    });
   }
 
   async function produce(p: any): Promise<void> {
-    // design-less products (e.g. embroidered hats): mockup prompts fully describe the
-    // stitched result — no design generation, no print file, straight to mockups.
+    // A product with no design_prompt has nothing to generate from. The script would refuse anyway; say
+    // so on the row instead, because a bare 'error' with no reason is what made a failure unreadable.
     if (!p.design_prompt) {
-      // Design-less products were hats whose mockup prompts described the stitched result, so an
-      // image model drew the whole product. There are no hat blanks to composite onto, and drawing
-      // a product we then have to match is the opposite of showing what we ship. Stop with the
-      // reason on the row rather than produce something unusable.
-      await log(p.id, "produce-error", "design_prompt yok: sapka/tasarimsiz urun icin blank yok");
+      await log(p.id, "produce-error", "design_prompt yok: uretilecek bir tasarim tarifi yok");
       await q(`UPDATE products SET design_state='error',
-                 redo_note='design_prompt gerekli — tasarimsiz uretim kaldirildi (blank mockup yok)'
+                 redo_note='design_prompt gerekli — tasarimsiz uretim desteklenmiyor'
                WHERE id=$1`, [p.id]);
       return;
     }
+    // Two attempts, as before: a Higgsfield hiccup or a transient cutout failure is worth one retry, and
+    // the script is idempotent enough to re-run. A deterministic failure (a bad prompt, a missing blank)
+    // fails the same way twice and parks the row rather than burning a paid call every tick.
     for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        await log(p.id, "design-gen", { model: p.design_model, attempt, redo: !!p.redo_note });
-        const d = await generateDesign(p);
-        await q(`UPDATE products SET design_job_id=$2 WHERE id=$1`, [p.id, d.jobId]);
-        const tin = `/tmp/design-${p.id}.${d.isSvg ? "svg" : "png"}`, tout = `/tmp/design-${p.id}-final.png`;
-        writeFileSync(tin, d.file);
-        const proc = spawnSync("python3", [scriptPath("process_design.py"), d.isSvg ? "svg" : "png", tin, tout], { encoding: "utf8" });
-        if (proc.status !== 0) throw new Error("print processing failed: " + (proc.stdout + proc.stderr).slice(0, 180));
-        const printPng = readFileSync(tout);
-        unlinkSync(tin); unlinkSync(tout);
-        await log(p.id, "print-ok", proc.stdout.trim());
-        const qaProblem = await visionQaDesign(p, printPng);
-        if (qaProblem) throw new Error("design QA: " + qaProblem);
-        // the print file has to be stored before the images are built: they are composited FROM it
-        await storePrintFile(p, printPng);
-        const n = await buildImages(p.id);
-        await log(p.id, "images-ok", { count: n });
-        await q(`INSERT INTO events (product_id, kind, detail) VALUES ($1,'agent_generated',$2)`,
-          [p.id, `design+print+${n} blank-composited images${p.redo_note ? " (redo)" : ""}`]);
-        return log(p.id, "ready", { slug: p.slug });
-      } catch (e: any) {
-        await log(p.id, "produce-error", String(e).slice(0, 250));
-        if (attempt === 2) {
-          await q(`UPDATE products SET design_state='error', updated_at=now() WHERE id=$1`, [p.id]);
-        }
+      await log(p.id, "produce-start", { attempt, redo: !!p.redo_note, model: p.design_model });
+      const res = await run(p.id);
+      if (res.ok) {
+        // produce_product.py owns the terminal state: it writes the print file, the images and
+        // design_state='ready' itself. Do not set it here — a second writer is how the two paths drifted.
+        return log(p.id, "ready", { slug: p.slug, out: res.out.slice(-300) });
+      }
+      await log(p.id, "produce-error", res.out.slice(-400));
+      if (attempt === 2) {
+        // Keep the reason on the row. This used to clear to a bare 'error' and the operator had nothing
+        // to act on — the failure that took a thread down was diagnosed from a NULL redo_note.
+        await q(`UPDATE products SET design_state='error', redo_note=$2, updated_at=now() WHERE id=$1`,
+          [p.id, res.out.slice(-400)]);
       }
     }
   }
@@ -175,7 +100,8 @@ export function makeProducer(pool: pg.Pool) {
     await log(p.id, "claimed", { slug: p.slug, state: p.design_state });
     await produce(p).catch(async (e) => {
       await log(p.id, "unhandled", String(e).slice(0, 200));
-      await q(`UPDATE products SET design_state='error' WHERE id=$1`, [p.id]);
+      await q(`UPDATE products SET design_state='error', redo_note=$2, updated_at=now() WHERE id=$1`,
+        [p.id, String(e).slice(0, 400)]);
     });
     return true;
   };

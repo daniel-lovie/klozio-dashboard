@@ -252,10 +252,25 @@ def mark_ready(pid: int) -> None:
     c.commit(); c.close()
 
 
-def produce(pid: int) -> dict:
+def produce(pid: int, redo: bool = False) -> dict:
+    """Build (or rebuild) one product's artwork and listing images.
+
+    `redo` clears the existing print file and images so the design is drawn again — and it does that HERE,
+    after the approval check, on purpose. Callers used to clear first and then invoke this, which meant an
+    unapproved product had its artwork deleted and then the refusal arrived: nine draft products lost their
+    print file and every listing image that way, with nothing left to rebuild from. The destructive step
+    belongs behind the guard that decides whether the work can happen at all.
+    """
     p = load(pid)
     if p["content_status"] != "approved":
         return {"ok": False, "slug": p["slug"], "error": f"content_status={p['content_status']}, onayli degil"}
+    if redo:
+        c = conn(); k = c.cursor()
+        k.execute("""UPDATE products SET print_file=NULL, design_state=NULL, redo_note=NULL
+                      WHERE id=%s""", (pid,))
+        k.execute("DELETE FROM product_images WHERE product_id=%s", (pid,))
+        c.commit(); c.close()
+        p = load(pid)                     # has_print is now false; generate from scratch
 
     with Job("design", f"{p['slug']} · tasarim + gorseller", total=3, shop_id=p["shop_id"]) as job:
         with tempfile.TemporaryDirectory(prefix=f"prod-{p['slug']}-") as tmp:
@@ -285,10 +300,12 @@ def produce(pid: int) -> dict:
 
 
 def main() -> None:
-    if len(sys.argv) < 2:
-        sys.exit("kullanim: produce_product.py <product_id>")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    redo = "--redo" in sys.argv
+    if not args:
+        sys.exit("kullanim: produce_product.py <product_id> [--redo]")
     try:
-        print(json.dumps(produce(int(sys.argv[1])), ensure_ascii=False))
+        print(json.dumps(produce(int(args[0]), redo=redo), ensure_ascii=False))
     except Exception as e:
         # The caller is a loop or a chat tool; both need the reason as data, not a traceback.
         print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"[:300]}, ensure_ascii=False))

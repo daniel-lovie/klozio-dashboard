@@ -30,8 +30,15 @@ railway variables --set "DASHBOARD_PASSWORD=$(openssl rand -hex 12)" \
   --set "SHOP_TIMEZONE=America/Chicago" \
   --set "NEXT_PUBLIC_SHOP_TIMEZONE=America/Chicago" \
   --set "ENABLE_INPROCESS_SCHEDULER=true" \
+  --set "ENABLE_PRODUCER=false" \
   --set "PUBLISH_GRACE_MINUTES=180"
 ```
+
+`ENABLE_PRODUCER=false` is **not** a placeholder — design production belongs to the `agent` service
+(`scripts/personalizer.mts` → `worker/producer.ts`), which keeps minutes-long image work off the process
+serving HTTP. Both tickers claim from the same rows, so enabling this one alongside the agent means two
+workers racing and paying twice for one product. If nothing is being produced, check that the `agent`
+service is deployed and its loop is alive (`railway logs --service agent`) rather than flipping this.
 Copy the Etsy values from `../.env` — **print them from there, don't retype**.
 
 ## 3. Deploy

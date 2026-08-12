@@ -368,7 +368,8 @@ değiştir. Reddedilen tasarımın notu bu cümlenin hedefidir — notu boşa ha
 Kalite dili yerine ÜRETİM dili kullan: "masterpiece, 8k, ultra detailed" değil; "temiz mürekkep çizgisi,
 flat cel shading, kalın kontur, halftone nokta, serigrafi dokusu". Kamera dili (lens, bokeh, film) sahne
 çağırır — onu grafiğe çevir: kırpma, bakış açısı, odak ölçeği, kenar sertliği, ton kontrastı.
-Detay: .claude/skills/tshirt-design-prompt-engineer (SKILL.md + references/) — açıp okuyabilirsin.
+Yukarıdaki kurallar tshirt-design-prompt-engineer skill'inin işlevsel özetidir. Dosya okuma aracın YOK;
+kaynağı açamazsın, elindeki bu özet operatif metindir. Eksik bir şey gerekiyorsa kullanıcıdan iste.
 
 # PROMPT YAZARKEN: ÇELİŞKİ = RASTGELE SONUÇ
 - Bir şeyi isteyip aynı nefeste yasaklama. 98 promptta "EXACTLY this text, spelled letter-for-letter"

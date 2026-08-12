@@ -28,8 +28,12 @@ def _conn():
 
 
 class Job:
-    def __init__(self, kind: str, label: str, total: int = 0, shop_id: int | None = None):
+    def __init__(self, kind: str, label: str, total: int = 0, shop_id: int | None = None,
+                 product_id: int | None = None):
+        # product_id is carried so a finished job can link straight to the thing it produced: checking the
+        # output is what catches a bad design, and it should not require hunting for the row by name.
         self.kind, self.label, self.total, self.shop_id = kind, label, total, shop_id
+        self.product_id = product_id
         self.id: int | None = None
         self.done = self.failed = 0
 
@@ -37,9 +41,9 @@ class Job:
     def start(self) -> "Job":
         try:
             c = _conn(); k = c.cursor()
-            k.execute("""INSERT INTO jobs (shop_id, kind, label, total, status)
-                         VALUES (%s,%s,%s,%s,'running') RETURNING id""",
-                      (self.shop_id, self.kind, self.label, self.total))
+            k.execute("""INSERT INTO jobs (shop_id, kind, label, total, status, product_id)
+                         VALUES (%s,%s,%s,%s,'running',%s) RETURNING id""",
+                      (self.shop_id, self.kind, self.label, self.total, self.product_id))
             self.id = k.fetchone()[0]
             c.commit(); c.close()
         except Exception:

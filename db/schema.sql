@@ -400,6 +400,12 @@ CREATE TABLE IF NOT EXISTS jobs (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS jobs_live_idx ON jobs(status, updated_at DESC);
+-- Which product the work was for, so a finished job can offer "open it and look" instead of leaving the
+-- operator to find the row by name — checking the output is the step that catches a bad design, and it has
+-- to be one click. And dismissed_at, because a green bar that cannot be closed is clutter: without it the
+-- poll brings the same finished job back every two seconds until the ten-minute window expires.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS product_id int;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS dismissed_at timestamptz;
 
 -- A shop's agent cannot see another shop's rows, but products.slug is unique GLOBALLY. The two rules
 -- together produce a failure the agent has no way to diagnose: its SELECT finds nothing, its INSERT

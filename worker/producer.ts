@@ -82,7 +82,12 @@ export function makeProducer(pool: pg.Pool) {
       if (res.ok) {
         // produce_product.py owns the terminal state: it writes the print file, the images and
         // design_state='ready' itself. Do not set it here — a second writer is how the two paths drifted.
-        return log(p.id, "ready", { slug: p.slug, out: res.out.slice(-300) });
+        //
+        // Keep the whole tail, not a 300-char slice. The script reports the two steps this path used to
+        // skip — "yazi dizildi: N satir" from set_type and the measured garment it picked — on stderr,
+        // before the closing JSON. Slicing to 300 kept the JSON and cut exactly the evidence that the
+        // merge worked, so the first run after it could not be checked without paying for another.
+        return log(p.id, "ready", { slug: p.slug, out: res.out });
       }
       await log(p.id, "produce-error", res.out.slice(-400));
       if (attempt === 2) {

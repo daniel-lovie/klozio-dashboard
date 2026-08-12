@@ -272,7 +272,8 @@ def produce(pid: int, redo: bool = False) -> dict:
         c.commit(); c.close()
         p = load(pid)                     # has_print is now false; generate from scratch
 
-    with Job("design", f"{p['slug']} · tasarim + gorseller", total=3, shop_id=p["shop_id"]) as job:
+    with Job("design", f"{p['slug']} · tasarim + gorseller", total=3, shop_id=p["shop_id"],
+             product_id=pid) as job:
         with tempfile.TemporaryDirectory(prefix=f"prod-{p['slug']}-") as tmp:
             work = Path(tmp)
             if not p["has_print"]:

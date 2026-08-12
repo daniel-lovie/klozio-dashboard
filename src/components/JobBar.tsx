@@ -16,6 +16,7 @@ type Job = {
   id: number; kind: string; label: string;
   total: number; done: number; failed: number;
   status: string; detail: string | null; stale: boolean;
+  productId: number | null;
 };
 
 const KIND_TR: Record<string, string> = {
@@ -27,6 +28,16 @@ const KIND_TR: Record<string, string> = {
 
 export function JobBar() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  // Hide it here as well as recording it on the server: the poll may already be in flight, and a bar that
+  // lingers for one more tick after the ✕ feels like the click missed.
+  const [hidden, setHidden] = useState<Set<number>>(new Set());
+
+  async function dismiss(id: number) {
+    setHidden((h) => new Set(h).add(id));
+    await fetch("/api/jobs", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
+    }).catch(() => {});
+  }
 
   useEffect(() => {
     let stop = false;
@@ -52,7 +63,7 @@ export function JobBar() {
   return (
     <div className="w-full">
       <div className="space-y-2">
-        {jobs.map((j) => {
+        {jobs.filter((j) => !hidden.has(j.id)).map((j) => {
           const pct = j.total > 0 ? Math.min(100, Math.round(((j.done + j.failed) / j.total) * 100)) : null;
           const broken = j.status === "error" || j.stale;
           const running = j.status === "running" && !j.stale;
@@ -66,12 +77,26 @@ export function JobBar() {
                 {running && (
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-espresso/25 border-t-espresso" />
                 )}
-                <strong>{j.label}</strong>
-                <span className="text-muted">{KIND_TR[j.kind] ?? j.kind}</span>
+                <strong className="min-w-0 truncate">{j.label}</strong>
+                <span className="hidden text-muted sm:inline">{KIND_TR[j.kind] ?? j.kind}</span>
                 <span className="ml-auto tabular-nums text-muted">
                   {j.total > 0 ? `${j.done + j.failed}/${j.total}` : j.done > 0 ? `${j.done}` : ""}
                   {j.failed > 0 && <span className="ml-2 text-red-700">{j.failed} hata</span>}
                 </span>
+                {/* "Done" is a claim until someone looks at the output, so a finished job offers the way
+                    to look rather than only reporting success. */}
+                {j.productId && (j.status === "done" || (j.total > 0 && j.done + j.failed >= j.total)) && (
+                  <a href={`/product/${j.productId}`}
+                     className="shrink-0 rounded border border-espresso/25 px-1.5 py-0.5 hover:bg-white">
+                    ürünü aç →
+                  </a>
+                )}
+                {/* Only once it has stopped. Dismissing a live job would hide exactly the thing this
+                    component exists to show, and it would not come back when the run finished. */}
+                {!running && (
+                  <button onClick={() => dismiss(j.id)} title="kapat"
+                          className="shrink-0 rounded px-1 text-muted hover:bg-white">✕</button>
+                )}
               </div>
               {pct !== null && (
                 <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-espresso/10">

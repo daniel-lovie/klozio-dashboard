@@ -23,27 +23,37 @@ const SCRIPT = path.join(process.cwd(), "scripts", "produce_product.py");
  * design_state IS NULL is the lock, so two ticks (or a tick and the agent) cannot pick the same row —
  * without that, both would spend a Higgsfield call on the same design and one would overwrite the other.
  */
-async function claim(): Promise<{ id: number; slug: string } | null> {
+async function claim(): Promise<{ id: number; slug: string; priorState: string | null } | null> {
+  // The prior state has to come out of the claim itself. RETURNING gives the row AFTER the update, so it
+  // always reads 'generating' and the caller cannot tell a redo from a first run — which is exactly how
+  // redo silently stopped redrawing: the script skips generation when a print file already exists, and it
+  // only clears one when it is passed --redo. A row asking for a redraw got its images rebuilt from the
+  // old artwork instead, at no visible error.
   const rows = await q<any>(
-    `UPDATE products SET design_state = 'generating', updated_at = now()
-      WHERE id = (
-        SELECT p.id FROM products p
+    `WITH picked AS (
+        SELECT p.id, p.design_state AS prior_state FROM products p
          WHERE p.content_status = 'approved'
            AND (p.design_state IS NULL OR p.design_state = 'redo')
            AND p.design_prompt IS NOT NULL
+           -- A DTF row with no hook produces a wordless design and skips the measured garment pick.
+           -- produceOne refuses such a row outright; the queue must agree rather than quietly paying for
+           -- the weak version. These surface via production_status.wordless_no_hook.
+           AND (p.technique = 'embroidery' OR coalesce(btrim(p.hook), '') <> '')
            AND NOT EXISTS (SELECT 1 FROM product_images g WHERE g.product_id = p.id)
          ORDER BY p.id
          LIMIT 1
          FOR UPDATE SKIP LOCKED)
-      RETURNING id, slug`);
+     UPDATE products SET design_state = 'generating', updated_at = now()
+       FROM picked WHERE products.id = picked.id
+      RETURNING products.id, products.slug, picked.prior_state AS "priorState"`);
   return rows[0] ?? null;
 }
 
-function run(pid: number): Promise<{ ok: boolean; out: string }> {
+function run(pid: number, redo = false): Promise<{ ok: boolean; out: string }> {
   return new Promise((resolve) => {
     // A generation is one Higgsfield call plus seven composites: minutes, not seconds. The timeout is
     // generous but present, because a hung child would hold the claim for ever.
-    const child = spawn("python3", [SCRIPT, String(pid)], {
+    const child = spawn("python3", [SCRIPT, String(pid), ...(redo ? ["--redo"] : [])], {
       env: process.env, timeout: 15 * 60_000,
     });
     let out = "";
@@ -61,7 +71,8 @@ export async function produceDue(max = 1): Promise<{ produced: number; failed: n
   for (let i = 0; i < max; i++) {
     const item = await claim();
     if (!item) break;
-    const res = await run(item.id);
+    // A row that asked for a redo needs the artwork drawn again, not its images rebuilt from the old one.
+    const res = await run(item.id, item.priorState === "redo");
     if (res.ok) {
       produced++;
       await logEvent("produce_ok", { detail: `${item.slug}: ${res.out.slice(-160)}` });
@@ -86,10 +97,14 @@ export async function produceDue(max = 1): Promise<{ produced: number; failed: n
  */
 export async function produceOne(productId: number): Promise<{ ok: boolean; out: string }> {
   const rows = await q<any>(
-    `UPDATE products SET design_state='generating', updated_at=now()
-      WHERE id = $1 AND content_status = 'approved' AND design_prompt IS NOT NULL
-        AND (design_state IS NULL OR design_state IN ('redo', 'error'))
-      RETURNING id, slug`, [productId]);
+    `WITH picked AS (
+        SELECT id, design_state AS prior_state FROM products
+         WHERE id = $1 AND content_status = 'approved' AND design_prompt IS NOT NULL
+           AND (design_state IS NULL OR design_state IN ('redo', 'error'))
+         FOR UPDATE)
+     UPDATE products SET design_state='generating', updated_at=now()
+       FROM picked WHERE products.id = picked.id
+      RETURNING products.id, products.slug, picked.prior_state AS "priorState"`, [productId]);
   if (!rows.length) {
     // Say WHICH condition failed. The old message listed all of them as questions, so the agent could not
     // tell "not approved" from "already produced" — watched live it guessed, forced design_state='redo'
@@ -122,7 +137,9 @@ export async function produceOne(productId: number): Promise<{ ok: boolean; out:
     return { ok: false, out: "hook bos — bu tasarimda yazi olmaz ve sablon bos serit birakir. "
       + "Once hook'a sloganini yaz (kazananlarin neredeyse hepsinde yazi var), sonra uret." };
   }
-  const res = await run(productId);
+  // 'redo'/'error' rows already carry a print file; without --redo the script would skip generation and
+  // only rebuild images from the old artwork.
+  const res = await run(productId, rows[0].priorState === "redo" || rows[0].priorState === "error");
   if (res.ok) {
     await logEvent("produce_ok", { detail: `${rows[0].slug}: ${res.out.slice(-160)}` });
   } else {

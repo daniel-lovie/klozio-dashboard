@@ -90,13 +90,20 @@ def generate(p: dict, work: Path) -> Path:
     # and drops the old style block.
     subject, has_palette = br.subject_of(prompt)
     if subject:
+        # Whoever wrote the concept does not get to choose the background. One product's prompt said
+        # "isolated on a plain solid uniform background" and never named a colour; the subject was nine
+        # WHITE ducks, the generator picked white, and the cutout had nothing to key on. The pipeline names
+        # the colour, so any background sentence in the concept is removed first — leaving both would be a
+        # contradiction resolved at random.
+        subject = br.strip_background_talk(subject)
         full = (f"{subject.rstrip(',')}, {lead}{pal}"
                 f"{br.style_tail(style, with_palette=not has_palette, subject=subject)}")
     else:
         # The legacy prompt could not be reduced to a subject. Use it unchanged — it produced something
         # coherent before — and say out loud that this product needs its concept rewritten to get the new look.
-        full = prompt
-        print(f"UYARI {p['slug']}: eski prompt yeni stile cevrilemedi, oldugu gibi kullanildi — "
+        # Even an unconvertible legacy prompt gets the key colour: it is what makes the file cuttable.
+        full = f"{br.strip_background_talk(prompt)}, {br.key_clause()}"
+        print(f"UYARI {p['slug']}: eski prompt yeni stile cevrilemedi, konu oldugu gibi kullanildi — "
               f"konsept yeniden yazilmali", file=sys.stderr)
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw),
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "2k"},
@@ -110,7 +117,22 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     final = work / f"{p['slug']}-final.png"
     if final.exists():
         return final
-    cut = br.local_cutout(raw, work / f"{p['slug']}-cutout.png")
+    # Key on the colour the prompt demanded, then CHECK it. A background that survived the cut is the one
+    # defect that reaches the customer as visible dirt, and it is cheap to detect: the key colour cannot
+    # legitimately appear in the artwork, so any of it left over means the generator drifted and the file
+    # must not ship.
+    cut, rep = br.key_cutout(raw, work / f"{p['slug']}-cutout.png")
+    print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
+          f"kalan anahtar piksel {rep['leftover_key_px']}", file=sys.stderr)
+    if rep["bg_frac"] < 0.15:
+        raise RuntimeError(
+            f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
+            f"{br.KEY_COLOR} arka plani cizmemis; prompt/urun kontrol edilmeli")
+    if rep["leftover_key_px"] > 200:
+        raise RuntimeError(f"kesimden sonra {rep['leftover_key_px']} anahtar renk pikseli kaldi — "
+                           "zemin temizlenemedi, dosya yayina verilmez")
+    if not 0.03 <= rep["opaque_frac"] <= 0.95:
+        raise RuntimeError(f"opak alan %{rep['opaque_frac']*100:.1f} — tasarim ya kayboldu ya zemin kaldi")
     if p["technique"] == "embroidery" and p["thread_colors"]:
         br.stage_palette_snap(cut, br.hexes(p["thread_colors"]), final)
     else:
@@ -277,9 +299,23 @@ def produce(pid: int, redo: bool = False) -> dict:
         with tempfile.TemporaryDirectory(prefix=f"prod-{p['slug']}-") as tmp:
             work = Path(tmp)
             if not p["has_print"]:
-                raw = generate(p, work)
-                job.tick("tasarim uretildi")
-                art = cutout(p, raw, work)
+                # The generator honours the key colour most of the time, not every time — measured, it
+                # painted magenta on one attempt and something else on another with the same prompt. A
+                # stochastic miss should cost a second call, not the operator's afternoon, so the gate's
+                # verdict drives one retry before it becomes an error.
+                art = None
+                for attempt in (1, 2):
+                    raw = generate(p, work)
+                    job.tick("tasarim uretildi" if attempt == 1 else "tasarim tekrar uretildi")
+                    try:
+                        art = cutout(p, raw, work)
+                        break
+                    except RuntimeError as e:
+                        if attempt == 2:
+                            raise
+                        print(f"  UYARI kesim reddetti ({e}); bir kez daha uretiliyor", file=sys.stderr)
+                        raw.unlink(missing_ok=True)
+                        (work / f"{p['slug']}-cutout.png").unlink(missing_ok=True)
                 job.tick("arka plan temizlendi")
                 # Embroidery is typeset by the generator, not by us. print_file for an embroidery
                 # product is the digitiser's spec — flat colour, exact thread hexes — and its hook is a

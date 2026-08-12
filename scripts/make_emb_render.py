@@ -31,7 +31,12 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from batch_runner import local_cutout, palette_line, drop_background_specks                 # noqa: E402
+from batch_runner import (local_cutout, palette_line, drop_background_specks,      # noqa: E402
+                          key_cutout, KEY_COLOR)
+
+
+def br_key() -> str:
+    return KEY_COLOR
 
 # NOT a patch. Asking for a patch got a patch: a white backing disc with a satin border round it,
 # which is a separate object sewn onto a shirt. We stitch into the garment itself, so the motif has
@@ -50,7 +55,11 @@ _STITCH_BASE = (
     # the lettering, thread-textured so no cutout would ever drop them. Name what must not be behind.
     "nothing behind the motif — no sunburst, no rays, no starburst, no halo, no panel or plaque, "
     "bare background between and around every shape, "
-    "isolated on a plain pure white background, photographed straight on, no watermark"
+    # Not white. White satin thread on a white backdrop is the same unkeyable image as a white duck on
+    # white paper, and this clause is what put it there. The key colour cannot appear in thread.
+    f"the motif sits alone on a plain solid uniform bright magenta {br_key()} background filling the whole "
+    "frame, flat, no gradient, no shadow, no vignette; that magenta appears nowhere in the stitching, "
+    "photographed straight on, no watermark"
 )
 _NO_LETTERS = ", NO text, NO letters, NO numbers"
 
@@ -154,7 +163,14 @@ def build(slug: str, force: bool = False, head_override: str | None = None,
     if not res.get("ok"):
         raise SystemExit(f"{slug}: uretim basarisiz {res.get('error')}")
 
-    cut = local_cutout(raw, tmp / f"{slug}-cut.png")
+    # Key on the named colour and check it, exactly as the print path does: a leftover background is the
+    # one defect that reaches the customer as visible dirt.
+    cut, rep = key_cutout(raw, tmp / f"{slug}-cut.png")
+    print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
+          f"kalan anahtar piksel {rep['leftover_key_px']}", file=sys.stderr)
+    if rep["bg_frac"] < 0.15 or rep["leftover_key_px"] > 200:
+        raise SystemExit(f"{slug}: anahtar renk zemin cizilmedi ya da temizlenemedi "
+                         f"(zemin %{rep['bg_frac']*100:.1f}, kalan {rep['leftover_key_px']}) — tekrar dene")
     im = drop_smooth_pockets(Image.open(cut).convert("RGBA"))
     im, cleared = drop_background_specks(im)
     if cleared:

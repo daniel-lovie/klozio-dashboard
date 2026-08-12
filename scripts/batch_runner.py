@@ -184,43 +184,77 @@ STYLE_TAILS = {
     # An antique engraving or scientific plate: the "serious picture, silly caption" formula.
     "engraving": (
         "vintage 19th-century engraving style, fine cross-hatched line work, etched texture, "
-        "single ink colour on transparent background, aged printmaking feel, high contrast, "
+        "single ink colour, aged printmaking feel, high contrast, "
         "detailed but readable at 10 inches, centred subject with clear empty space above and below "
         "for a caption"),
     # Dense botanical / naturalist plate with muted earth tones.
     "plate": (
         "antique botanical plate illustration, muted earth palette, hand-inked outlines with soft "
-        "flat fills, arranged specimens, subtle aged paper texture, transparent background, "
+        "flat fills, arranged specimens, subtle aged paper texture, "
         "generous empty band at the top and bottom for a caption"),
     # A grid of small drawings — the highest perceived-value layout in the sample.
     "collection": (
         "a neat grid of eight to twelve small separate hand-drawn illustrations of the same theme, "
         "even spacing, consistent line weight, limited muted palette, each item complete and "
-        "recognisable on its own, transparent background, empty space in the middle or bottom "
+        "recognisable on its own, empty space in the middle or bottom "
         "reserved for a caption"),
     # Character with an identity: cat with a cocktail, raccoon with a flag.
     "character": (
         "a single hand-drawn character with personality and a prop, expressive face, retro cartoon "
-        "line work, limited muted palette, soft grain shading, transparent background, "
+        "line work, limited muted palette, soft grain shading, "
         "arched empty space above the character for a title and a clear band below for a subtitle"),
     # 70s poster: condensed shapes, sunset bands, halftone.
     "retro": (
         "1970s screen-print poster style, limited three-colour palette, halftone dot shading, "
-        "sun-ray or horizontal band motif, slightly distressed ink texture, transparent background, "
+        "sun-ray or horizontal band motif, slightly distressed ink texture, "
         "a wide empty rectangle across the centre where large type will sit"),
     # Tiny left-chest or centre-chest motif; the garment colour carries the product.
     "minimal": (
         "one small simple motif, clean minimal line art, two colours at most, generous margins, "
-        "no background elements, transparent background, reads clearly at three inches, "
+        "no background elements, reads clearly at three inches, "
         "small empty space beneath for a short caption"),
 }
 DEFAULT_STYLE = "engraving"
 
 # Applies to every style. "NO text" is not optional: AI-rendered type is malformed and every word we
 # ship is hand-set in PIL afterwards.
+# ── the key colour ───────────────────────────────────────────────────────────────────────────────
+#
+# The background is not a detail of the concept; it is the thing the cutout keys on, so the pipeline names
+# it and nobody else gets a vote. A live product proved why: the concept's own prompt said "isolated on a
+# plain solid uniform background — the background colour must not appear anywhere in the artwork" and never
+# NAMED a colour. The subject was nine WHITE ducks, the generator chose white, and no algorithm on earth
+# separates a white duck from a white backdrop. The result shipped as white smears on a dark tee.
+#
+# Magenta because nothing we draw can be magenta: every style tail asks for muted earth tones and the
+# palette clause bans neon outright, so a leftover pixel of this colour is unambiguously background.
+KEY_COLOR = "#E6007E"
+KEY_NAME = "bright magenta"
+
+# Sentences that try to set the background themselves. Left in place they contradict the clause below, and a
+# contradiction is resolved by the model at random — which is how this failed in the first place.
+_BG_SENTENCE = re.compile(
+    r"[^.]*\b(isolated on|background colou?r|plain (solid|uniform)[^.]*background|transparent background)\b[^.]*\.?",
+    re.I)
+
+
+def strip_background_talk(text: str) -> str:
+    """Remove any background instruction from a concept, so the pipeline's own clause stands alone."""
+    return re.sub(r"\s{2,}", " ", _BG_SENTENCE.sub("", text or "")).strip()
+
+
+def key_clause(key: str = KEY_COLOR, name: str = KEY_NAME) -> str:
+    """The only background instruction any prompt should carry."""
+    return (f"the artwork sits alone on a plain solid uniform {name} {key} background that fills the entire "
+            f"canvas edge to edge, absolutely flat with no gradient, no shadow under the artwork, no vignette; "
+            f"{key} appears NOWHERE inside the artwork itself")
+
+
 PROMPT_TAIL_COMMON = (
     "print-ready artwork for a garment, no mockup, no t-shirt, no person, no frame, no border box, "
-    "no drop shadow, no photorealism, transparent background, "
+    # NOT "transparent background": the generator cannot draw transparency, so it paints something — a
+    # checkerboard, or worse, whatever colour suits the subject. Naming the key colour is the whole point.
+    "no drop shadow, no photorealism, "
     "NO text, NO letters, NO words, NO numbers, NO numerals, no watermark, no signature"
 )
 
@@ -296,7 +330,8 @@ def subject_of(prompt: str) -> tuple[str, bool]:
     return text, bool(palette)
 
 
-def style_tail(style: str | None, with_palette: bool = True, subject: str | None = None) -> str:
+def style_tail(style: str | None, with_palette: bool = True, subject: str | None = None,
+               key_hex: str = KEY_COLOR) -> str:
     """The full instruction tail for a concept's style.
 
     `subject` is the concept's own shape description; pass it so a concept that genuinely asks for a
@@ -309,6 +344,7 @@ def style_tail(style: str | None, with_palette: bool = True, subject: str | None
     if not wants_label_shape(subject):
         parts.append(NO_LABEL_CLAUSE)
     parts.append(PROMPT_TAIL_COMMON)
+    parts.append(key_clause(key_hex))
     return ", ".join(parts)
 
 
@@ -593,6 +629,54 @@ def drop_flat_white_pockets(im: Image.Image, light: int = 247, neutral: int = 14
         idx = ndimage.distance_transform_edt(~keep, return_distances=False, return_indices=True)
         a[:, :, :3] = a[:, :, :3][idx[0], idx[1]]
     return Image.fromarray(a, "RGBA"), int(mask.sum())
+
+
+def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tuple[Path, dict]:
+    """Cut the artwork out of a KNOWN background colour, and prove it worked.
+
+    `local_cutout` has to guess what the background is: it samples the border, floods inward, and then
+    argues about enclosed light areas because it cannot tell a white backdrop from a white subject. That
+    argument is unwinnable — nine white ducks on white shipped as white smears on a dark tee.
+    
+    When the prompt NAMES the background colour the problem disappears: the colour appears nowhere in the
+    artwork, so every pixel near it is background wherever it sits — enclosed, bordering, in the crook of a
+    duck's wing. No flood, no pockets, no heuristics.
+
+    Returns the path and a report, because "cut out" is a claim until measured: leftover key pixels mean the
+    generator drifted off the colour and the caller must not ship the file.
+    """
+    from scipy import ndimage                        # noqa: PLC0415
+
+    kr, kg, kb = int(key[1:3], 16), int(key[3:5], 16), int(key[5:7], 16)
+    im = Image.open(raw).convert("RGB")
+    im.thumbnail((2048, 2048), Image.LANCZOS)
+    a = np.asarray(im).astype(int)
+    dist = np.sqrt(((a - np.array([kr, kg, kb])) ** 2).sum(axis=2))
+    bg = dist <= tol
+
+    # The blend ring: where ink meets the key colour the generator mixes the two, so those pixels are part
+    # key and would tint the edge. Take the ring off rather than trying to un-mix it.
+    keep = ndimage.binary_erosion(~bg, np.ones((5, 5)))
+    # Speckles inside the artwork (a stray key-coloured pixel in a dark line) are noise, not holes.
+    keep = ndimage.binary_closing(keep, np.ones((3, 3)))
+    alpha = np.where(keep, 255, 0).astype(np.uint8)
+
+    rgb = np.asarray(im).copy()
+    if keep.any():
+        idx = ndimage.distance_transform_edt(~keep, return_distances=False, return_indices=True)
+        rgb = rgb[idx[0], idx[1]]                    # design colour outward, so nothing else can bleed
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(np.dstack([rgb, alpha]), "RGBA").save(out)
+
+    opaque = keep.sum()
+    leftover = int((bg & keep).sum())
+    report = {
+        "opaque_frac": round(float(opaque) / keep.size, 4),
+        "bg_frac": round(float(bg.sum()) / bg.size, 4),
+        "leftover_key_px": leftover,
+    }
+    return out, report
 
 
 def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:

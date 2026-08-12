@@ -219,6 +219,7 @@ async function productionStatus(): Promise<{
   interval_seconds: number; eta_minutes: number | null; recent_errors: any[];
   blocked_no_design_model?: any[]; blocked_warning?: string;
   wordless_no_hook?: any[]; wordless_warning?: string;
+  prose_hook_dtf?: any[]; prose_hook_warning?: string;
 }> {
   const states = await agentQuery(
     `SELECT COALESCE(design_state, 'none') AS state, count(*)::int AS n
@@ -251,11 +252,29 @@ async function productionStatus(): Promise<{
   // inside set_type, after the hook check. The row still reaches 'ready', so nothing surfaces this except
   // looking at the finished product. Reported apart from `blocked`: these are a quality warning, not a
   // failure, and conflating the two would make a wordless product look like a broken one.
+  //
+  // Embroidery is excluded, not overlooked: produce_product.py never calls set_type for it, so an empty
+  // hook changes nothing there. Warning about it would be noise on 37 products that are correct.
   const wordless = await agentQuery(
     `SELECT id, slug FROM products
       WHERE content_status = 'approved' AND design_prompt IS NOT NULL
+        AND technique <> 'embroidery'
         AND COALESCE(hook, '') = ''
         AND (design_state IS NULL OR design_state IN ('redo', 'generating'))
+      ORDER BY id LIMIT 20`);
+
+  // The opposite mistake, and the more expensive one: a DTF hook written as a descriptive sentence
+  // instead of a slogan. set_type lays the hook onto the artwork verbatim, so re-producing one of these
+  // prints a whole sentence on the shirt. Currently latent — all 14 such products came out of the old
+  // pipeline, which never typeset anything — which is exactly why it needs surfacing: the danger only
+  // appears the moment someone redoes a row that has looked fine for weeks. Two of them are live on Etsy.
+  // The heuristic is deliberately loose (sentence-style opener, prose punctuation, or simply long); a
+  // false positive costs one question, a false negative costs a misprinted garment.
+  const proseHook = await agentQuery(
+    `SELECT id, slug, left(hook, 80) AS hook, design_state, etsy_listing_id IS NOT NULL AS live
+       FROM products
+      WHERE technique <> 'embroidery' AND COALESCE(hook, '') <> ''
+        AND (hook ~ '^(A|An|The|That|Your)\\s+[a-z]' OR length(hook) > 60 OR hook ~ '[,;:]\\s+[a-z]')
       ORDER BY id LIMIT 20`);
 
   const n = queued.rows?.[0]?.n ?? 0;
@@ -288,6 +307,13 @@ async function productionStatus(): Promise<{
       wordless_warning: "Bu satirlarda hook BOS: uretilirler ama slogan tasarima DIZILMEZ ve olculmus "
         + "kumaş secimi hic kosmaz (pick_garment set_type'in icinde). Hata vermezler, 'ready' olurlar, "
         + "sadece zayif cikarlar. Uretime girmeden once UPDATE products SET hook='...' ile duzelt.",
+    } : {}),
+    ...((proseHook.rows ?? []).length ? {
+      prose_hook_dtf: proseHook.rows,
+      prose_hook_warning: "Bu DTF satirlarinda hook bir SLOGAN degil TARIF cumlesi. set_type hook'u "
+        + "tisorte OLDUGU GIBI dizer, yani bunlardan biri redo edilirse tisortte o cumle basilir. "
+        + "Bugun zararsizlar cunku hepsi yazi dizmeyen eski yoldan uretildi. BIRINI YENIDEN URETMEDEN "
+        + "ONCE hook'u kisa bir slogana cevir; 'live=true' olanlar Etsy'de aktif, onlarda operatore sor.",
     } : {}),
   };
 }

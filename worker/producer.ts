@@ -31,13 +31,25 @@ export function makeProducer(pool: pg.Pool) {
     console.log(`[product ${pid}] ${stage}:`, typeof detail === "string" ? detail.slice(0, 160) : JSON.stringify(detail).slice(0, 160));
   };
 
+  /** Claim one product, and report the state it was in before the claim.
+   *
+   * `RETURNING p.*` alone gives the row AFTER the update, so design_state always reads 'generating' and the
+   * caller cannot tell a redo from a first run. That distinction decides whether the script gets --redo,
+   * and without it a redo silently stopped redrawing: produce_product.py skips generation when a print file
+   * already exists and only clears one when --redo is passed, so a row asking for a new design got its
+   * images rebuilt from the old artwork with no error anywhere.
+   */
   async function claim(): Promise<any | null> {
     const rows = await q(`
-      UPDATE products p SET design_state='generating', updated_at=now()
-      WHERE p.id = (
-        SELECT pr.id FROM products pr
+      WITH picked AS (
+        SELECT pr.id, pr.design_state AS prior_state FROM products pr
         WHERE (pr.design_prompt IS NOT NULL OR pr.mockup_prompt IS NOT NULL)
           AND pr.id NOT IN (SELECT product_id FROM schedule WHERE status='published')
+          -- A DTF row with no hook produces a wordless design and skips the measured garment pick, because
+          -- pick_garment lives inside set_type behind the hook check. src/lib/producer.ts's produceOne
+          -- refuses such a row outright; this queue agrees rather than quietly paying for the weak version.
+          -- They surface via production_status.wordless_no_hook for the operator to fill in.
+          AND (pr.technique = 'embroidery' OR coalesce(btrim(pr.hook), '') <> '')
           AND (
             (pr.content_status='approved' AND pr.design_state IS NULL
               AND NOT EXISTS (SELECT 1 FROM product_images i WHERE i.product_id=pr.id))
@@ -45,16 +57,19 @@ export function makeProducer(pool: pg.Pool) {
             OR (pr.design_state='generating' AND pr.updated_at < now() - interval '30 minutes')
           )
         ORDER BY pr.id LIMIT 1 FOR UPDATE SKIP LOCKED)
-      RETURNING p.*`);
+      UPDATE products p SET design_state='generating', updated_at=now()
+        FROM picked WHERE p.id = picked.id
+       RETURNING p.*, picked.prior_state`);
     return rows[0] ?? null;
   }
 
   /** Run the one production implementation. Same shape as src/lib/producer.ts's `run` — deliberately, so
    *  the agent's single-product `produce` tool and this queue behave identically. The timeout is generous
    *  but present: a hung child would hold the claim until the 30-minute reclaim above. */
-  function run(pid: number): Promise<{ ok: boolean; out: string }> {
+  function run(pid: number, redo = false): Promise<{ ok: boolean; out: string }> {
     return new Promise((resolve) => {
-      const child = spawn("python3", [SCRIPT, String(pid)], { env: process.env, timeout: 15 * 60_000 });
+      const child = spawn("python3", [SCRIPT, String(pid), ...(redo ? ["--redo"] : [])],
+        { env: process.env, timeout: 15 * 60_000 });
       let out = "";
       child.stdout.on("data", (d) => { out += d.toString(); });
       child.stderr.on("data", (d) => { out += d.toString(); });
@@ -77,8 +92,11 @@ export function makeProducer(pool: pg.Pool) {
     // the script is idempotent enough to re-run. A deterministic failure (a bad prompt, a missing blank)
     // fails the same way twice and parks the row rather than burning a paid call every tick.
     for (let attempt = 1; attempt <= 2; attempt++) {
-      await log(p.id, "produce-start", { attempt, redo: !!p.redo_note, model: p.design_model });
-      const res = await run(p.id);
+      // --redo when the row asked to be redrawn, or when a dead worker left a half-finished 'generating'
+      // claim behind: in both cases the artwork on the row cannot be trusted as a finished design.
+      const redo = p.prior_state === "redo" || p.prior_state === "generating";
+      await log(p.id, "produce-start", { attempt, redo, prior: p.prior_state, model: p.design_model });
+      const res = await run(p.id, redo);
       if (res.ok) {
         // produce_product.py owns the terminal state: it writes the print file, the images and
         // design_state='ready' itself. Do not set it here — a second writer is how the two paths drifted.

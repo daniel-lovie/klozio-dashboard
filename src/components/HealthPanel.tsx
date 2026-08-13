@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
  */
 type Finding = {
   key: string; label: string; severity: "high" | "medium"; why: string; count: number;
-  products: { id: number; slug: string; detail: string | null }[];
+  products: { id: number; slug: string; detail: string | null; href: string }[];
 };
 
 export function HealthPanel() {
@@ -62,7 +62,7 @@ export function HealthPanel() {
                 <ul className="space-y-0.5">
                   {f.products.map((p) => (
                     <li key={p.id}>
-                      <a href={`/product/${p.id}`} className="underline decoration-espresso/30">{p.slug}</a>
+                      <a href={p.href} className="underline decoration-espresso/30">{p.slug}</a>
                       {p.detail && <span className="text-muted"> — {p.detail}</span>}
                     </li>
                   ))}

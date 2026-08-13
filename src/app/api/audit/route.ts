@@ -20,7 +20,12 @@ const TAGS_REQUIRED = 13;
 const TAG_MAX = 20;
 const DISCLOSURE_HEAD = 600;
 
-type Check = { key: string; label: string; severity: "high" | "medium"; why: string; sql: string };
+type Check = {
+  key: string; label: string; severity: "high" | "medium"; why: string; sql: string;
+  /** Where a row of this check points. Orders are not products; sending both to /product/:id would take the
+   *  operator to whatever product happens to share that id. */
+  href?: (id: number) => string;
+};
 
 /** Each check returns id + slug + detail. Kept as SQL so the whole audit is one round trip. */
 const CHECKS: Check[] = [
@@ -102,6 +107,31 @@ const CHECKS: Check[] = [
            WHERE shop_id = $1 AND design_state = 'ready' AND print_file IS NULL`,
   },
   {
+    key: "order_unsent",
+    href: () => "/orders",
+    label: "sipariş üreticiye gönderilmedi",
+    severity: "high",
+    why: "Ödenmiş sipariş bekliyor. Fiziksel adımların hiçbirini biz yapmadığımız için gecikme doğrudan yoruma yazılır — alıcı sormadan biz haber vermeliyiz.",
+    sql: `SELECT id, coalesce(sku, receipt_id::text) AS slug,
+                 'sipariş ' || to_char(ordered_at, 'DD.MM') || ' · ' ||
+                 extract(day from now() - ordered_at)::int || ' gündür bekliyor' AS detail
+            FROM fulfillment_orders
+           WHERE shop_id = $1 AND status = 'new' AND is_paid
+             AND ordered_at < now() - interval '24 hours'`,
+  },
+  {
+    key: "order_untracked",
+    href: () => "/orders",
+    label: "üreticide ama takip numarası yok",
+    severity: "medium",
+    why: "Üretici üç günden uzun süredir kargo numarası vermedi; alıcı nerede olduğunu göremiyor.",
+    sql: `SELECT id, coalesce(sku, receipt_id::text) AS slug,
+                 extract(day from now() - ordered_at)::int || ' gün' AS detail
+            FROM fulfillment_orders
+           WHERE shop_id = $1 AND status = 'sent_to_producer' AND tracking_code IS NULL
+             AND ordered_at < now() - interval '72 hours'`,
+  },
+  {
     key: "low_dpi",
     label: "baskı dosyası 300 PPI'ın altında",
     severity: "medium",
@@ -125,7 +155,10 @@ export async function GET() {
       count: rows.length,
       // Capped, and the cap is stated rather than silently truncating — a list that stops at 12 without
       // saying so reads as "that is all of them".
-      products: rows.slice(0, 12).map((r) => ({ id: Number(r.id), slug: r.slug, detail: r.detail })),
+      products: rows.slice(0, 12).map((r) => ({
+        id: Number(r.id), slug: r.slug, detail: r.detail,
+        href: (c.href ?? ((id: number) => `/product/${id}`))(Number(r.id)),
+      })),
     };
   }));
 

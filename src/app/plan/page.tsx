@@ -86,12 +86,12 @@ export default async function PlanPage({
           </p>
         </div>
         <div className="flex gap-2 text-sm">
-          <span className="rounded-lg bg-emerald-100 px-3 py-1.5 text-emerald-900">
+          <span className="rounded-lg bg-ok px-3 py-1.5 text-ok">
             approved {tally.approved ?? 0}
           </span>
-          <span className="rounded-lg bg-espresso/10 px-3 py-1.5">draft {tally.draft ?? 0}</span>
-          <span className="rounded-lg bg-red-100 px-3 py-1.5 text-red-900">rejected {tally.rejected ?? 0}</span>
-          <Link href="/" className="rounded-lg border border-espresso/25 px-3 py-1.5">Calendar</Link>
+          <span className="rounded-lg bg-sunken px-3 py-1.5">draft {tally.draft ?? 0}</span>
+          <span className="rounded-lg bg-danger-soft px-3 py-1.5 text-danger">rejected {tally.rejected ?? 0}</span>
+          <Link href="/" className="rounded-lg border border-line-strong px-3 py-1.5">Calendar</Link>
         </div>
       </header>
 
@@ -100,20 +100,20 @@ export default async function PlanPage({
         {weeks.map((w) => (
           <Link key={w.key} href={`/plan?week=${w.key}`}
             className={`rounded-lg border px-3 py-1.5 ${
-              wk?.key === w.key ? "border-espresso bg-espresso/10 font-medium" : "border-espresso/20"}`}>
+              wk?.key === w.key ? "border-espresso bg-sunken font-medium" : "border-line"}`}>
             {w.current ? "bu hafta" : w.label}
             <span className="ml-1 text-muted">{w.current ? w.label : `${w.count}`}</span>
           </Link>
         ))}
         <Link href="/plan?week=all"
           className={`rounded-lg border px-3 py-1.5 ${
-            !wk ? "border-espresso bg-espresso/10 font-medium" : "border-espresso/20"}`}>
+            !wk ? "border-espresso bg-sunken font-medium" : "border-line"}`}>
           tüm haftalar <span className="text-muted">ağır</span>
         </Link>
       </nav>
 
       {/* slot filter + per-slot bulk approve */}
-      <section className="mb-8 rounded-xl border border-espresso/15 bg-white/60 p-4">
+      <section className="mb-8 rounded-lg border border-line bg-raised p-4">
         <div className="mb-2 flex items-center gap-3">
           <h2 className="text-sm font-medium">Slots</h2>
           <Link href="/plan" className="text-xs text-muted underline">clear filter</Link>
@@ -123,11 +123,11 @@ export default async function PlanPage({
           {slots.map((s) => (
             <div key={s.slot}
               className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-xs ${
-                s.ok === s.n ? "border-emerald-300 bg-emerald-50" : "border-espresso/15"}`}>
+                s.ok === s.n ? "border-ok/25 bg-ok" : "border-line"}`}>
               <Link href={`/plan?slot=${s.slot}`} className="truncate">
                 <span className="font-medium">{s.slot}</span>{" "}
                 <span className="text-muted">{s.niche}</span>{" "}
-                <span className="tabular-nums">{s.ok}/{s.n}</span>
+                <span className="tabular">{s.ok}/{s.n}</span>
               </Link>
               <BulkApprove slot={s.slot} label={s.slot} />
             </div>
@@ -140,7 +140,7 @@ export default async function PlanPage({
         const d = new Date(`${day}T12:00:00Z`);
         return (
           <section key={day} className="mb-8">
-            <div className="mb-2 flex flex-wrap items-center gap-3 border-b border-espresso/15 pb-1.5">
+            <div className="mb-2 flex flex-wrap items-center gap-3 border-b border-line pb-1.5">
               <h2 className="text-base font-semibold">
                 {d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })}
               </h2>
@@ -151,17 +151,17 @@ export default async function PlanPage({
             <div className="space-y-2">
               {dayRows.map((r) => (
                 <details key={r.pid}
-                  className={`group rounded-xl border bg-white/60 px-4 py-3 ${
-                    r.content_status === "approved" ? "border-emerald-300"
-                    : r.content_status === "rejected" ? "border-red-300" : "border-espresso/15"}`}>
+                  className={`group rounded-lg border bg-raised px-4 py-3 ${
+                    r.content_status === "approved" ? "border-ok/25"
+                    : r.content_status === "rejected" ? "border-danger/25" : "border-line"}`}>
                   <summary className="cursor-pointer list-none">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                      <span className="rounded bg-espresso/10 px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+                      <span className="rounded bg-sunken px-1.5 py-0.5 text-[11px] font-medium tabular">
                         {r.slot} · c{r.concept_no} · v{r.variant}
                       </span>
                       <span className="text-xs text-muted">{timeInShopTZ(r.scheduled_at)}</span>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{r.title}</span>
-                      <span className="text-xs tabular-nums">{money(r.price_cents)}</span>
+                      <span className="text-xs tabular">{money(r.price_cents)}</span>
                       {r.personalised && (
                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-900">
                           text personalised
@@ -174,12 +174,12 @@ export default async function PlanPage({
                     </div>
                   </summary>
 
-                  <div className="mt-4 grid gap-4 border-t border-espresso/10 pt-4 lg:grid-cols-2">
+                  <div className="mt-4 grid gap-4 border-t border-line pt-4 lg:grid-cols-2">
                     <div>
                       <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">
                         Line printed on the shirt
                       </h3>
-                      <p className="mt-1 rounded-lg bg-espresso/5 px-3 py-2 font-medium">
+                      <p className="mt-1 rounded-lg bg-sunken px-3 py-2 font-medium">
                         {r.hook || <span className="text-muted">illustration only — no text</span>}
                       </p>
 
@@ -192,25 +192,25 @@ export default async function PlanPage({
                         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted">
                           Design prompt · {r.design_model} · cover on {r.hero_colorway}
                         </summary>
-                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-espresso/5 px-3 py-2 font-sans text-[12px] leading-relaxed">{r.design_prompt}</pre>
+                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-sunken px-3 py-2 font-sans text-[12px] leading-relaxed">{r.design_prompt}</pre>
                       </details>
                       <details className="mt-2">
                         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted">
                           Mockup 1 · cover flat lay ({r.hero_colorway})
                         </summary>
-                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-espresso/5 px-3 py-2 font-sans text-[12px] leading-relaxed">{r.mockup_prompt}</pre>
+                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-sunken px-3 py-2 font-sans text-[12px] leading-relaxed">{r.mockup_prompt}</pre>
                       </details>
                       <details className="mt-2">
                         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted">
                           Mockup 2 · hanging
                         </summary>
-                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-espresso/5 px-3 py-2 font-sans text-[12px] leading-relaxed">{r.mockup_prompt_hanging}</pre>
+                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-sunken px-3 py-2 font-sans text-[12px] leading-relaxed">{r.mockup_prompt_hanging}</pre>
                       </details>
                       <details className="mt-2">
                         <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wide text-muted">
                           Mockup 3 · on-model
                         </summary>
-                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-espresso/5 px-3 py-2 font-sans text-[12px] leading-relaxed">{r.mockup_prompt_model}</pre>
+                        <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-sunken px-3 py-2 font-sans text-[12px] leading-relaxed">{r.mockup_prompt_model}</pre>
                       </details>
 
                       <h3 className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted">
@@ -234,7 +234,7 @@ export default async function PlanPage({
 
                     <div>
                       <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted">Description</h3>
-                      <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-espresso/5 px-3 py-2 font-sans text-[13px] leading-relaxed">
+                      <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-sunken px-3 py-2 font-sans text-[13px] leading-relaxed">
 {r.description}
                       </pre>
                       <p className="mt-2 text-[11px] text-muted">
@@ -251,7 +251,7 @@ export default async function PlanPage({
       })}
 
       {rows.length === 0 && (
-        <p className="rounded-xl border border-espresso/15 bg-white/60 p-6 text-sm text-muted">
+        <p className="rounded-lg border border-line bg-raised p-6 text-sm text-muted">
           Nothing matches. Run <code>npm run db:plan</code> to load the August plan, or clear the filter.
         </p>
       )}

@@ -85,24 +85,24 @@ export function JobBar() {
           return (
             <div key={j.id}
               className={`rounded-lg border px-3 py-2 text-xs ${broken
-                ? "border-red-300 bg-red-50/70"
-                : j.status === "done" ? "border-green-300 bg-green-50/70"
-                : "border-espresso/20 bg-white/70"}`}>
+                ? "border-danger/25 bg-danger-soft"
+                : j.status === "done" ? "border-ok/25 bg-ok-soft"
+                : "border-line bg-raised"}`}>
               <div className="flex items-center gap-2">
                 {running && (
-                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-espresso/25 border-t-espresso" />
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-accent" />
                 )}
                 <strong className="min-w-0 truncate">{j.label}</strong>
                 <span className="hidden text-muted sm:inline">{KIND_TR[j.kind] ?? j.kind}</span>
-                <span className="ml-auto tabular-nums text-muted">
+                <span className="ml-auto tabular text-muted">
                   {j.total > 0 ? `${j.done + j.failed}/${j.total}` : j.done > 0 ? `${j.done}` : ""}
-                  {j.failed > 0 && <span className="ml-2 text-red-700">{j.failed} hata</span>}
+                  {j.failed > 0 && <span className="ml-2 text-danger">{j.failed} hata</span>}
                 </span>
                 {/* "Done" is a claim until someone looks at the output, so a finished job offers the way
                     to look rather than only reporting success. */}
                 {j.productId && (j.status === "done" || (j.total > 0 && j.done + j.failed >= j.total)) && (
                   <a href={`/product/${j.productId}`}
-                     className="shrink-0 rounded border border-espresso/25 px-1.5 py-0.5 hover:bg-white">
+                     className="shrink-0 rounded border border-line-strong px-1.5 py-0.5 hover:bg-sunken">
                     ürünü aç →
                   </a>
                 )}
@@ -111,7 +111,7 @@ export function JobBar() {
                     holding before it starts, otherwise the retry is refused as "already generating". */}
                 {broken && j.productId && (
                   <button disabled={busy === j.id} onClick={() => retry(j.id)}
-                          className="shrink-0 rounded border border-red-300 bg-white px-1.5 py-0.5 font-medium text-red-800 hover:bg-red-50 disabled:opacity-50">
+                          className="shrink-0 rounded border border-danger/25 bg-raised px-1.5 py-0.5 font-medium text-danger hover:bg-danger-soft disabled:opacity-50">
                     {busy === j.id ? "…" : "yeniden dene"}
                   </button>
                 )}
@@ -119,29 +119,29 @@ export function JobBar() {
                     component exists to show, and it would not come back when the run finished. */}
                 {!running && (
                   <button onClick={() => dismiss(j.id)} title="kapat"
-                          className="shrink-0 rounded px-1 text-muted hover:bg-white">✕</button>
+                          className="shrink-0 rounded px-1 text-muted hover:bg-sunken">✕</button>
                 )}
               </div>
               {pct !== null && (
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-espresso/10">
-                  <div className={`h-full rounded-full ${broken ? "bg-red-500" : j.status === "done" ? "bg-green-600" : "bg-espresso"}`}
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+                  <div className={`h-full rounded-full ${broken ? "bg-danger" : j.status === "done" ? "bg-ok" : "bg-espresso"}`}
                     style={{ width: `${pct}%` }} />
                 </div>
               )}
               {/* Say why it stopped. A silent failure is the thing this component exists to prevent. */}
               {j.stale && (
-                <p className="mt-1 text-red-700">
+                <p className="mt-1 text-danger">
                   süreç yanıt vermiyor — ürün kilidi açıldı, “yeniden dene” ile baştan üretebilirsin
                 </p>
               )}
-              {j.status === "error" && j.detail && <p className="mt-1 text-red-700">{j.detail}</p>}
+              {j.status === "error" && j.detail && <p className="mt-1 text-danger">{j.detail}</p>}
               {!broken && j.detail && <p className="mt-1 text-muted">{j.detail}</p>}
             </div>
           );
         })}
         {/* A refused retry has a reason — usually that the product moved on, or that another run claimed it
             first. Swallowing it would leave the operator clicking a button that appears to do nothing. */}
-        {err && <p className="rounded-lg border border-red-300 bg-red-50/70 px-3 py-2 text-xs text-red-800">{err}</p>}
+        {err && <p className="rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-xs text-danger">{err}</p>}
       </div>
     </div>
   );

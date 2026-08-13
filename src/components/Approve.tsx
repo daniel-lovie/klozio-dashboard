@@ -47,7 +47,7 @@ export default function Approve({
   return (
     <div className="rounded-xl border border-espresso/15 bg-white/60 p-4">
       {lastError && (
-        <div className="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div className="mb-3 rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger">
           <span className="font-medium">Last error: </span>{lastError}
         </div>
       )}
@@ -60,13 +60,13 @@ export default function Approve({
         <div className="flex flex-wrap items-end gap-3">
           {status === "pending" && (
             <button disabled={busy} onClick={() => call(`/api/schedule/${scheduleId}/approve`, "POST")}
-              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+              className="rounded-lg bg-ok px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
               Approve for launch
             </button>
           )}
           {status === "approved" && (
             <>
-              <span className="rounded-lg bg-emerald-100 px-3 py-2 text-sm text-emerald-900">
+              <span className="rounded-lg bg-ok px-3 py-2 text-sm text-ok">
                 Approved — publishes automatically at the scheduled time
               </span>
               <button disabled={busy} onClick={() => call(`/api/schedule/${scheduleId}/approve`, "DELETE")}
@@ -77,7 +77,7 @@ export default function Approve({
           )}
           {status === "failed" && (
             <button disabled={busy} onClick={() => call(`/api/schedule/${scheduleId}/approve`, "POST")}
-              className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+              className="rounded-lg bg-ok px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
               Re-approve and retry
             </button>
           )}
@@ -99,7 +99,7 @@ export default function Approve({
           <button disabled={busy}
             onClick={() => confirm("Cancel this launch?") &&
               call(`/api/schedule/${scheduleId}/reschedule`, "POST", { cancel: true })}
-            className="ml-auto rounded-lg border border-red-300 px-3 py-2 text-sm text-red-800 disabled:opacity-50">
+            className="ml-auto rounded-lg border border-danger/25 px-3 py-2 text-sm text-danger disabled:opacity-50">
             Cancel launch
           </button>
         </div>
@@ -111,7 +111,7 @@ export default function Approve({
           approved <em>and</em> its time has arrived.
         </p>
       )}
-      {msg && <p className="mt-2 text-sm text-red-700">{msg}</p>}
+      {msg && <p className="mt-2 text-sm text-danger">{msg}</p>}
     </div>
   );
 }

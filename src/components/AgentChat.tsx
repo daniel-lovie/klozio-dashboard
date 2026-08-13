@@ -142,7 +142,7 @@ export default function AgentChat() {
   const sessionList = (
     <div className="flex h-full flex-col">
       <button onClick={() => { newSession(); setDrawer(false); }}
-        className="mb-2 flex items-center gap-2 rounded-lg border border-espresso/20 px-3 py-2 text-sm font-medium hover:bg-white">
+        className="mb-2 flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-medium hover:bg-sunken">
         <span className="text-base leading-none">＋</span> Yeni sohbet
       </button>
       <div className="mb-1 px-1 text-[11px] font-medium uppercase tracking-wide text-muted">Sohbetler</div>
@@ -151,7 +151,7 @@ export default function AgentChat() {
         {sessions.map((s) => (
           <div key={s.id}
             className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm ${
-              s.id === chatId ? "bg-espresso text-white" : "hover:bg-espresso/10"}`}>
+              s.id === chatId ? "bg-espresso text-white" : "hover:bg-sunken"}`}>
             <button
               onClick={() => { setChatId(s.id); loadHistory(s.id); setDrawer(false); }}
               className="min-w-0 flex-1 truncate text-left">
@@ -175,7 +175,7 @@ export default function AgentChat() {
 
   return (
     <div className="flex h-[calc(100vh-170px)] gap-4 sm:h-[calc(100vh-150px)]">
-      <aside className="hidden w-56 shrink-0 border-r border-espresso/10 pr-3 md:block">
+      <aside className="hidden w-56 shrink-0 border-r border-line pr-3 md:block">
         {sessionList}
       </aside>
 
@@ -186,24 +186,24 @@ export default function AgentChat() {
           <div className="h-full w-64 bg-ivory p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
             {sessionList}
           </div>
-          <div className="flex-1 bg-espresso/20" />
+          <div className="flex-1 bg-sunken" />
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
       <div className="mb-2 flex items-center gap-2">
         <button onClick={() => setDrawer(true)}
-          className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs md:hidden">☰ sohbetler</button>
+          className="rounded border border-line-strong px-2.5 py-1 text-xs md:hidden">☰ sohbetler</button>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {sessions.find((s) => s.id === chatId)?.title || "Yeni sohbet"}
         </span>
-        <button onClick={clearSession} className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs">temizle</button>
+        <button onClick={clearSession} className="rounded border border-line-strong px-2.5 py-1 text-xs">temizle</button>
       </div>
 
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
-        className="flex-1 space-y-3 overflow-y-auto rounded-xl border border-espresso/15 bg-white/60 p-3 sm:p-4">
+        className="flex-1 space-y-3 overflow-y-auto rounded-lg border border-line bg-raised p-3 sm:p-4">
         {msgs.length === 0 && (
           <div className="text-sm text-muted">
             <p className="mb-2 font-medium">Örnekler:</p>
@@ -217,12 +217,12 @@ export default function AgentChat() {
         )}
         {msgs.map((m, i) => (
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            <div className={`max-w-[90%] whitespace-pre-wrap rounded-xl px-3 py-2.5 text-sm sm:max-w-[85%] sm:px-3.5 ${
-              m.role === "user" ? "bg-espresso text-white" : "border border-espresso/10 bg-amber-50"}`}>
+            <div className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2.5 text-sm sm:max-w-[85%] sm:px-3.5 ${
+              m.role === "user" ? "bg-espresso text-white" : "border border-line bg-amber-50"}`}>
               {(m.tools ?? []).length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {m.tools!.map((t, j) => (
-                    <span key={j} className="rounded bg-espresso/10 px-1.5 py-0.5 font-mono text-[10px]">{t}</span>
+                    <span key={j} className="rounded bg-sunken px-1.5 py-0.5 font-mono text-[10px]">{t}</span>
                   ))}
                 </div>
               )}
@@ -239,12 +239,12 @@ export default function AgentChat() {
               ) : null}
               {m.text || (busy && i === msgs.length - 1 ? "…" : "")}
               {m.ask && (
-                <div className="mt-2 border-t border-espresso/10 pt-2">
+                <div className="mt-2 border-t border-line pt-2">
                   <div className="mb-1.5 text-[13px] font-medium">{m.ask.question}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {m.ask.options.map((o) => (
                       <button key={o} disabled={busy} onClick={() => sendText(o)}
-                        className="rounded-full border border-espresso/25 bg-white/70 px-3 py-1 text-xs hover:bg-white disabled:opacity-50">
+                        className="rounded-full border border-line-strong bg-raised px-3 py-1 text-xs hover:bg-sunken disabled:opacity-50">
                         {o}
                       </button>
                     ))}
@@ -273,7 +273,7 @@ export default function AgentChat() {
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {attach.map((a) => (
             <div key={a.id} className="relative">
-              <img src={a.dataUrl} alt={a.name} className="h-14 w-14 rounded border border-espresso/20 object-cover" />
+              <img src={a.dataUrl} alt={a.name} className="h-14 w-14 rounded border border-line object-cover" />
               <button
                 onClick={() => setAttach((x) => x.filter((y) => y.id !== a.id))}
                 className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-espresso text-[10px] text-white">
@@ -284,13 +284,13 @@ export default function AgentChat() {
           <span className="text-xs text-muted">{attach.length}/{MAX_ATTACH}</span>
         </div>
       )}
-      {note && <p className="mt-1 text-xs text-red-800">{note}</p>}
+      {note && <p className="mt-1 text-xs text-danger">{note}</p>}
 
       <div className="mt-2 flex items-end gap-2">
         <input ref={fileInput} type="file" accept="image/*" multiple hidden
                onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
         <button onClick={() => fileInput.current?.click()} title="Görsel ekle"
-                className="rounded-xl border border-espresso/25 px-3 py-2 text-sm">📎</button>
+                className="rounded-lg border border-line-strong px-3 py-2 text-sm">📎</button>
         <textarea
           value={input} onChange={(e) => setInput(e.target.value)} rows={2}
           onPaste={(e) => {
@@ -299,10 +299,10 @@ export default function AgentChat() {
           }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
           placeholder="Agent'a yaz… görsel yapıştırabilir veya sürükleyebilirsin"
-          className="min-w-0 flex-1 rounded-xl border border-espresso/20 bg-white/80 px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-raised px-3 py-2 text-sm"
         />
         <button onClick={() => send()} disabled={busy}
-          className="rounded-xl bg-espresso px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          className="rounded-lg bg-espresso px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "…" : "Gönder"}
         </button>
       </div>

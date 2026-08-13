@@ -90,14 +90,14 @@ export default function Calendar() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {MONTHS[ym.m]} {ym.y}
         </h1>
-        <span className="rounded-full border border-espresso/20 px-2 py-0.5 text-[11px] text-muted">
+        <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">
           times in {TZ_LABEL}
         </span>
         <div className="flex gap-1">
-          <button onClick={() => shift(-1)} className="rounded-md border border-espresso/20 px-2 py-1 text-sm hover:bg-white">←</button>
+          <button onClick={() => shift(-1)} className="rounded border border-line px-2 py-1 text-sm hover:bg-sunken">←</button>
           <button onClick={() => setYm({ y: today.getFullYear(), m: today.getMonth() })}
-                  className="rounded-md border border-espresso/20 px-2 py-1 text-sm hover:bg-white">Today</button>
-          <button onClick={() => shift(1)} className="rounded-md border border-espresso/20 px-2 py-1 text-sm hover:bg-white">→</button>
+                  className="rounded border border-line px-2 py-1 text-sm hover:bg-sunken">Today</button>
+          <button onClick={() => shift(1)} className="rounded border border-line px-2 py-1 text-sm hover:bg-sunken">→</button>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
           {Object.entries(STATUS_STYLE).map(([k, s]) =>
@@ -107,21 +107,21 @@ export default function Calendar() {
               </span>
             ) : null
           )}
-          <a href="/portfolio" className="rounded-md border border-espresso/20 px-3 py-1.5 hover:bg-white">Portfolio</a>
-          <button onClick={runNow} className="rounded-md bg-espresso px-3 py-1.5 text-ivory hover:opacity-90">
+          <a href="/portfolio" className="rounded border border-line px-3 py-1.5 hover:bg-sunken">Portfolio</a>
+          <button onClick={runNow} className="rounded bg-espresso px-3 py-1.5 text-ivory hover:opacity-90">
             Run scheduler now
           </button>
           <button onClick={() => fetch("/api/logout", { method: "POST" }).then(() => (location.href = "/login"))}
-                  className="rounded-md border border-espresso/20 px-3 py-1.5 hover:bg-white">Sign out</button>
+                  className="rounded border border-line px-3 py-1.5 hover:bg-sunken">Sign out</button>
         </div>
       </header>
 
-      {msg && <div className="mb-4 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-sm">{msg}</div>}
+      {msg && <div className="mb-4 rounded-lg border border-amber/40 bg-warn-soft px-3 py-2 text-sm">{msg}</div>}
 
       {/* Month grid from sm up. On a 375px phone seven columns give ~50px per day, which fits a date and
           nothing else — so the phone gets the same cards in a vertical list of the days that have work. The
           card itself is ONE component used by both, or the two views drift apart. */}
-      <div className="hidden grid-cols-7 gap-px overflow-hidden rounded-xl border border-espresso/15 bg-espresso/10 sm:grid">
+      <div className="hidden grid-cols-7 gap-px overflow-hidden rounded-lg border border-line bg-sunken sm:grid">
         {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
           <div key={d} className="bg-ivory px-2 py-1.5 text-center text-xs font-medium uppercase tracking-wide text-muted">{d}</div>
         ))}
@@ -132,7 +132,7 @@ export default function Calendar() {
           return (
             <div key={k} className={`min-h-[132px] bg-ivory p-1.5 ${d ? "" : "opacity-40"}`}>
               {d && (
-                <div className={`mb-1 text-xs ${isToday ? "font-bold text-amber" : "text-muted"}`}>
+                <div className={`mb-1 text-xs ${isToday ? "font-bold text-warn" : "text-muted"}`}>
                   {d.getDate()}
                 </div>
               )}
@@ -151,10 +151,10 @@ export default function Calendar() {
           const items = byDay.get(dayKey(d)) ?? [];
           const isToday = dayKey(d) === dayKey(today);
           return (
-            <section key={dayKey(d)} className="rounded-xl border border-espresso/15 bg-ivory p-2">
-              <div className={`mb-2 flex items-center gap-2 text-sm ${isToday ? "font-bold text-amber" : "text-muted"}`}>
+            <section key={dayKey(d)} className="rounded-lg border border-line bg-ivory p-2">
+              <div className={`mb-2 flex items-center gap-2 text-sm ${isToday ? "font-bold text-warn" : "text-muted"}`}>
                 <span>{d.toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" })}</span>
-                {isToday && <span className="rounded-full bg-amber/20 px-2 py-0.5 text-[11px]">bugün</span>}
+                {isToday && <span className="rounded-full bg-warn/20 px-2 py-0.5 text-[11px]">bugün</span>}
                 <span className="ml-auto text-[11px]">{items.length} ürün</span>
               </div>
               <div className="space-y-2">
@@ -171,7 +171,7 @@ export default function Calendar() {
       {loading && <p className="mt-4 text-sm text-muted">Loading…</p>}
       {!loading && rows.length === 0 && (
         <p className="mt-4 text-sm text-muted">
-          Nothing scheduled this month. Seed products with <code className="rounded bg-white px-1">npm run db:seed</code>.
+          Nothing scheduled this month. Seed products with <code className="rounded bg-raised px-1">npm run db:seed</code>.
         </p>
       )}
     </div>
@@ -189,7 +189,7 @@ function ItemCard({ r, approve }: { r: Row; approve: (id: number, ok: boolean) =
           <img src={`/api/images/${r.cover_image_id}`} alt=""
                className="h-11 w-11 flex-none rounded object-cover" />
         ) : (
-          <div className="grid h-11 w-11 flex-none place-items-center rounded bg-white/60 text-[9px] text-muted">no img</div>
+          <div className="grid h-11 w-11 flex-none place-items-center rounded bg-raised text-[9px] text-muted">no img</div>
         )}
         <div className="min-w-0">
           <div className={`truncate text-[11px] font-medium leading-tight ${s.text}`}>{r.title}</div>
@@ -201,18 +201,18 @@ function ItemCard({ r, approve }: { r: Row; approve: (id: number, ok: boolean) =
       </a>
       {r.status === "pending" && (
         <button onClick={() => approve(r.id, true)}
-                className="mt-1 w-full rounded bg-emerald-700 px-1 py-0.5 text-[10px] font-medium text-white hover:opacity-90">
+                className="mt-1 w-full rounded bg-ok px-1 py-0.5 text-[10px] font-medium text-white hover:opacity-90">
           Approve
         </button>
       )}
       {r.status === "approved" && (
         <button onClick={() => approve(r.id, false)}
-                className="mt-1 w-full rounded border border-espresso/25 px-1 py-0.5 text-[10px] hover:bg-white">
+                className="mt-1 w-full rounded border border-line-strong px-1 py-0.5 text-[10px] hover:bg-sunken">
           Un-approve
         </button>
       )}
       {r.status === "failed" && r.last_error && (
-        <div className="mt-1 line-clamp-3 text-[9px] text-red-800">{r.last_error}</div>
+        <div className="mt-1 line-clamp-3 text-[9px] text-danger">{r.last_error}</div>
       )}
     </div>
   );

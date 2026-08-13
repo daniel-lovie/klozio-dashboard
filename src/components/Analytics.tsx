@@ -34,7 +34,7 @@ export function ManualStats({ rows }: { rows: ManualRow[] }) {
   const [f, setF] = useState({ day: today, visits: "", page_views: "", orders: "", revenue: "", favorites: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const inp = "w-full rounded-lg border border-espresso/20 bg-white/80 px-2 py-1.5 text-sm";
+  const inp = "w-full rounded-lg border border-line bg-raised px-2 py-1.5 text-sm";
 
   async function save() {
     setBusy(true);
@@ -47,7 +47,7 @@ export function ManualStats({ rows }: { rows: ManualRow[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-espresso/15 bg-white/60 p-4">
+    <div className="rounded-lg border border-line bg-raised p-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
         {([
           ["day", "Gün (YYYY-MM-DD)"], ["visits", "Visits"], ["page_views", "Views"],
@@ -65,7 +65,7 @@ export function ManualStats({ rows }: { rows: ManualRow[] }) {
           className="rounded-lg bg-espresso px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "Kaydediliyor…" : "Kaydet"}
         </button>
-        {msg && <span className="text-xs text-red-700">{msg}</span>}
+        {msg && <span className="text-xs text-danger">{msg}</span>}
       </div>
 
       {rows.length > 0 && (
@@ -77,7 +77,7 @@ export function ManualStats({ rows }: { rows: ManualRow[] }) {
           </tr></thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.day} className="border-t border-espresso/10">
+              <tr key={r.day} className="border-t border-line">
                 <td className="p-1.5">{r.day}</td>
                 <td className="p-1.5">{r.visits ?? "—"}</td>
                 <td className="p-1.5">{r.page_views ?? "—"}</td>
@@ -107,7 +107,7 @@ export function AdSpend({ rows }: { rows: SpendRow[] }) {
   const [f, setF] = useState({ day: today, channel: "meta", campaign: "", spend: "", clicks: "", impressions: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
-  const inp = "w-full rounded-lg border border-espresso/20 bg-white/80 px-2 py-1.5 text-sm";
+  const inp = "w-full rounded-lg border border-line bg-raised px-2 py-1.5 text-sm";
   const money = (c: number | null) => (c == null ? "—" : `$${(c / 100).toFixed(2)}`);
 
   async function save() {
@@ -121,7 +121,7 @@ export function AdSpend({ rows }: { rows: SpendRow[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-espresso/15 bg-white/60 p-4">
+    <div className="rounded-lg border border-line bg-raised p-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
         <label className="text-[11px] text-muted">Gün
           <input className={inp} value={f.day} onChange={(e) => setF({ ...f, day: e.target.value })} /></label>
@@ -145,7 +145,7 @@ export function AdSpend({ rows }: { rows: SpendRow[] }) {
           className="rounded-lg bg-espresso px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
           {busy ? "Kaydediliyor…" : "Harcamayı kaydet"}
         </button>
-        {msg && <span className="text-xs text-red-700">{msg}</span>}
+        {msg && <span className="text-xs text-danger">{msg}</span>}
       </div>
 
       {rows.length > 0 && (
@@ -157,7 +157,7 @@ export function AdSpend({ rows }: { rows: SpendRow[] }) {
           </tr></thead>
           <tbody>
             {rows.map((r, i) => (
-              <tr key={i} className="border-t border-espresso/10">
+              <tr key={i} className="border-t border-line">
                 <td className="p-1.5">{r.day}</td>
                 <td className="p-1.5">{r.channel}</td>
                 <td className="p-1.5">{money(r.spend_cents)}</td>

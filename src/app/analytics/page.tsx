@@ -39,7 +39,7 @@ export default async function AnalyticsPage() {
           ["Sipariş", String(totals.orders)],
           ["Ciro", money(totals.revenue)],
         ].map(([label, val]) => (
-          <div key={label} className="rounded-xl border border-espresso/15 bg-white/60 p-4">
+          <div key={label} className="rounded-lg border border-line bg-raised p-4">
             <p className="text-xs text-muted">{label}</p>
             <p className="mt-1 text-xl font-semibold">{val}</p>
           </div>
@@ -47,7 +47,7 @@ export default async function AnalyticsPage() {
       </section>
 
       {history.length > 1 && (
-        <section className="mb-8 rounded-xl border border-espresso/15 bg-white/60 p-4">
+        <section className="mb-8 rounded-lg border border-line bg-raised p-4">
           <p className="mb-3 text-sm font-medium">Günlük toplam görüntülenme (son {history.length} gün)</p>
           <div className="flex h-24 items-end gap-1">
             {[...history].reverse().map((h) => (
@@ -69,7 +69,7 @@ export default async function AnalyticsPage() {
             Marketing API&apos;den saatlik çekiliyor. Kural: $15 harcamada CTR &lt; %1 → kapat ·
             CPC &gt; $0.70 → kapat · CPC ≤ $0.45 → bütçeyi artır.
           </p>
-          <div className="overflow-x-auto rounded-xl border border-espresso/15 bg-white/60">
+          <div className="overflow-x-auto rounded-lg border border-line bg-raised">
             <table className="w-full text-sm">
               <thead><tr className="text-left text-xs text-muted">
                 <th className="p-3">Kreatif</th><th className="p-3">Ad set</th>
@@ -88,7 +88,7 @@ export default async function AnalyticsPage() {
                     : cpc != null && cpc <= 0.45 && spend >= 5 ? "✅ ölçekle"
                     : "⏳ veri az";
                   return (
-                    <tr key={i} className="border-t border-espresso/10">
+                    <tr key={i} className="border-t border-line">
                       <td className="p-3 font-medium">{c.ad_name}</td>
                       <td className="p-3 text-xs">{c.adset_name}</td>
                       <td className="p-3">{Number(c.impressions).toLocaleString("en-US")}</td>
@@ -133,11 +133,11 @@ export default async function AnalyticsPage() {
 
       <h2 className="mb-2 font-semibold">Listing performansı (API verisi)</h2>
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-espresso/15 bg-white/60 p-6 text-sm text-muted">
+        <p className="rounded-lg border border-line bg-raised p-6 text-sm text-muted">
           Henüz veri yok — &quot;Şimdi güncelle&quot; ile ilk fotoğrafı çek (canlı listing gerekir).
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-espresso/15 bg-white/60">
+        <div className="overflow-x-auto rounded-lg border border-line bg-raised">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted">
@@ -150,7 +150,7 @@ export default async function AnalyticsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.product_id} className="border-t border-espresso/10">
+                <tr key={r.product_id} className="border-t border-line">
                   <td className="p-3">
                     <a className="underline" target="_blank"
                        href={`https://www.etsy.com/listing/${r.etsy_listing_id}`}>{r.slug}</a>

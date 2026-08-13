@@ -46,7 +46,7 @@ export default async function ProductPage(
           </p>
         </div>
         {st && active && (
-          <div className={`rounded-xl border px-4 py-3 ${st.bg}`}>
+          <div className={`rounded-lg border px-4 py-3 ${st.bg}`}>
             <div className={`text-xs font-medium ${st.text}`}>{st.label}</div>
             <div className="text-sm">{fmtDateTime(active.scheduled_at)}</div>
           </div>
@@ -63,7 +63,7 @@ export default async function ProductPage(
         </h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {imgs.map((im) => (
-            <figure key={im.id} className="overflow-hidden rounded-xl border border-espresso/15 bg-white">
+            <figure key={im.id} className="overflow-hidden rounded-lg border border-line bg-raised">
               <img src={`/api/images/${im.id}`} alt={im.label ?? im.filename} className="aspect-square w-full object-cover" />
               <figcaption className="flex items-center justify-between px-2 py-1.5 text-[11px] text-muted">
                 <span>#{im.rank} {im.role ?? ""} {im.label ? `· ${im.label}` : ""}</span>
@@ -71,13 +71,13 @@ export default async function ProductPage(
               </figcaption>
             </figure>
           ))}
-          {imgs.length === 0 && <p className="text-sm text-red-700">No images — Etsy requires at least one.</p>}
+          {imgs.length === 0 && <p className="text-sm text-danger">No images — Etsy requires at least one.</p>}
         </div>
       </section>
 
       {/* ---- details ---- */}
       <section className="mt-8 grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-espresso/15 bg-white/60 p-4">
+        <div className="rounded-lg border border-line bg-raised p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Listing</h2>
           <dl className="space-y-2 text-sm">
             <Row k="Price" v={money(p.price_cents)} />
@@ -100,17 +100,17 @@ export default async function ProductPage(
             <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">Tags ({(p.tags ?? []).length}/13)</div>
             <div className="flex flex-wrap gap-1">
               {(p.tags ?? []).map((t: string) => (
-                <span key={t} className="rounded-full border border-espresso/20 bg-white px-2 py-0.5 text-[11px]">{t}</span>
+                <span key={t} className="rounded-full border border-line bg-raised px-2 py-0.5 text-[11px]">{t}</span>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="rounded-xl border border-espresso/15 bg-white/60 p-4">
+        <div className="rounded-lg border border-line bg-raised p-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Description</h2>
           <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed">{p.description}</pre>
           {!/AI image-generation tools/i.test(p.description ?? "") && (
-            <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p className="mt-3 rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger">
               ⚠️ No AI disclosure sentence detected in the description. Etsy has enforced this since 14 Jan 2026.
             </p>
           )}
@@ -143,10 +143,10 @@ function Row({ k, v, floor, value }: { k: string; v: string; floor?: number; val
   const n = value === null || value === undefined ? null : Number(value);
   const under = floor !== undefined && n !== null && Number.isFinite(n) && n < floor;
   return (
-    <div className="flex justify-between gap-4 border-b border-espresso/10 pb-1">
+    <div className="flex justify-between gap-4 border-b border-line pb-1">
       <dt className="text-muted">{k}</dt>
-      <dd className={`text-right font-medium ${under ? "text-red-700" : ""}`}>
-        {v}{under && <span className="ml-1 font-normal text-red-700">· taban %{floor}</span>}
+      <dd className={`text-right font-medium ${under ? "text-danger" : ""}`}>
+        {v}{under && <span className="ml-1 font-normal text-danger">· taban %{floor}</span>}
       </dd>
     </div>
   );

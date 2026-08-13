@@ -12,10 +12,10 @@ const NEXT: Record<string, { to: string; label: string }[]> = {
   cancelled:        [],
 };
 const PILL: Record<string, string> = {
-  new: "bg-amber-100 text-amber-900", generating: "bg-blue-100 text-blue-900",
-  qa: "bg-purple-100 text-purple-900", ready: "bg-emerald-100 text-emerald-900",
-  sent_to_producer: "bg-teal-100 text-teal-900", shipped: "bg-espresso/10",
-  done: "bg-neutral-100 text-neutral-600", problem: "bg-red-100 text-red-900",
+  new: "bg-amber-100 text-amber-900", generating: "bg-accent-soft text-accent",
+  qa: "bg-purple-100 text-purple-900", ready: "bg-ok text-ok",
+  sent_to_producer: "bg-teal-100 text-teal-900", shipped: "bg-sunken",
+  done: "bg-neutral-100 text-neutral-600", problem: "bg-danger-soft text-danger",
   cancelled: "bg-neutral-200 text-neutral-700",
 };
 
@@ -66,15 +66,15 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
   }
 
   return (
-    <div className="rounded-xl border border-espresso/15 bg-white/60 p-4">
+    <div className="rounded-lg border border-line bg-raised p-4">
       <div className="flex flex-wrap items-center gap-3">
-        <span className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${PILL[row.status]}`}>{row.status}</span>
+        <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${PILL[row.status]}`}>{row.status}</span>
         <span className="text-xs text-muted">#{row.id} · {at}</span>
-        <span className="rounded bg-espresso/10 px-1.5 py-0.5 text-[11px]">{row.slot ?? "?"} · {row.slug ?? row.etsy_listing_id}</span>
+        <span className="rounded bg-sunken px-1.5 py-0.5 text-[11px]">{row.slot ?? "?"} · {row.slug ?? row.etsy_listing_id}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.title ?? "(unknown listing)"}</span>
         <span className="text-xs">{row.colorway ?? "?"} / {row.size ?? "?"} × {row.quantity}</span>
         {row.is_paid === false && (
-          <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900"
+          <span className="rounded bg-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-900"
             title="Etsy ödemeyi onaylayana kadar üretim başlamaz">
             ⏳ {row.etsy_status ?? "ödeme bekliyor"}
           </span>
@@ -115,38 +115,38 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
             <>
               <span>draft hazır · #{row.printful_order_id} (varyant + adres + tasarım yüklü)</span>
               <button disabled={busy} onClick={() => printful("confirm")}
-                className="ml-2 rounded-md bg-teal-700 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                className="ml-2 rounded bg-teal-700 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
                 Printful&apos;a Onayla (ücret kesilir)
               </button>
             </>
           ) : (
             <>
-              <span className={row.printful_status === "failed" ? "text-red-700" : ""}>
+              <span className={row.printful_status === "failed" ? "text-danger" : ""}>
                 {row.printful_status === "failed" ? `draft başarısız: ${row.printful_error}` : "draft yok"}
               </span>
               <button disabled={busy} onClick={() => printful("draft")}
-                className="ml-2 rounded-md border border-teal-700 px-2.5 py-1 text-xs text-teal-800 disabled:opacity-50">
+                className="ml-2 rounded border border-teal-700 px-2.5 py-1 text-xs text-teal-800 disabled:opacity-50">
                 Draft oluştur
               </button>
             </>
           )}
-          {pfMsg && <span className="ml-2 text-xs text-red-700">{pfMsg}</span>}
+          {pfMsg && <span className="ml-2 text-xs text-danger">{pfMsg}</span>}
         </div>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {(NEXT[row.status] ?? []).map((n) => (
           <button key={n.to} disabled={busy} onClick={() => move(n.to)}
-            className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs disabled:opacity-50">
+            className="rounded border border-line-strong px-2.5 py-1 text-xs disabled:opacity-50">
             {n.label}
           </button>
         ))}
         {row.status === "sent_to_producer" && (
           <input value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="tracking code"
-            className="rounded-md border border-espresso/20 px-2 py-1 text-xs" />
+            className="rounded border border-line px-2 py-1 text-xs" />
         )}
         <button disabled={busy} onClick={() => move("problem")}
-          className="ml-auto rounded-md border border-red-300 px-2.5 py-1 text-xs text-red-800 disabled:opacity-50">
+          className="ml-auto rounded border border-danger/25 px-2.5 py-1 text-xs text-danger disabled:opacity-50">
           Problem
         </button>
       </div>

@@ -5,8 +5,8 @@ type Status = "draft" | "approved" | "rejected";
 
 const PILL: Record<Status, string> = {
   draft: "bg-espresso/10 text-espresso",
-  approved: "bg-emerald-100 text-emerald-900",
-  rejected: "bg-red-100 text-red-900",
+  approved: "bg-ok text-ok",
+  rejected: "bg-danger-soft text-danger",
 };
 
 /** Per-listing content approval. Approving does not schedule anything — it marks the
@@ -39,7 +39,7 @@ export function ContentApprove({
 
       {st !== "approved" && (
         <button disabled={busy} onClick={() => set("approved")}
-          className="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+          className="rounded-md bg-ok px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
           Approve content
         </button>
       )}
@@ -51,7 +51,7 @@ export function ContentApprove({
       )}
       {st !== "rejected" && (
         <button disabled={busy} onClick={() => setShowNote((v) => !v)}
-          className="rounded-md border border-red-300 px-2.5 py-1 text-xs text-red-800 disabled:opacity-50">
+          className="rounded-md border border-danger/25 px-2.5 py-1 text-xs text-danger disabled:opacity-50">
           Reject / note
         </button>
       )}
@@ -62,13 +62,13 @@ export function ContentApprove({
             placeholder="What should change? (kept with the listing so the rewrite has your reason)"
             className="flex-1 rounded-md border border-espresso/20 bg-white px-2 py-1 text-xs" />
           <button disabled={busy} onClick={() => set("rejected", true)}
-            className="rounded-md bg-red-700 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+            className="rounded-md bg-danger px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
             Save
           </button>
         </div>
       )}
       {note && !showNote && <span className="text-[11px] text-muted">note: {note}</span>}
-      {msg && <span className="text-[11px] text-red-700">{msg}</span>}
+      {msg && <span className="text-[11px] text-danger">{msg}</span>}
     </div>
   );
 }
@@ -93,7 +93,7 @@ export function BulkApprove({ slot, date, label }: { slot?: string; date?: strin
   return (
     <span className="inline-flex items-center gap-1.5">
       <button disabled={busy} onClick={() => go("approved")}
-        className="rounded-md bg-emerald-700/90 px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-50">
+        className="rounded-md bg-ok/90 px-2 py-0.5 text-[11px] font-medium text-white disabled:opacity-50">
         Approve {label}
       </button>
       <button disabled={busy} onClick={() => go("draft")}

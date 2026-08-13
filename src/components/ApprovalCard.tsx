@@ -58,7 +58,7 @@ export function ApprovalCard({ onDecision }: { onDecision?: (msg: string) => voi
   return (
     <div className="mb-2 space-y-2">
       {designs.map((d) => (
-        <div key={d.id} className="rounded-xl border border-amber/50 bg-amber/10 p-2.5">
+        <div key={d.id} className="rounded-lg border border-warn/25 bg-warn-soft p-2.5">
           <div className="flex items-start gap-3">
             {d.cover_id ? (
               <button onClick={() => setZoom(d)} title="büyüt">
@@ -66,7 +66,7 @@ export function ApprovalCard({ onDecision }: { onDecision?: (msg: string) => voi
                      className="h-20 w-20 flex-none rounded-lg object-cover" />
               </button>
             ) : (
-              <div className="grid h-20 w-20 flex-none place-items-center rounded-lg bg-white/60 text-[10px] text-muted">
+              <div className="grid h-20 w-20 flex-none place-items-center rounded-lg bg-raised text-[10px] text-muted">
                 önizleme yok
               </div>
             )}
@@ -77,16 +77,16 @@ export function ApprovalCard({ onDecision }: { onDecision?: (msg: string) => voi
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <button disabled={busy === d.id} onClick={() => decide(d, "approve")}
-                  className="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                  className="rounded bg-ok px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
                   {busy === d.id ? "…" : "Onayla"}
                 </button>
                 <button disabled={busy === d.id} onClick={() => decide(d, "reject")}
-                  className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs disabled:opacity-50">
+                  className="rounded border border-line-strong px-2.5 py-1 text-xs disabled:opacity-50">
                   Reddet
                 </button>
                 <button onClick={() => setZoom(d)}
-                  className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs">Büyüt</button>
-                <a href={`/product/${d.id}`} className="rounded-md border border-espresso/25 px-2.5 py-1 text-xs">
+                  className="rounded border border-line-strong px-2.5 py-1 text-xs">Büyüt</button>
+                <a href={`/product/${d.id}`} className="rounded border border-line-strong px-2.5 py-1 text-xs">
                   ürünü aç →
                 </a>
               </div>
@@ -94,7 +94,7 @@ export function ApprovalCard({ onDecision }: { onDecision?: (msg: string) => voi
           </div>
         </div>
       ))}
-      {err && <p className="text-xs text-red-800">{err}</p>}
+      {err && <p className="text-xs text-danger">{err}</p>}
 
       {zoom && (
         // Judging a design from an 80px thumbnail is not judging it. The popup shows the close crop full
@@ -114,11 +114,11 @@ export function ApprovalCard({ onDecision }: { onDecision?: (msg: string) => voi
             <p className="mt-2 text-xs text-muted">{zoom.hook || zoom.title}</p>
             <div className="mt-3 flex gap-2">
               <button disabled={busy === zoom.id} onClick={() => decide(zoom, "approve")}
-                className="flex-1 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
+                className="flex-1 rounded-lg bg-ok px-3 py-2 text-sm font-medium text-white disabled:opacity-50">
                 Onayla — kalan görseller kurulsun
               </button>
               <button disabled={busy === zoom.id} onClick={() => decide(zoom, "reject")}
-                className="rounded-lg border border-espresso/25 px-3 py-2 text-sm disabled:opacity-50">
+                className="rounded-lg border border-line-strong px-3 py-2 text-sm disabled:opacity-50">
                 Reddet
               </button>
             </div>

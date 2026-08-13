@@ -28,7 +28,7 @@ export default function PasswordLogin() {
           placeholder="Password" autoFocus
           className="mb-3 w-full rounded-lg border border-espresso/20 bg-white px-3 py-2 outline-none focus:border-amber"
         />
-        {err && <p className="mb-3 text-sm text-red-700">{err}</p>}
+        {err && <p className="mb-3 text-sm text-danger">{err}</p>}
         <button disabled={busy}
           className="w-full rounded-lg bg-espresso py-2 font-medium text-ivory disabled:opacity-50">
           {busy ? "Checking…" : "Sign in"}

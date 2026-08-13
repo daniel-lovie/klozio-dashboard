@@ -29,7 +29,7 @@ export function AddNiche({ slug, family }: { slug: string; family: string }) {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <select value={stage} onChange={(e) => setStage(e.target.value)}
-        className="rounded-md border border-espresso/20 bg-white px-2 py-1 text-xs">
+        className="rounded border border-line bg-raised px-2 py-1 text-xs">
         {STAGES.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
       </select>
       <button
@@ -43,10 +43,10 @@ export function AddNiche({ slug, family }: { slug: string; family: string }) {
           if (e) { setErr(e); return; }
           router.refresh();
         }}
-        className="rounded-md bg-espresso px-2.5 py-1 text-xs font-medium text-ivory disabled:opacity-50">
+        className="rounded bg-espresso px-2.5 py-1 text-xs font-medium text-ivory disabled:opacity-50">
         {busy ? "…" : "portföye ekle"}
       </button>
-      {err && <span className="text-xs text-red-800">{err}</span>}
+      {err && <span className="text-xs text-danger">{err}</span>}
     </div>
   );
 }
@@ -67,7 +67,7 @@ export function StageSelect({ slug, family, stage }: { slug: string; family: str
           if (msg) { setErr(msg); return; }
           router.refresh();
         }}
-        className="rounded-md border border-espresso/25 bg-white px-2 py-1 text-xs">
+        className="rounded border border-line-strong bg-raised px-2 py-1 text-xs">
         {STAGES.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
       </select>
       <button
@@ -82,10 +82,10 @@ export function StageSelect({ slug, family, stage }: { slug: string; family: str
           if (!res?.ok) { setErr("çıkarılamadı"); return; }
           router.refresh();
         }}
-        className="rounded-md border border-espresso/20 px-2 py-1 text-xs text-muted">
+        className="rounded border border-line px-2 py-1 text-xs text-muted">
         çıkar
       </button>
-      {err && <span className="text-xs text-red-800">{err}</span>}
+      {err && <span className="text-xs text-danger">{err}</span>}
     </div>
   );
 }

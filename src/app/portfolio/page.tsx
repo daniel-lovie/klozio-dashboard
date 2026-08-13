@@ -9,9 +9,9 @@ const MAX_SLOTS = Number(process.env.MAX_NICHE_SLOTS || 3);
 const STAGE: Record<string, { bg: string; text: string; label: string }> = {
   candidate:  { bg: "bg-neutral-100 border-neutral-300", text: "text-neutral-700", label: "Candidate" },
   validating: { bg: "bg-amber-100 border-amber-300",     text: "text-amber-900",   label: "Validating" },
-  scaling:    { bg: "bg-emerald-100 border-emerald-300", text: "text-emerald-900", label: "Scaling" },
-  harvesting: { bg: "bg-espresso/10 border-espresso/30", text: "text-espresso",    label: "Harvesting" },
-  retired:    { bg: "bg-red-50 border-red-200",          text: "text-red-800",     label: "Retired" },
+  scaling:    { bg: "bg-ok border-ok/25", text: "text-ok", label: "Scaling" },
+  harvesting: { bg: "bg-sunken border-line-strong", text: "text-espresso",    label: "Harvesting" },
+  retired:    { bg: "bg-danger-soft border-danger/25",          text: "text-danger",     label: "Retired" },
 };
 
 export default async function Portfolio() {
@@ -54,7 +54,7 @@ export default async function Portfolio() {
       </p>
 
       {niches.length === 0 && (
-        <div className="mt-5 rounded-xl border border-amber/50 bg-amber/10 px-4 py-4">
+        <div className="mt-5 rounded-lg border border-warn/25 bg-warn-soft px-4 py-4">
           <div className="text-lg font-semibold">Portföyde henüz niş yok</div>
           <p className="mt-1 max-w-3xl text-sm">
             Bu bir karar kaydı: hangi nişte kaç slot harcadığını burada tutuyorsun. Aşağıda kataloğun
@@ -64,7 +64,7 @@ export default async function Portfolio() {
         </div>
       )}
 
-      <div className={`mt-5 rounded-xl border px-4 py-3 ${niches.length === 0 ? "hidden" : free > 0 ? "border-espresso/20 bg-white/60" : "border-amber/50 bg-amber/10"}`}>
+      <div className={`mt-5 rounded-lg border px-4 py-3 ${niches.length === 0 ? "hidden" : free > 0 ? "border-line bg-raised" : "border-warn/25 bg-warn-soft"}`}>
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
           <span className="text-lg font-semibold">
             Slots: {inFlight.length} / {MAX_SLOTS}
@@ -99,7 +99,7 @@ export default async function Portfolio() {
             {niches.filter((n) => n.family === fam).map((n) => {
               const s = STAGE[n.stage] ?? STAGE.candidate;
               return (
-                <div key={n.slug} className={`rounded-xl border p-3 ${s.bg}`}>
+                <div key={n.slug} className={`rounded-lg border p-3 ${s.bg}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="font-medium">{n.slug}</div>
                     <span className={`whitespace-nowrap rounded-full border border-current/20 px-2 py-0.5 text-[11px] ${s.text}`}>
@@ -131,7 +131,7 @@ export default async function Portfolio() {
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {used.map((u) => (
-              <div key={u.niche} className="rounded-xl border border-espresso/15 bg-white/60 p-3">
+              <div key={u.niche} className="rounded-lg border border-line bg-raised p-3">
                 <div className="font-medium">{u.niche}</div>
                 <div className="mt-1 text-xs text-muted">{u.live}/{u.products} canlı</div>
                 <AddNiche slug={u.niche} family={u.niche} />
@@ -141,7 +141,7 @@ export default async function Portfolio() {
         </section>
       )}
 
-      <section className="mt-10 rounded-xl border border-espresso/15 bg-white/60 p-4 text-sm">
+      <section className="mt-10 rounded-lg border border-line bg-raised p-4 text-sm">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Gates</h2>
         <ul className="list-inside list-disc space-y-1">
           <li><strong>Enter validating</strong> — S1 research passed, named family, 5–10 print-ready designs, cover styling defined, <em>and a slot is free</em>.</li>
@@ -150,7 +150,7 @@ export default async function Portfolio() {
         </ul>
         <p className="mt-3 text-muted">
           Full reasoning, including what is mechanically true vs merely claimed about shop-level “topical
-          authority”, is in <code className="rounded bg-white px-1">.claude/skills/etsy-growth/references/niche-portfolio.md</code>.
+          authority”, is in <code className="rounded bg-raised px-1">.claude/skills/etsy-growth/references/niche-portfolio.md</code>.
         </p>
       </section>
     </main>

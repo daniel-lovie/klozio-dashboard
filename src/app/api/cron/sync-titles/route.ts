@@ -52,8 +52,11 @@ export async function POST(req: Request) {
 
         await updateListingFields(listingId, { title: r.title });
         const after: any = await getListing(listingId);
-        if (String(after?.title ?? "") !== r.title) {
-          problems.push(`${r.slug}: Etsy farkli kaydetti`);
+        const stored = String(after?.title ?? "");
+        if (stored !== r.title) {
+          // Say HOW it differs. Etsy normalises titles — it collapses punctuation and rejects some
+          // characters outright — and "different" without the stored value leaves nothing to act on.
+          problems.push(`${r.slug}: Etsy sakladi -> ${stored}`);
           return;
         }
         sent++;

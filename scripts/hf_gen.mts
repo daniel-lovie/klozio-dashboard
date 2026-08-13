@@ -9,6 +9,7 @@
  *    {"op":"generate","prompt":"...","out":"/abs/path.png","ref":"/abs/ref.png"?,"model":"nano_banana_pro"?,
  *     "aspect_ratio":"1:1"?,"resolution":"4k"?}
  *    {"op":"remove_bg","src":"/abs/in.png","out":"/abs/out.png"}
+ *    {"op":"upscale","src":"/abs/in.png","out":"/abs/out.png","width":3000?,"height":3000?}
  *  Prints one JSON line: {"ok":true,"out":"...","calls":N,"model":"...","job_id":"..."}
  */
 import { callTool, jobIdOf, statusOf, rawUrlOf, uploadPng } from "../worker/hf.ts";
@@ -16,9 +17,10 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 type Args = {
-  op: "generate" | "remove_bg";
+  op: "generate" | "remove_bg" | "upscale";
   prompt?: string; out: string; src?: string; ref?: string;
   model?: string; aspect_ratio?: string; resolution?: string; quality?: string;
+  width?: number; height?: number;
   poll_ms?: number; poll_max?: number;
 };
 
@@ -64,6 +66,21 @@ try {
     calls++;
     jobId = jobIdOf(job) ?? "";
     if (!jobId) throw new Error("no job id from generate_image");
+    await download(await poll(jobId, everyMs, tries), a.out);
+  } else if (a.op === "upscale") {
+    // Raising an existing print file rather than generating a new one. The design is already approved and,
+    // for the live ones, already photographed into eight mockups — regenerating would hand the buyer a
+    // different shirt from the one in the listing. This keeps the artwork and only adds pixels.
+    if (!a.src) throw new Error("src required");
+    const mediaId = await uploadPng(await readFile(a.src), "src.png");
+    // The API asks for an explicit target, not a tier: image_id plus the pixel size wanted. 3000 is the
+    // print envelope — 10 inches at 300 PPI — so this is the exact size the producer prints, not a guess.
+    const side = a.width ?? 3000;
+    const job = await callTool("upscale_image", {
+      params: { image_id: mediaId, width: side, height: a.height ?? side } });
+    calls++;
+    jobId = jobIdOf(job) ?? "";
+    if (!jobId) throw new Error("no job id from upscale_image");
     await download(await poll(jobId, everyMs, tries), a.out);
   } else {
     if (!a.src) throw new Error("src required");

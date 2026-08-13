@@ -42,14 +42,26 @@ def conn():
 
 
 def upscale_one(pid: int, slug: str, blob: bytes) -> tuple[int, str, bytes | None, str]:
-    """Returns (pid, slug, new_png_bytes or None, message)."""
+    """Returns (pid, slug, new_png_bytes or None, message). Never raises.
+
+    An exception here used to travel out through pool.map and end the whole run: one file that hung past the
+    fifteen-minute timeout took the remaining hundred and twenty with it, and the batch reported success
+    because the shell saw a clean exit. One slow file is one skipped file.
+    """
+    try:
+        return _upscale_one(pid, slug, blob)
+    except Exception as e:                                   # noqa: BLE001 — a batch must outlive one item
+        return pid, slug, None, f"{type(e).__name__}: {str(e)[:120]}"
+
+
+def _upscale_one(pid: int, slug: str, blob: bytes) -> tuple[int, str, bytes | None, str]:
     src = Image.open(io.BytesIO(blob)).convert("RGBA")
     with tempfile.TemporaryDirectory() as td:
         p_in, p_out = Path(td) / "in.png", Path(td) / "out.png"
         src.save(p_in)
         args = {"op": "upscale", "src": str(p_in), "out": str(p_out), "width": TARGET}
         r = subprocess.run(["node", "--experimental-strip-types", str(ROOT / "hf_gen.mts"),
-                            json.dumps(args)], capture_output=True, text=True, timeout=900)
+                            json.dumps(args)], capture_output=True, text=True, timeout=300)
         line = (r.stdout or "").strip().splitlines()[-1] if r.stdout.strip() else "{}"
         try:
             res = json.loads(line)

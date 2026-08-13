@@ -26,6 +26,18 @@ async function authorized(req: Request) {
 
 type Row = { id: number; slug: string; title: string; etsy_listing_id: string; shop_id: number };
 
+/** Etsy returns titles HTML-escaped: an apostrophe comes back as &#39;. Comparing that against the raw
+ *  string reported two listings as rejected when Etsy had stored them exactly right — the mismatch was in
+ *  the comparison, not the write. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
 export async function POST(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const url = new URL(req.url);
@@ -47,12 +59,12 @@ export async function POST(req: Request) {
     try {
       await runWithShop(Number(r.shop_id), async () => {
         const live: any = await getListing(listingId);
-        if (String(live?.title ?? "") === r.title) { same++; return; }
+        if (decodeEntities(String(live?.title ?? "")) === r.title) { same++; return; }
         if (!apply) { pending++; changed.push(r.slug); return; }
 
         await updateListingFields(listingId, { title: r.title });
         const after: any = await getListing(listingId);
-        const stored = String(after?.title ?? "");
+        const stored = decodeEntities(String(after?.title ?? ""));
         if (stored !== r.title) {
           // Say HOW it differs. Etsy normalises titles — it collapses punctuation and rejects some
           // characters outright — and "different" without the stored value leaves nothing to act on.

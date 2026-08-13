@@ -1,13 +1,15 @@
 import { SignIn } from "@clerk/nextjs";
+import { AuthFrame } from "@/components/AuthFrame";
 
 export const dynamic = "force-dynamic";
 
 export default function Page() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-[440px] flex-col justify-center px-6">
-      <h1 className="mb-1 text-2xl font-semibold">Klozio</h1>
-      <p className="mb-6 text-sm text-muted">Mağazanı yönetmek için giriş yap.</p>
+    <AuthFrame
+      title="Tekrar hoş geldin"
+      subtitle="Mağazanın takvimi, katalog sağlığı ve siparişleri seni bekliyor."
+    >
       <SignIn signUpUrl="/sign-up" fallbackRedirectUrl="/" />
-    </main>
+    </AuthFrame>
   );
 }

@@ -3,14 +3,16 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+// Grouped, because seven links in one flat row is a graveyard: the operator cannot tell which of them
+// is today's work. Production is what the shop does daily; the rest is where you go to check on it.
 const LINKS = [
-  { href: "/", label: "Takvim" },
-  { href: "/plan", label: "Plan" },
-  { href: "/portfolio", label: "Portföy" },
-  { href: "/chat", label: "Agent 🤖" },
-  { href: "/orders", label: "Siparişler" },
-  { href: "/analytics", label: "Analytics 📊" },
-  { href: "/usage", label: "Kullanım" },
+  { href: "/", label: "Takvim", group: "uretim" },
+  { href: "/plan", label: "Plan", group: "uretim" },
+  { href: "/chat", label: "Agent", group: "uretim" },
+  { href: "/portfolio", label: "Portföy", group: "kayit" },
+  { href: "/orders", label: "Siparişler", group: "kayit" },
+  { href: "/analytics", label: "Analytics", group: "kayit" },
+  { href: "/usage", label: "Kullanım", group: "kayit" },
 ];
 
 type ShopOption = { id: number; name: string };
@@ -59,10 +61,10 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
   // displays the wrong store as current.
   const value = shops.some((s) => s.id === active) ? active : (shops[0]?.id ?? "__new__");
 
-  const links = isAdmin ? [...LINKS, { href: "/users", label: "Kullanıcılar" }] : LINKS;
+  const links = isAdmin ? [...LINKS, { href: "/users", label: "Kullanıcılar", group: "kayit" }] : LINKS;
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-espresso/15 bg-white/80 backdrop-blur">
+    <nav className="sticky top-0 z-40 border-b border-line bg-raised/85 backdrop-blur-md">
       {/* One row on a phone: shop selector, then the menu button. Eight links in a non-wrapping flex row
           pushed the last three off a 375px screen with no scrollbar and no hint they existed. */}
       <div className="mx-auto flex max-w-[1200px] items-center gap-2 px-4 py-2.5 sm:px-6">
@@ -71,7 +73,7 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
           onChange={(e) => switchShop(e.target.value)}
           disabled={busy}
           title={shops.length > 1 ? `${shops.length} mağaza` : undefined}
-          className="min-w-0 max-w-[45vw] flex-none truncate rounded-md border border-espresso/20 bg-white/80 px-2 py-1 text-sm font-semibold disabled:opacity-60 sm:mr-2 sm:max-w-none"
+          className="h-9 min-w-0 max-w-[45vw] flex-none truncate rounded border border-line-strong bg-raised px-2.5 text-sm font-semibold disabled:opacity-60 sm:mr-1 sm:max-w-none"
         >
           {shops.length === 0 && <option value="__none__">mağaza listesi alınamadı</option>}
           {shops.map((s) => (
@@ -80,14 +82,27 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
           <option value="__new__">＋ Yeni mağaza…</option>
         </select>
 
-        <div className="hidden items-center gap-1 md:flex">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href}
-              className={`rounded-md px-3 py-1.5 text-sm ${activeLink(l.href)
-                ? "bg-espresso text-white"
-                : "text-espresso/80 hover:bg-espresso/10"}`}>
-              {l.label}
-            </Link>
+        <div className="hidden items-center gap-0.5 md:flex">
+          {links.map((l, i) => (
+            <span key={l.href} className="flex items-center">
+              {/* A hairline where the group changes: it separates doing from checking without adding
+                  another row of chrome. */}
+              {i > 0 && links[i - 1].group !== l.group && (
+                <span aria-hidden className="mx-2 h-4 w-px bg-line" />
+              )}
+              <Link href={l.href}
+                aria-current={activeLink(l.href) ? "page" : undefined}
+                className={`relative rounded px-3 py-1.5 text-sm transition ${activeLink(l.href)
+                  ? "font-medium text-ink"
+                  : "text-ink-soft hover:bg-sunken hover:text-ink"}`}>
+                {l.label}
+                {/* The active page is marked by an underline in the accent, not a filled dark pill:
+                    a pill that heavy competes with the page content it is supposed to introduce. */}
+                {activeLink(l.href) && (
+                  <span aria-hidden className="absolute inset-x-3 -bottom-[11px] h-0.5 rounded-full bg-accent" />
+                )}
+              </Link>
+            </span>
           ))}
         </div>
 
@@ -95,31 +110,31 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label="Menü"
-          className="ml-auto rounded-md border border-espresso/20 px-3 py-1.5 text-sm md:hidden">
+          className="ml-auto h-9 rounded border border-line-strong px-3 text-sm md:hidden">
           {open ? "✕" : "☰"} <span className="ml-1">{links.find((l) => activeLink(l.href))?.label ?? "Menü"}</span>
         </button>
 
         <button
           onClick={signOut}
-          className="ml-auto hidden rounded-md px-3 py-1.5 text-sm text-espresso/60 hover:bg-espresso/10 md:block">
+          className="ml-auto hidden h-9 rounded px-3 text-sm text-ink-soft transition hover:bg-sunken hover:text-ink md:block">
           Çıkış
         </button>
       </div>
 
       {open && (
-        <div className="border-t border-espresso/10 bg-white/95 px-4 pb-3 pt-2 md:hidden">
+        <div className="border-t border-line bg-raised px-4 pb-3 pt-2 md:hidden">
           <div className="grid grid-cols-2 gap-1.5">
             {links.map((l) => (
               <Link key={l.href} href={l.href} onClick={() => setOpen(false)}
-                className={`rounded-md px-3 py-2 text-sm ${activeLink(l.href)
-                  ? "bg-espresso text-white"
-                  : "border border-espresso/15 text-espresso/80"}`}>
+                className={`rounded px-3 py-2.5 text-sm ${activeLink(l.href)
+                  ? "bg-accent text-accent-ink font-medium"
+                  : "border border-line text-ink-soft"}`}>
                 {l.label}
               </Link>
             ))}
           </div>
           <button onClick={signOut}
-            className="mt-2 w-full rounded-md border border-espresso/15 px-3 py-2 text-sm text-espresso/60">
+            className="mt-2 w-full rounded border border-line px-3 py-2.5 text-sm text-ink-soft">
             Çıkış
           </button>
         </div>

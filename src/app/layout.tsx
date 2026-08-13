@@ -1,4 +1,5 @@
 import "./globals.css";
+import { Inter } from "next/font/google";
 import { Nav } from "@/components/Nav";
 import { listShops, currentShopId } from "@/lib/shops";
 import { isLoggedIn } from "@/lib/auth";
@@ -6,7 +7,19 @@ import { clerkConfigured, clerkClientConfigured, me } from "@/lib/user";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Klozio — Publishing Dashboard" };
+export const metadata: Metadata = {
+  title: "Klozio — Publishing Dashboard",
+  description: "Etsy ve Shopify icin tasarim, ilan ve siparis operasyonu",
+};
+
+// The app had no font at all: it rendered in whatever the browser defaults to, which is most of why a
+// carefully built interface still looked unfinished. Self-hosted by Next at build time, so there is no
+// runtime request to Google and no layout shift.
+const sans = Inter({
+  subsets: ["latin", "latin-ext"],       // latin-ext carries the Turkish characters this UI is written in
+  display: "swap",
+  variable: "--font-sans",
+});
 
 // The publish ticker is started from src/instrumentation.ts (runs at server startup in
 // BOTH dev and production). Do not start it here: in `next dev` this module is only
@@ -30,8 +43,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     shops = [];                       // nav renders an explicit error rather than a plausible lie
   }
   const body = (
-    <html lang="en">
-      <body className="min-h-screen antialiased">
+    <html lang="tr" className={sans.variable}>
+      <body className="min-h-screen font-sans antialiased">
         <Nav shops={shops} active={active} isAdmin={isAdmin} clerk={clerkConfigured()} />
         {children}
       </body>

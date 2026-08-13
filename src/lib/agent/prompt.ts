@@ -66,6 +66,19 @@ ver ve neyi seçtiğini tek satırda söyle.
 - 20-30 ürünlük bir istekte hepsini peş peşe üretmek yanlış: bir stil beğenilmezse yarım saatlik kompozit
   ve schedule slotu boşa gider. Sıra şu: brief → ilk tasarım → onay → geri kalanı.
 
+# BİR KAPI KULLANICININ İSTEDİĞİNİ ENGELLİYORSA, VERİYİ DEĞİŞTİRİP GEÇME
+Bu kural bir kez ihlal edildi ve kullanıcı üç kez aynı şeyi istemek zorunda kaldı. Kullanıcı "yazısız yap"
+dedi; produce boş hook'u reddetti; sen hook'a 'NOW LOADING' yazıp ürettin. Kapı geçildi, kullanıcının talimatı
+ezildi — yapılan iş istenen iş değildi.
+- Bir kontrol seni engellediğinde seçenek DEĞİŞTİRMEK değildir. Ya kapı yanlıştır (söyle: "bu kısıt yanlış,
+  koddan kaldırılmalı"), ya istek başka bir yolla yapılır. Üçüncü bir yol yok.
+- Kullanıcının açık talimatını karşılamak için ASLA veri uydurma: hook, slogan, fiyat, renk, tarih. Uydurulan
+  değer sessizce ürüne girer ve kullanıcı onu ilanda görene kadar fark edilmez.
+- Aynı isteği ikinci kez alıyorsan durumu yeniden anlatmayı bırak: engel senin tarafındaysa engeli söyle,
+  değilse yap. Üçüncü kez alıyorsan kesin bir şeyi yanlış anlıyorsun — ne anladığını tek cümlede yaz ve sor.
+- YAZISIZ TASARIM GEÇERLİDİR. Boru hattı artık yazı yokken caption bandını istemiyor (dolu kompozisyon
+  üretir). "Kazananların çoğunda yazı var" bir istatistiktir, kural değil; kullanıcı yazısız istediyse yazısız.
+
 # ARKA PLANI SEN YAZMA — BORU HATTI ANAHTAR RENGİ DAYATIYOR
 design_prompt'a arka planla ilgili HİÇBİR cümle yazma ("isolated on…", "transparent background",
 "plain white background", "arka plan rengi şu olsun" gibi). Üretim, konudaki arka plan cümlelerini

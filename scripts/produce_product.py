@@ -85,6 +85,7 @@ def generate(p: dict, work: Path) -> Path:
     lead = br.EMB_PROMPT_CLAUSE if emb else ""
     # design_params.style carries the chosen look; the tail comes from the same table batch_runner uses.
     style = (p.get("design_params") or {}).get("style") if isinstance(p.get("design_params"), dict) else None
+    has_hook = bool((p.get("hook") or "").strip())
     # The stored prompt is a FULL prompt from an earlier batch, tail included. Appending a new tail to it
     # asked for flat vector and fine engraving at once; `subject_of` keeps the concept (and its own palette)
     # and drops the old style block.
@@ -100,8 +101,11 @@ def generate(p: dict, work: Path) -> Path:
         # stored concept already carries it — whoever wrote that prompt was told to send the concept only, and
         # prepending a second copy is the same duplication that once put two style orders in one prompt.
         head = "" if br.ARTIFACT_MARK in subject.lower() else f"{br.ARTIFACT_CONTRACT}. "
+        # No hook means no words, so the style must not reserve a band for them — otherwise the design ships
+        # with an empty panel where a caption was going to go, which is the defect that used to make the
+        # pipeline refuse wordless designs outright.
         full = (f"{head}{subject.rstrip(',')}, {lead}{pal}"
-                f"{br.style_tail(style, with_palette=not has_palette, subject=subject)}")
+                f"{br.style_tail(style, with_palette=not has_palette, subject=subject, with_text=has_hook)}")
     else:
         # The legacy prompt could not be reduced to a subject. Use it unchanged — it produced something
         # coherent before — and say out loud that this product needs its concept rewritten to get the new look.

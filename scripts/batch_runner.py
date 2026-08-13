@@ -381,15 +381,40 @@ def subject_of(prompt: str) -> tuple[str, bool]:
     return text, bool(palette)
 
 
+# Every style reserves room for the words, which is right when there are words and a hole in the design when
+# there are not. A wordless design used to be REFUSED for exactly this reason — the operator asked for one
+# three times, the gate blocked it three times, and the agent got past the gate by inventing a slogan. The
+# reservation is what has to go, not the design: these are the exact clauses dropped when a product has no
+# hook. Listed rather than pattern-matched so that rewording a tail fails loudly here instead of silently
+# leaving the empty band behind.
+CAPTION_SPACE = {
+    "engraving": ", centred subject with clear empty space above and below for a caption",
+    "plate": ", generous empty band at the top and bottom for a caption",
+    "collection": ", empty space in the middle or bottom reserved for a caption",
+    "character": ", arched empty space above the character for a title and a clear band below for a subtitle",
+    "retro": ", a wide empty rectangle across the centre where large type will sit",
+    "minimal": ", small empty space beneath for a short caption",
+}
+for _k, _clause in CAPTION_SPACE.items():
+    assert _clause in STYLE_TAILS[_k], f"CAPTION_SPACE[{_k}] artik tail ile eslesmiyor"
+
+# Said positively, because the model needs to know what to do with the space, not only what not to do.
+FILL_CLAUSE = ("the artwork itself fills the whole composition, no band or panel left empty for words, "
+               "no caption area")
+
+
 def style_tail(style: str | None, with_palette: bool = True, subject: str | None = None,
-               key_hex: str = KEY_COLOR) -> str:
+               key_hex: str = KEY_COLOR, with_text: bool = True) -> str:
     """The full instruction tail for a concept's style.
 
     `subject` is the concept's own shape description; pass it so a concept that genuinely asks for a
     crest or a banner is not told to leave one out.
     """
     key = (style or DEFAULT_STYLE).strip().lower()
-    parts = [STYLE_TAILS.get(key, STYLE_TAILS[DEFAULT_STYLE])]
+    head = STYLE_TAILS.get(key, STYLE_TAILS[DEFAULT_STYLE])
+    if not with_text:
+        head = head.replace(CAPTION_SPACE.get(key, ""), "") + ", " + FILL_CLAUSE
+    parts = [head]
     if with_palette:
         parts.append(PALETTE_HINT)
     if not wants_label_shape(subject):

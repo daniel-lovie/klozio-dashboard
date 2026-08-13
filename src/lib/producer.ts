@@ -128,21 +128,20 @@ export async function produceOne(productId: number, stage: "all" | "artwork" = "
     return { ok: false, out: why };
   }
 
-  // A DTF design with no hook is the empty-banner failure waiting to happen: the prompt reserves a text
-  // zone, nothing is typeset into it, and the tee ships with a blank ribbon. Cheaper to say so before the
-  // paid call than to redo it — which is exactly what happened four times to one product.
+  // A wordless design is allowed. This used to REFUSE one, because the style tails reserve a band for the
+  // caption and a design with no caption ships with an empty panel. That was a real defect but the wrong
+  // remedy: asked three times for a design with no text, the gate blocked it three times and the agent got
+  // past it by writing a slogan into the row that nobody wanted. The reservation is dropped at the prompt
+  // instead (batch_runner.style_tail with_text=False), so wordless produces a full-bleed design.
   const pre = await one<any>(
     `SELECT technique, coalesce(btrim(hook), '') AS hook FROM products WHERE id = $1`, [productId]);
-  if (pre && pre.technique !== "embroidery" && !pre.hook) {
-    await q(`UPDATE products SET design_state=NULL, updated_at=now() WHERE id=$1`, [productId]);
-    return { ok: false, out: "hook bos — bu tasarimda yazi olmaz ve sablon bos serit birakir. "
-      + "Once hook'a sloganini yaz (kazananlarin neredeyse hepsinde yazi var), sonra uret." };
-  }
+  const wordless = Boolean(pre) && pre.technique !== "embroidery" && !pre.hook;
   // 'redo'/'error' rows already carry a print file; without --redo the script would skip generation and
   // only rebuild images from the old artwork.
   const res = await run(productId, rows[0].priorState === "redo" || rows[0].priorState === "error");
   if (res.ok) {
-    await logEvent("produce_ok", { detail: `${rows[0].slug}: ${res.out.slice(-160)}` });
+    await logEvent("produce_ok",
+                   { detail: `${rows[0].slug}${wordless ? " (yazisiz)" : ""}: ${res.out.slice(-160)}` });
   } else {
     await q(`UPDATE products SET design_state='error', redo_note=$2, updated_at=now() WHERE id=$1`,
             [productId, res.out.slice(-400)]);

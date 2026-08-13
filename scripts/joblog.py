@@ -41,6 +41,14 @@ class Job:
     def start(self) -> "Job":
         try:
             c = _conn(); k = c.cursor()
+            # A product is produced one run at a time, so any row still open for it belongs to a process that
+            # is gone — killed before it could close its own row. Two runs of one product left two phantom
+            # bars warning that work had stalled while the work had actually finished under the newer row.
+            # Closing the old one here is the only place that knows a new run is starting.
+            if self.product_id is not None:
+                k.execute("""UPDATE jobs SET status='superseded', detail='yeni uretim basladi',
+                                            updated_at=now(), dismissed_at=now()
+                              WHERE product_id=%s AND status='running'""", (self.product_id,))
             k.execute("""INSERT INTO jobs (shop_id, kind, label, total, status, product_id)
                          VALUES (%s,%s,%s,%s,'running',%s) RETURNING id""",
                       (self.shop_id, self.kind, self.label, self.total, self.product_id))

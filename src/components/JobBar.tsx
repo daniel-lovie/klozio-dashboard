@@ -32,11 +32,26 @@ export function JobBar() {
   // lingers for one more tick after the ✕ feels like the click missed.
   const [hidden, setHidden] = useState<Set<number>>(new Set());
 
+  const [busy, setBusy] = useState<number | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
   async function dismiss(id: number) {
     setHidden((h) => new Set(h).add(id));
     await fetch("/api/jobs", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }),
     }).catch(() => {});
+  }
+
+  /** Restart a run whose process died. Closing the bar only hides the symptom; this is the way out. */
+  async function retry(id: number) {
+    setBusy(id); setErr(null);
+    const r = await fetch("/api/jobs", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "retry" }),
+    }).catch(() => null);
+    setBusy(null);
+    if (r?.ok) { setHidden((h) => new Set(h).add(id)); return; }
+    setErr((await r?.json().catch(() => ({})))?.error ?? "yeniden deneme basarisiz");
   }
 
   useEffect(() => {
@@ -91,6 +106,15 @@ export function JobBar() {
                     ürünü aç →
                   </a>
                 )}
+                {/* A dead run needs a way forward, not just a way to hide it. Costs a paid generation, so
+                    it is a deliberate click — and the server clears whatever state the dead process was
+                    holding before it starts, otherwise the retry is refused as "already generating". */}
+                {broken && j.productId && (
+                  <button disabled={busy === j.id} onClick={() => retry(j.id)}
+                          className="shrink-0 rounded border border-red-300 bg-white px-1.5 py-0.5 font-medium text-red-800 hover:bg-red-50 disabled:opacity-50">
+                    {busy === j.id ? "…" : "yeniden dene"}
+                  </button>
+                )}
                 {/* Only once it has stopped. Dismissing a live job would hide exactly the thing this
                     component exists to show, and it would not come back when the run finished. */}
                 {!running && (
@@ -105,12 +129,19 @@ export function JobBar() {
                 </div>
               )}
               {/* Say why it stopped. A silent failure is the thing this component exists to prevent. */}
-              {j.stale && <p className="mt-1 text-red-700">10 dakikadır ilerlemiyor — süreç durmuş olabilir</p>}
+              {j.stale && (
+                <p className="mt-1 text-red-700">
+                  süreç yanıt vermiyor — ürün kilidi açıldı, “yeniden dene” ile baştan üretebilirsin
+                </p>
+              )}
               {j.status === "error" && j.detail && <p className="mt-1 text-red-700">{j.detail}</p>}
               {!broken && j.detail && <p className="mt-1 text-muted">{j.detail}</p>}
             </div>
           );
         })}
+        {/* A refused retry has a reason — usually that the product moved on, or that another run claimed it
+            first. Swallowing it would leave the operator clicking a button that appears to do nothing. */}
+        {err && <p className="rounded-lg border border-red-300 bg-red-50/70 px-3 py-2 text-xs text-red-800">{err}</p>}
       </div>
     </div>
   );

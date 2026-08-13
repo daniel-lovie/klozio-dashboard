@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isLoggedIn } from "@/lib/auth";
 import Calendar from "@/components/Calendar";
+import { HealthPanel } from "@/components/HealthPanel";
 
 export default async function Home() {
   if (!(await isLoggedIn())) redirect("/login");
@@ -15,6 +16,7 @@ export default async function Home() {
         <Link href="/orders" className="rounded-lg border border-espresso/25 px-3 py-1.5">Orders</Link>
         <Link href="/portfolio" className="rounded-lg border border-espresso/25 px-3 py-1.5">Portfolio</Link>
       </div>
+      <HealthPanel />
       <Calendar />
     </main>
   );

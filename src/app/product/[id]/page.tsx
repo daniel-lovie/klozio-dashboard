@@ -87,8 +87,11 @@ export default async function ProductPage(
             <Row k="Sizes" v={(p.sizes ?? []).join(", ")} />
             <Row k="Variations" v={String((p.colorways?.length || 1) * (p.sizes?.length || 0))} />
             <Row k="SEO score" v={p.seo_score ? `${p.seo_score}/100` : "—"} />
-            <Row k="Gross margin" v={p.gross_margin_pct ? `${p.gross_margin_pct}%` : "—"} />
-            <Row k="Net margin" v={p.net_margin_pct ? `${p.net_margin_pct}%` : "—"} />
+            {/* Against the floor, not bare. "47.5%" reads as healthy until you remember the floor is 55,
+                and every margin in this shop was NULL until it was measured — so the page showed a dash
+                while most of the catalogue sold under its own stated minimum. */}
+            <Row k="Gross margin" v={pct(p.gross_margin_pct)} floor={55} value={p.gross_margin_pct} />
+            <Row k="Net margin" v={pct(p.net_margin_pct)} floor={40} value={p.net_margin_pct} />
             <Row k="POD cost" v={money(p.pod_cost_cents)} />
             <Row k="Label cost" v={money(p.label_cost_cents)} />
             <Row k="Print file" v={p.print_file_name ? `${p.print_file_name} · ${p.print_file_w}×${p.print_file_h} @ ${p.print_dpi}dpi` : "—"} />
@@ -132,11 +135,19 @@ export default async function ProductPage(
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
+function pct(v: unknown): string {
+  return v === null || v === undefined ? "—" : `${v}%`;
+}
+
+function Row({ k, v, floor, value }: { k: string; v: string; floor?: number; value?: unknown }) {
+  const n = value === null || value === undefined ? null : Number(value);
+  const under = floor !== undefined && n !== null && Number.isFinite(n) && n < floor;
   return (
     <div className="flex justify-between gap-4 border-b border-espresso/10 pb-1">
       <dt className="text-muted">{k}</dt>
-      <dd className="text-right font-medium">{v}</dd>
+      <dd className={`text-right font-medium ${under ? "text-red-700" : ""}`}>
+        {v}{under && <span className="ml-1 font-normal text-red-700">· taban %{floor}</span>}
+      </dd>
     </div>
   );
 }

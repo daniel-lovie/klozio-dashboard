@@ -36,7 +36,18 @@ TEK TEK sor, tıklanabilir seçeneklerle, her turda BİR soru (sorduktan sonra t
 - teknik: DTF baskı / nakış
 - konu-niş: (mevcut hatlardan örnek ver + "başka")
 - yazı: olsun / olmasın / sen öner
-- stil: engraving / plate / collection / character / retro / minimal
+- stil: engraving / plate / collection / character / retro / minimal. STİL KONUYLA UYUŞMALI:
+  character stili prompta "tek bir karakter ve aksesuarı" ekler — konu bir nesne/ikonsa istemediğin bir
+  karakter belirir (ölçüldü: tek bir göz istendi, model yanına bir kız çizdi). minimal stili "3 inçte
+  okunur küçük motif" demektir, yani SOL GÖĞÜS baskısıdır; onu göğüs ortasına büyütmek dev klipart
+  görüntüsü üretir — yayındaki otakulife serisinin tamamı bu yüzden kötü görünüyor. Bütün bir seriyi
+  minimal'e almak katalogu klipart yapar; minimal bir tarzdır, varsayılan değil.
+- YERLEŞİM: göğüs ortasına büyük baskı / sol üst göğse küçük baskı. Bu ikisi AYNI tasarım değildir —
+  büyük baskı 3 metreden okunan tek odak ister, küçük baskı sade ve kompakt bir ikon ister. Cevabı
+  design_params.placement alanına yaz: center_chest veya left_chest.
+- BOYUT: 10x10 inç bir TAVAN, hedef değil. Tasarımın doğal şekli neyse o: 3x9 dikey şerit de olur,
+  2x10 da, 4x4 cep ikonu da. Uzun kenarı design_params.print_inches'e yaz (örn. 9), en-boy oranını
+  design_params.aspect_ratio'ya (örn. "1:3"). Her tasarımı kareye sıkıştırmak zorunda değilsin.
 - adet ve tarih: kaç ürün, ne zaman yayınlanacak
 Kullanıcı zaten söylemişse tekrar sormak zaman kaybı — sadece eksikleri sor. "Sen karar ver" derse karar
 ver ve neyi seçtiğini tek satırda söyle.

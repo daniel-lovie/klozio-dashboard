@@ -155,9 +155,14 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
                            "canvas disina tasmis, kirpilmis dosya baskiya verilmez")
     # Not fatal: a short file still prints, just softer. Say it out loud rather than shipping quietly under
     # standard, because nothing downstream measures this again.
-    if rep["size_in_at_300"] < br.PRINT_MIN_IN:
-        print(f"  UYARI dosya 300 PPI'da yalnizca {rep['size_in_at_300']} inc basilabilir "
-              f"({br.PRINT_MIN_IN} inc tabaninin altinda) — daha buyuk uretilmeli", file=sys.stderr)
+    # The floor is what this design is actually printed at, not a fixed ten inches. A 4 inch left-chest icon
+    # needs 1200 px and demanding 2850 of it would be a warning we learn to ignore; a full-front print still
+    # has to carry its full size. The design declares the size, and the file is measured against that.
+    import produce_images as pi                     # noqa: PLC0415 — only this check needs the placement
+    want_in = pi.print_placement(p.get("design_params"))["inches"]
+    if rep["size_in_at_300"] < want_in * 0.95:
+        print(f"  UYARI dosya 300 PPI'da {rep['size_in_at_300']} inc basilabilir ama tasarim "
+              f"{want_in:g} inc icin isaretli — daha buyuk uretilmeli", file=sys.stderr)
     if p["technique"] == "embroidery" and p["thread_colors"]:
         br.stage_palette_snap(cut, br.hexes(p["thread_colors"]), final)
     else:

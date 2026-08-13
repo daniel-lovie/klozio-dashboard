@@ -193,8 +193,10 @@ STYLE_TAILS = {
         "for a caption"),
     # Dense botanical / naturalist plate with muted earth tones.
     "plate": (
+        # "arranged specimens" is a SUBJECT and "aged paper texture" invites a paper patch behind the art —
+        # the cream backing plate that makes a design unprintable on dark cotton. Texture belongs in the ink.
         "antique botanical plate illustration, muted earth palette, hand-inked outlines with soft "
-        "flat fills, arranged specimens, subtle aged paper texture, "
+        "flat fills, subtle aged ink texture inside the shapes, "
         "generous empty band at the top and bottom for a caption"),
     # A grid of small drawings — the highest perceived-value layout in the sample.
     "collection": (
@@ -209,8 +211,11 @@ STYLE_TAILS = {
         "arched empty space above the character for a title and a clear band below for a subtitle"),
     # 70s poster: condensed shapes, sunset bands, halftone.
     "retro": (
+        # "sun-ray or horizontal band motif" used to sit here. The style layer must not name SUBJECTS: it
+        # added rays to concepts that never asked for them, and rays are the exact object that GREW when we
+        # tried to ban them. Medium, line character, texture, mood — nothing else.
         "1970s screen-print poster style, limited three-colour palette, halftone dot shading, "
-        "sun-ray or horizontal band motif, slightly distressed ink texture, "
+        "slightly distressed ink texture, "
         "a wide empty rectangle across the centre where large type will sit"),
     # Tiny left-chest or centre-chest motif; the garment colour carries the product.
     "minimal": (

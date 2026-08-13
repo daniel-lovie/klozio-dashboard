@@ -73,8 +73,50 @@ def badge_quad(quad, spot: dict, inches: float | None = None) -> list:
 
 PRINT_INCHES = 10.0            # the cap the shop sells; smaller is allowed, larger cannot be printed
 
+# DTF placements. Until now every screen print was blown up to the full ten inches and centred, which is
+# why an icon a concept described as "compact scale sized for a left-chest print" still went out as a
+# giant chest graphic: the brief said one thing and the compositor did another. Placement is the design's
+# decision now, carried in design_params, and the size is free — ten inches is a ceiling, not a target, so
+# a 9 inch tall strip or a 4 inch pocket icon is printed at the size it was designed for.
+PRINT_SPOTS = {
+    "center_chest": {"x": None, "y": None, "inches": 10.0, "label": "Centre chest"},
+    "left_chest":   {"x": 0.78, "y": 0.06, "inches": 4.0,  "label": "Left chest"},
+}
+DEFAULT_SPOT = "center_chest"
 
-def placement_quad(design: Image.Image, tpl: dict, embroidery: bool, spot: str = "left") -> list:
+# Some styles ARE a placement. The minimal preset asks for "one small simple motif ... reads clearly at
+# three inches" — a pocket print — and every one of them was still blown up to ten inches and centred,
+# which is precisely why they read as giant clipart on the mockup. A style whose brief says small gets a
+# small placement unless the product says otherwise.
+STYLE_SPOT = {"minimal": ("left_chest", 4.0)}
+
+
+def print_placement(params: dict | None) -> dict:
+    """Resolve a product's stored placement into inches and position fractions.
+
+    design_params may carry `placement` (a PRINT_SPOTS key) and `print_inches` (the LONGER side, in
+    inches). Either may be missing, in which case the style's own scale decides, and failing that the
+    full-front print the shop has always sold.
+    """
+    p = params if isinstance(params, dict) else {}
+    style_spot, style_in = STYLE_SPOT.get(str(p.get("style") or ""), (DEFAULT_SPOT, None))
+    spot = PRINT_SPOTS.get(str(p.get("placement") or style_spot), PRINT_SPOTS[DEFAULT_SPOT])
+    if p.get("print_inches") is None and p.get("placement") is None and style_in:
+        p = {**p, "print_inches": style_in}
+    inches = p.get("print_inches")
+    try:
+        inches = float(inches) if inches is not None else float(spot["inches"])
+    except (TypeError, ValueError):
+        inches = float(spot["inches"])
+    # The physical print area caps it; anything larger cannot be produced whatever the row says. The label
+    # reports the capped value, not the request — a badge reading 99" on a 10" print is a lie in the gallery.
+    inches = min(inches, PRINT_INCHES)
+    return {"x": spot["x"], "y": spot["y"], "inches": inches,
+            "label": f"{spot['label']} {inches:g}\""}
+
+
+def placement_quad(design: Image.Image, tpl: dict, embroidery: bool, spot: str = "left",
+                   place: dict | None = None) -> list:
     """Where the artwork lands on this blank, in blank pixels.
 
     Split out of composite() so the detail crop can ask the same question instead of recomputing the
@@ -83,12 +125,11 @@ def placement_quad(design: Image.Image, tpl: dict, embroidery: bool, spot: str =
     """
     box, ppi = tpl.get("print_box"), tpl.get("px_per_inch")
     if box and ppi:
-        spot_cfg = EMB_SPOTS[spot]
+        cfg = EMB_SPOTS[spot] if embroidery else (place or print_placement(None))
         return fit_quad(design, box, float(ppi),
-                        inches=float(spot_cfg["inches"]) if embroidery else PRINT_INCHES,
+                        inches=float(cfg["inches"]),
                         angle=float(tpl.get("angle") or 0.0),
-                        x_frac=spot_cfg["x"] if embroidery else None,
-                        y_frac=spot_cfg["y"] if embroidery else None)
+                        x_frac=cfg["x"], y_frac=cfg["y"])
     # Uncalibrated blank: fall back to the stored quad rather than skip the image, but say so —
     # silence here is what let a whole catalogue publish at the wrong size.
     print(f"UYARI {tpl.get('colorway')}: print_box/px_per_inch yok, eski quad kullanildi "
@@ -116,7 +157,7 @@ def detail_shot(shot: Image.Image, quad: list, side: int = 2000, pad: float = 0.
 
 
 def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bool,
-              spot: str = "left") -> Image.Image:
+              spot: str = "left", place: dict | None = None) -> Image.Image:
     """Place the artwork using the SHARED compositor and the MEASURED print rectangle.
 
     This function used to carry its own copy of the warp-and-light maths and to hand the artwork's
@@ -126,7 +167,7 @@ def composite(design: Image.Image, blank: Image.Image, tpl: dict, embroidery: bo
     offset from where the print actually lands. The calibrated numbers were in templates.json all along;
     they now live in the table this path reads.
     """
-    quad = placement_quad(design, tpl, embroidery, spot)
+    quad = placement_quad(design, tpl, embroidery, spot, place)
     return composite_pil(design, blank, {**tpl, "quad": quad})
 
 
@@ -251,8 +292,20 @@ def main() -> None:
 
     # Honour the garment produce_product already chose — the type on the artwork was set to contrast with
     # it. Recomputing here with a different measure is what put cream type on an ivory tee.
-    cur.execute("SELECT hero_colorway FROM products WHERE id=%s", (pid,))
-    want = (cur.fetchone() or [None])[0]
+    cur.execute("SELECT hero_colorway, design_params FROM products WHERE id=%s", (pid,))
+    row = cur.fetchone() or [None, None]
+    want = row[0]
+    # Placement and size are the design's decision, made when the concept was written; read them here
+    # instead of assuming a ten inch centred print for everything.
+    params = row[1]
+    if isinstance(params, str):
+        try:
+            params = json.loads(params)
+        except ValueError:
+            params = {}
+    place = print_placement(params)
+    if place["inches"] != PRINT_INCHES or place["x"] is not None:
+        print(f"yerlesim: {place['label']}", file=sys.stderr)
     chosen = next((n for n in MODELS if blanks.get(n, {}).get("colorway") == want), None)
     if chosen:
         models = [chosen] + [n for n in MODELS if n != chosen]
@@ -290,13 +343,13 @@ def main() -> None:
         print(f"model karesi atlandi (tasarim okunmuyor): {skipped}", file=sys.stderr)
     for name in lead + rest:
         b = blanks[name]
-        shot = composite(design, b["image"], b, emb)
+        shot = composite(design, b["image"], b, emb, place=place)
         im = badge(shot, b["colorway"])
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-model.jpg",
                        "model", b["colorway"], jpeg(im, 93)))
         if detail is None:
             detail = (f"{slug}-detail.jpg", "detail", b["colorway"],
-                      jpeg(detail_shot(shot, placement_quad(design, b, emb)), 93))
+                      jpeg(detail_shot(shot, placement_quad(design, b, emb, place=place)), 93))
     if detail is not None:
         images.insert(1, detail)
     # The flats used to be four fixed dark shades. That was safe for pale artwork and wrong for
@@ -317,7 +370,7 @@ def main() -> None:
     for name in flats:
         b = blanks[name]
         images.append((f"{slug}-{b['colorway'].lower().replace(' ', '-')}-flat.jpg",
-                       "flat", b["colorway"], jpeg(composite(design, b["image"], b, emb))))
+                       "flat", b["colorway"], jpeg(composite(design, b["image"], b, emb, place=place))))
     if not only_cover:
         images.append((f"{slug}-color-chart.jpg", "colorway-chart", "All colors",
                        jpeg(build_chart(design, blanks, emb), 91)))

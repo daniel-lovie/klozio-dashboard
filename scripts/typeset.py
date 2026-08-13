@@ -256,15 +256,25 @@ def compose(art: Image.Image, text: str | None, style: str = "engraving",
         lines = _wrap(d, words, "serif", int(size * 0.09), width_budget, 0.10, max_lines=3)
         band_h = int(cap_total / max(1, len(lines)))
         band = band_h * len(lines)
+        # Leading. Filling each band to its full height and then advancing by exactly that height leaves ZERO
+        # space between lines: measured on MAIN CHARACTER ENERGY, the three 95px lines came out as one solid
+        # 285px block of collided caps. Glyphs get 70% of the band and the remaining 30% is the gap.
+        glyph_h = max(8, int(band_h * 0.70))
+        # ONE size for the whole caption. Sizing every line independently makes a short word grow and a long
+        # one shrink, so a three-line hook reads as three unrelated captions. The block takes the smallest
+        # size any of its lines needs, which is what makes it read as one set phrase.
+        f = min((_fit(d, line, "serif", width_budget, glyph_h, track=0.10)[0] for line in lines),
+                key=lambda ff: ff.size)
         s = min(inner / art.width, (size - band - 5 * pad) / art.height)
         art = art.resize((int(art.width * s), int(art.height * s)), Image.LANCZOS)
         canvas.alpha_composite(art, ((size - art.width) // 2, pad))
         y = pad + art.height + int(size * 0.03)
         for line in lines:
-            f, _ = _fit(d, line, "serif", width_budget, band_h, track=0.10)
             w = text_width(d, line, f, 0.10)
-            t = d.textbbox((0, 0), line, font=f)[1]
-            draw_tracked(d, ((size - w) // 2, y - t), line, f, fill, 0.10)
+            t, b = d.textbbox((0, 0), line, font=f)[1::2]
+            # Centre the glyphs inside their band so the leading is shared above and below, not dumped below.
+            off = (band_h - (b - t)) // 2
+            draw_tracked(d, ((size - w) // 2, y + off - t), line, f, fill, 0.10)
             y += band_h
             drawn += 1
 

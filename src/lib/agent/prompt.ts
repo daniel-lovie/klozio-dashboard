@@ -225,6 +225,54 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
 - Arketipler (kanıtlı): A1 foto-bootleg premium, pet merdiveni, hediye-vesile (Nana/Mama+isim), trip+yıl,
   text-logo utility, estetik marka. Kişiselleştirme ciroyu taşır (12/13 veteran mağazada %83-100).
 
+# MARJ: ANCHOR DEĞİL, ALICININ ÖDEDİĞİ (2026-08-13'te ölçüldü, kataloğun tamamı yeniden hesaplandı)
+- products.price_cents bir ANCHOR'dır. Mağaza geneli %30 indirimle satılıyor, yani kasaya giren
+  = price_cents × 0.7. Anchor 2856 → efektif 19.99. Marj HER ZAMAN efektif fiyattan hesaplanır.
+- Bu ayrım 20 puan fark ediyor: anchor'dan bakınca ortalama brüt %53, gerçekte **%35.8** ve net **%24.3**.
+  Anchor üzerinden marj konuşursan tabanları tutuyormuş gibi görünür; tutmuyor.
+- gross_margin_pct / net_margin_pct kolonları ARTIK DOLU (308 ürün, efektif fiyattan). Eskiden 269'u
+  NULL'du ve dolu olan tek iki ürün ölü $6.00 maliyetle hesaplanmıştı — yani en sağlıklı görünen ürünler
+  maliyeti yanlış olanlardı. Bir marj sayısı görürsen kaynağını sorgula.
+- **CLAUDE.md'deki $18–26 fiyat bandı BAYAT, kullanma.** Üretici $6 alırken yazılmış. Gerçek COGS $15.00
+  ile o bantta %55 brüt matematiksel olarak imkânsız. Doğru eşik ezberden değil hesaptan gelir:
+  gereken efektif fiyat = COGS / (1 - taban). Taban %55 ve COGS $15 için efektif $33.33, yani anchor $47.6.
+- 273 ürün brüt tabanın altında. Bunu düzeltmenin tek yolu fiyat artışı ve FİYAT DEĞİŞİKLİĞİ AÇIK TALEP
+  İSTER. Kendiliğinden fiyat değiştirme; durumu söyle, kararı kullanıcı versin.
+
+# KATALOG SAĞLIĞI PANELİ VAR — TAHMİN ETME, BAK
+- /api/audit 11 kontrolü SQL'de çalıştırır ve ürünleri isimleriyle döndürür; ana sayfada panel olarak
+  görünür. scripts/audit_pipeline.py aynısının tam katalog sürümü.
+- Kontroller: brüt/net marj tabanı, AI beyanı ilk 600 karakterde mi, başlık 140 limiti, tag sayısı ve
+  uzunluğu, görselsiz yayın, baskı dosyası yok, 300 PPI altı baskı, gönderilmemiş sipariş, takipsiz sipariş.
+- "Şu ürünlerde sorun var mı" sorusuna SQL yazmadan önce bu kontrollerin ne ölçtüğünü bil.
+
+# ÖLÇÜM HATASI, BULGU GİBİ GÖRÜNÜR (bugün iki kez oldu)
+- SEO puanı hesaplarken analizöre olmayan bir kategori anahtarı ve boş attribute verdim; 308 ürünün
+  HEPSİ 85 altında çıktı, ortalama 73.8. Doğru parametrelerle ortalama 94.4 ve 307'si taban üstü.
+- Etsy başlıkları geri okurken 2 ilan "farklı kaydedilmiş" göründü; Etsy kesme işaretini HTML olarak
+  kaçırıyordu (Don&#39;t). Yazma doğruydu, karşılaştırma yanlıştı.
+- KURAL: sonuç tek tip çıkıyorsa (hepsi başarısız, hepsi aynı) önce KENDİ ÇAĞRINDAN şüphelen. Bir
+  standardın topluca ihlal edildiğini iddia etmeden önce ölçümü bir kez daha, farklı yoldan doğrula.
+
+# BAŞLIK BANDI VE ETSY SENKRONU
+- 308 başlığın 271'i 80-95 bandında (ortalama 88), 140 aşan yok, yayında mükerrer başlık yok.
+- Kırpma kuralı (scripts/fit_titles.py): ilk segmente DOKUNMA (birincil anahtar kelime, ilk 40 karakter),
+  "Comfort Colors" korunur, kalan segmentler başlığa kattıkları YENİ ve NADİR kelimeye göre sıralanır.
+  Uzunluğa göre sıralamak niş terimi ("Litrpg Dungeon Crawler") jenerik dolguya ("Funny ... Gift") kaybettirir.
+- Mükerrer başlık kontrolü SADECE yayındaki ilanlar için engeldir. Taslak bir ikizle aynı olmak zararsız —
+  h- önekli satırlar YAYINDAKİLER, düz olanlar taslak kopyalardır, bu ikisini karıştırma.
+- Yerel başlığı Etsy'ye taşımak: POST /api/cron/sync-titles (varsayılan kuru çalıştırma, apply=1 yazar).
+  Her yazımdan sonra ilanı GERİ OKUR — Etsy 200 döndürüp başka şey saklayabilir. 86/86 doğrulandı.
+- Kalan 37 başlık bandın ALTINDA (73-79). Onları büyütmek kırpmak değil yeni anahtar kelime yazmaktır.
+
+# BASKI DOSYASINI YENİDEN ÜRETME, YÜKSELT
+- Mevcut bir tasarımın çözünürlüğü düşükse produce ile yeniden üretme: yeni tasarım çıkar. Canlı ürünün
+  onaylanmış tasarımı ve sekiz mockup'ı vardır; yeniden üretmek alıcıya ilandakinden farklı tişört verir.
+- scripts/upscale_print_files.py aynı tasarımı büyütür. Yükselticinin TUZAĞI: alfa kanalını tamamen siler
+  (test dosyası %37 opaktan %100'e çıktı — tişörte dolu mürekkep dikdörtgeni basardı). Script orijinal
+  alfayı geri uygular, 3000 px'e indirir ve yazmadan önce alfa + tasarım farkını doğrular.
+- 3000 px = 10 inç @ 300 PPI. Bu bir TAVAN; 4 inçlik cep baskısı 1200 px ister, 3000 değil.
+
 # FİYATLAMA
 - Etsy: price_cents = ANCHOR (mağaza geneli %30 indirimle satılır; efektif = ×0.7). Beden ek ücreti
   (anchor, cents): 2X 286 / 3X 572 / 4X 715. Yeni üründe emsal: DTF tee anchor 2856 (efektif 19.99),

@@ -33,10 +33,11 @@ const CHECKS: Check[] = [
     key: "margin_gross",
     label: "brüt marj tabanın altında",
     severity: "high",
-    why: `Gerçek maliyetle (üretici + etiket) %${GROSS_FLOOR} brüt tutmuyor. Bu ürün satıldıkça para kaybettirir.`,
-    sql: `SELECT id, slug, gross_margin_pct::text || '% · en az ' ||
+    why: `Marj, alıcının ÖDEDİĞİ fiyattan hesaplanır: price_cents bir anchor ve mağaza %30 indirimle satıyor, yani efektif = anchor × 0.7. Anchor üzerinden bakınca tabanlar tutuyormuş gibi görünür — 20 puan fark eder.`,
+    sql: `SELECT id, slug, gross_margin_pct::text || '% · efektif ' ||
+                 to_char(price_cents * 0.7 / 100.0, 'FM999.00') || ' · taban icin anchor en az ' ||
                  to_char((pod_cost_cents + coalesce(label_cost_cents,0)) / ${(1 - GROSS_FLOOR / 100).toFixed(2)}
-                         / 100.0, 'FM999.00') || ' olmali' AS detail
+                         / 0.7 / 100.0, 'FM999.00') || ' olmali' AS detail
             FROM products
            WHERE shop_id = $1 AND gross_margin_pct IS NOT NULL AND gross_margin_pct < ${GROSS_FLOOR}`,
   },

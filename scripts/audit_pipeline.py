@@ -34,9 +34,17 @@ PRINT_PPI = 300
 # real $9.50 + $5.50 label a $26 tee makes 42% gross, so the written band and the written 55% gross floor
 # cannot both be satisfied — 269 of 271 products sit outside the band and are RIGHT to. The floor is the
 # rule; the price that clears it is arithmetic, so it is computed rather than remembered.
+DISCOUNT = 0.70   # magaza geneli %30 indirim: alicinin odedigi = price_cents * 0.7
+
+
 def min_price_cents(pod_cents: int, label_cents: int, floor_pct: float = GROSS_FLOOR) -> int:
+    """The ANCHOR needed to clear the floor once the shop discount is applied.
+
+    price_cents is an anchor, not what the buyer pays. Measuring margin against it overstates every product
+    by about twenty points — the catalogue reads 53% gross on the anchor and 35.8% on what actually arrives.
+    """
     cogs = (pod_cents or 0) + (label_cents or 0)
-    return int(round(cogs / (1 - floor_pct / 100)))
+    return int(round(cogs / (1 - floor_pct / 100) / DISCOUNT))
 # "Designed by" attribution plus a disclosure the buyer meets before the fold. Etsy has removed listings
 # for burying it, so the check is position-aware rather than a substring search.
 DISCLOSURE_WORDS = re.compile(r"\b(ai|artificial intelligence|yapay zek)\w*\b", re.I)

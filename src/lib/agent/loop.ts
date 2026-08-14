@@ -17,6 +17,9 @@ const MODEL = process.env.PERSONALIZER_MODEL || "claude-opus-5";
 // speaks spends steps on evidence — audit, look, measure, then the work — and 25 was cutting off runs
 // that were doing exactly what they were told to do.
 const MAX_STEPS = 40;
+
+/** Tools that change something. Everything else is a read, however expensive. */
+const WRITER_TOOLS = new Set(["update_product", "produce"]);
 /** Inline image generations allowed per turn. Each one costs minutes; see the cap in the tool loop. */
 const MAX_PRODUCE_PER_TURN = 2;
 
@@ -289,8 +292,12 @@ export async function* runAgentTurn(
       // That is precisely how a malformed thinking block reached the history and poisoned every later
       // turn: the filter excluded thinking, went empty, and the fallback put the block back. An empty
       // result now means nothing usable was returned, which the check above already treats as an error.
+      // server_tool_use and its result blocks belong here too: a web search whose results are filtered out
+      // leaves the model's own next sentence citing evidence that is no longer in the conversation.
       const echo = assistant.content.filter((b: any) =>
-        b.type === "text" || b.type === "tool_use" || b.type === "thinking" || b.type === "redacted_thinking");
+        b.type === "text" || b.type === "tool_use" || b.type === "thinking" || b.type === "redacted_thinking"
+        || b.type === "server_tool_use" || b.type === "web_search_tool_result"
+        || b.type === "web_fetch_tool_result");
       messages.push({ role: "assistant", content: echo });
       const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0, searches: 0 };
       // Rates are per model, not a constant. They were hardcoded to Opus, so changing MODEL to a cheaper
@@ -312,7 +319,9 @@ export async function* runAgentTurn(
       // answer. Treating it as finished is how a half-researched reply gets reported as complete: push the
       // assistant turn back and let the server resume where it stopped.
       if (assistant.stopReason === "pause_turn") {
-        messages.push({ role: "assistant", content: assistant.content });
+        // `echo` was already pushed above — pushing again appended a SECOND assistant turn carrying the
+        // same thinking blocks and their signatures, which is the malformed shape this file exists to
+        // prevent, and it was being persisted. Resuming needs nothing but the continue.
         yield { t: "tool", d: "arama surdu — devam ediliyor" };
         continue;
       }
@@ -366,7 +375,14 @@ export async function* runAgentTurn(
         const { result, summary, blocks } = await execTool(block.name, block.input);
         // Remember whether this turn changed anything, so the promise check below can tell an answer
         // that did the work from one that only talked about it.
-        if (block.name !== "sql" || /\b(insert|update|delete)\b/i.test(String(block.input?.query ?? block.input?.sql ?? ""))) {
+        //
+        // This used to read `name !== "sql"`, which was true the day sql and produce were the only tools.
+        // Every tool added since — look, measure, read_file, run_script, production_status, ask, and the
+        // web tools — marked the turn as having written something, so the guard died the moment the prompt
+        // started telling the agent to measure before it speaks. Name the writers instead.
+        if (WRITER_TOOLS.has(block.name)
+            || (block.name === "sql"
+                && /\b(insert|update|delete)\b/i.test(String(block.input?.query ?? block.input?.sql ?? "")))) {
           wrote = true;
         }
         yield { t: "tool", d: summary };

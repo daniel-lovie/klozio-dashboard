@@ -261,9 +261,43 @@ async function runScript(script: string, args: string[]): Promise<any> {
   });
 }
 
+/** Calls refused at the tool layer, not in the prompt.
+ *
+ * workspace.ts argues that a rule living only in the prompt stops being a rule the moment a tool permits
+ * the thing — and then these three tools were left as raw pass-throughs with delete, publish and a paid
+ * confirm one call away. The line drawn here is REVERSIBILITY: what can be undone stays behind the prompt
+ * rules, what cannot is refused. Creating a draft is recoverable; deleting a listing, charging a card, and
+ * dropping rows are not.
+ */
+function refuseIrreversible(name: string, input: any): string | null {
+  const method = String(input?.method ?? "").toUpperCase();
+  const path = String(input?.path ?? "");
+  if (name === "etsy" && method === "DELETE") {
+    return "ERROR: Etsy'de silme bu araçla yapılamaz — geri alınamaz. Ne silineceğini operatöre yaz ve onay iste.";
+  }
+  if (name === "printful" && method === "POST" && /\/confirm\b/.test(path)) {
+    return "ERROR: Printful confirm PARA ÇEKER ve geri alınamaz. Operatörün açık talebi olmadan çağrılamaz.";
+  }
+  if (name === "shopify" && /\bmutation\b/i.test(String(input?.query ?? ""))
+      && /\b(delete|Delete)\b/.test(String(input?.query ?? ""))) {
+    return "ERROR: Shopify silme mutasyonu bu araçla yapılamaz — geri alınamaz. Operatöre sor.";
+  }
+  if (name === "sql" && /^\s*(delete|truncate|drop)\b/i.test(String(input?.query ?? ""))) {
+    return "ERROR: DELETE/TRUNCATE/DROP bu araçla yapılamaz. Bir satırı kaldırmak yerine durumunu değiştir "
+      + "(content_status='draft' gibi); gerçekten silinmesi gerekiyorsa neyin ve neden silineceğini yaz, "
+      + "operatör çalıştırsın. Yanlış ürünün iptal edildiği olay tam olarak buydu.";
+  }
+  return null;
+}
+
 export async function execTool(name: string, input: any):
   Promise<{ result: string; summary: string; blocks?: any[] }> {
   try {
+    const refusal = refuseIrreversible(name, input);
+    if (refusal) {
+      await logEvent("agent_tool", { detail: `REDDEDILDI ${name}: ${refusal.slice(0, 90)}` });
+      return { result: refusal, summary: `${name} ▸ reddedildi (geri alinamaz)` };
+    }
     if (name === "sql") {
       const q = String(input.query ?? "");
       const res = await agentQuery(q);

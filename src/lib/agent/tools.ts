@@ -298,6 +298,20 @@ function refuseIrreversible(name: string, input: any): string | null {
       && /\b(delete|Delete)\b/.test(String(input?.query ?? ""))) {
     return "ERROR: Shopify silme mutasyonu bu araçla yapılamaz — geri alınamaz. Operatöre sor.";
   }
+  // The general tool was beating the specific ones: across 306 logged calls the agent reached for raw sql
+  // 88% of the time and used update_product exactly never — so every safety rule built into that tool (the
+  // Etsy price living in inventory offerings rather than on the listing, the tag and title limits, the
+  // read-back) never applied. Writing prompt rules did not change it. Refuse the four columns that tool
+  // owns; everything else in the schema is still fair game for raw sql.
+  if (name === "sql"
+      && /^\s*update\s+products\b/i.test(String(input?.query ?? ""))
+      && /\bset\b[^;]*\b(price_cents|title|description|tags)\s*=/i.test(String(input?.query ?? ""))) {
+    return "ERROR: products.price_cents / title / description / tags ham SQL ile degistirilemez — "
+      + "update_product aracini kullan. Sebebi: Etsy fiyati ilanin uzerinde degil ENVANTER TEKLIFLERINDE "
+      + "duruyor, yani sadece satiri guncellersen bizim kayit yeni fiyati der, alici eskisini oder ve bu "
+      + "ilk yanlis siparise kadar gorunmez. update_product ayrica basligi/tag'i limitlere gore dogrular "
+      + "ve yazdiktan sonra ilani geri okur.";
+  }
   if (name === "sql" && /^\s*(delete|truncate|drop)\b/i.test(String(input?.query ?? ""))) {
     return "ERROR: DELETE/TRUNCATE/DROP bu araçla yapılamaz. Bir satırı kaldırmak yerine durumunu değiştir "
       + "(content_status='draft' gibi); gerçekten silinmesi gerekiyorsa neyin ve neden silineceğini yaz, "
@@ -561,7 +575,8 @@ async function updateProduct(input: any): Promise<{
   if (!Number.isFinite(pid)) throw new Error("product_id gecersiz");
 
   const cur = await agentQuery(
-    `SELECT id, slug, title, price_cents, etsy_listing_id, etsy_state, colorways, sizes, quantity
+    `SELECT id, slug, title, description, tags, price_cents, etsy_listing_id, etsy_state,
+            colorways, sizes, quantity
        FROM products WHERE id = $1`, [pid]);
   const p = cur.rows?.[0];
   // RLS makes an out-of-shop product indistinguishable from a missing one, which is the point.
@@ -572,7 +587,16 @@ async function updateProduct(input: any): Promise<{
   const sets: string[] = [];
   const vals: any[] = [];
   const changed: string[] = [];
-  const put = (col: string, v: any) => { vals.push(v); sets.push(`${col}=$${vals.length}`); };
+  // What the row held before this call. The channel write happens after the row write and can fail, and a
+  // half-applied edit is the exact drift this tool exists to prevent — our row saying $24.99 while every
+  // buyer still pays the old price. Holding a DB transaction open across an HTTP call would be worse, so
+  // the previous values are kept and put back instead.
+  const prevCols: string[] = [];
+  const prevVals: any[] = [];
+  const put = (col: string, v: any) => {
+    vals.push(v); sets.push(`${col}=$${vals.length}`);
+    prevCols.push(col); prevVals.push((p as any)[col]);
+  };
 
   if (input.price_cents !== undefined) {
     const cents = Math.round(Number(input.price_cents));
@@ -613,10 +637,29 @@ async function updateProduct(input: any): Promise<{
   const listingId = Number(p.etsy_listing_id);
   const { updateListingFields, updateInventory, getListing } = await import("../etsy");
   const { shopCtx, hasEtsy } = await import("../shop-context");
+
+  /** Put the row back the way it was, then say what happened. Reporting a failure while leaving the row
+   *  changed is worse than either outcome alone: the operator reads "failed" and the database disagrees. */
+  const revert = async (why: string): Promise<never> => {
+    try {
+      const rv: any[] = [];
+      const rs = prevCols.map((c, i) => { rv.push(prevVals[i]); return `${c}=$${rv.length}`; });
+      rv.push(pid);
+      await agentQuery(`UPDATE products SET ${rs.join(", ")}, updated_at=now() WHERE id = $${rv.length}`, rv);
+      throw new Error(`Etsy yazimi basarisiz (${why}) — veritabani satiri ESKI HALINE dondurüldu, `
+        + `hicbir sey degismedi. Sebebi cozup tekrar dene.`);
+    } catch (e: any) {
+      if (String(e?.message ?? "").startsWith("Etsy yazimi basarisiz")) throw e;
+      throw new Error(`Etsy yazimi basarisiz (${why}) VE geri alma da basarisiz (${e?.message}) — `
+        + `satir ile ilan AYRISTI, elle duzeltilmeli.`);
+    }
+  };
+
   return withShop(async () => {
     if (!hasEtsy()) {
       return { product_id: pid, changed, etsy: "magazanin Etsy baglantisi yok — sadece veritabani guncellendi", verified: null };
     }
+    try {
     if (changed.some((c) => c !== "price")) {
       await updateListingFields(listingId, {
         title: input.title !== undefined ? String(input.title).trim() : undefined,
@@ -633,6 +676,9 @@ async function updateProduct(input: any): Promise<{
         readinessStateId: shopCtx().readinessStateId,
         skuPrefix: (p.slug || "SKU").slice(0, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
       });
+    }
+    } catch (e: any) {
+      await revert(String(e?.message ?? e).slice(0, 160));
     }
     // "Sent" is not "applied". Read the listing back and report what Etsy actually holds.
     const live: any = await getListing(listingId).catch(() => null);

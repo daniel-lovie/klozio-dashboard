@@ -116,8 +116,13 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
       thinking: { type: "adaptive" },
       // Sonnet 5 defaults to effort "high". This workload is SQL plus product copy, and "medium" is
       // about where Sonnet 4.6's "high" sat — enough for the job and cheaper per turn. Worth measuring
-      // "low" against the golden cases before going further down.
-      output_config: { effort: "medium" },
+      // Effort was "medium", chosen when this loop ran Sonnet and reasoned that medium sat about where
+      // Sonnet 4.6's high did. That calibration is for a model this deployment no longer runs. On Opus 5
+      // the documented default is high, and low/medium are strong but the agentic, multi-step, measure-
+      // before-you-speak workload this agent does is what high is for. This is not a measured result — it
+      // removes a wrong calibration and lands on the model's own default. Sweep it with AGENT_EFFORT
+      // (low|medium|high|xhigh|max) against real turns before claiming a better value.
+      output_config: { effort: process.env.AGENT_EFFORT || "high" },
       // cache breakpoint on the system block caches tools+system (~90% input cost cut)
       system: [{ type: "text", text: AGENT_SYSTEM, cache_control: { type: "ephemeral" } }],
       tools: [...TOOL_DEFS, ...SERVER_TOOLS], messages: send,

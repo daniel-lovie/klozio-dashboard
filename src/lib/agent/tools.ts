@@ -61,6 +61,16 @@ async function withShop<T>(fn: () => Promise<T>): Promise<T> {
   return runWithShop(shopId, fn);
 }
 
+/** Anthropic-hosted tools. They execute on Anthropic's side inside the same request — there is nothing to
+ *  dispatch in execTool, and their results arrive as content blocks. Dynamic filtering runs code execution
+ *  under the hood, which is why `code_execution` must NOT be declared alongside them: a second execution
+ *  environment confuses the model. web_fetch only retrieves URLs already present in the conversation, so
+ *  search is what puts them there — the pair is declared together or neither works. */
+export const SERVER_TOOLS = [
+  { type: "web_search_20260209", name: "web_search", max_uses: 8 },
+  { type: "web_fetch_20260209", name: "web_fetch", max_uses: 5 },
+];
+
 export const TOOL_DEFS = [
   {
     name: "sql",

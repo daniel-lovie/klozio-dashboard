@@ -1,7 +1,7 @@
 /** Anthropic tool-use loop with streaming. Yields UI events; persists the thread. */
 import { q, one } from "../db";
 import { AGENT_SYSTEM } from "./prompt";
-import { TOOL_DEFS, execTool } from "./tools";
+import { TOOL_DEFS, execTool, SERVER_TOOLS } from "./tools";
 import { sanitiseHistory, stripImages } from "./history";
 
 // Sonnet by default, not Opus. The bill is dominated by output tokens and cache traffic, and the work
@@ -39,10 +39,14 @@ const RATES: Record<string, { in: number; cacheWrite: number; cacheRead: number;
  * kept charging Opus prices on the page the billing is based on. An unknown model falls back to the most
  * expensive rates: over-reporting is recoverable, under-reporting means invoicing below cost.
  */
-function stepCost(model: string, u: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number }): number {
+function stepCost(model: string, u: { input_tokens: number; output_tokens: number; cache_read: number;
+                                     cache_write: number; searches?: number }): number {
   const r = RATES[model] ?? RATES["claude-opus-5"];
+  // Web search is billed per request, not per token, so a token-only cost line under-reports every
+  // researched turn — the same class of error as charging Opus rates for a cheaper model, in reverse.
+  const search = (u.searches ?? 0) * (10 / 1000);
   return (u.input_tokens * r.in + u.cache_write * r.cacheWrite
-          + u.cache_read * r.cacheRead + u.output_tokens * r.out) / 1_000_000;
+          + u.cache_read * r.cacheRead + u.output_tokens * r.out) / 1_000_000 + search;
 }
 
 // Turkish present-continuous / future forms of the verbs this agent uses for work it is about to do.
@@ -73,7 +77,7 @@ export type AgentEvent =
   | { t: "done" };
 
 async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
-  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number } }
+  { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number; searches: number } }
 > {
   // request-time copy: cache breakpoint on the last message caches the whole conversation prefix
   const send = messages.map((m, i) => {
@@ -111,7 +115,7 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
       output_config: { effort: "medium" },
       // cache breakpoint on the system block caches tools+system (~90% input cost cut)
       system: [{ type: "text", text: AGENT_SYSTEM, cache_control: { type: "ephemeral" } }],
-      tools: TOOL_DEFS, messages: send,
+      tools: [...TOOL_DEFS, ...SERVER_TOOLS], messages: send,
     }),
   });
   if (!res.ok || !res.body) {
@@ -123,7 +127,7 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
   let buf = "";
   const content: any[] = [];
   let stopReason = "end_turn";
-  const usage = { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 };
+  const usage = { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0, searches: 0 };
   let cur: any = null;
   let curJson = "";
 
@@ -147,6 +151,7 @@ async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
       } else if (ev.type === "message_start") {
         usage.input_tokens += ev.message?.usage?.input_tokens ?? 0;
         usage.cache_read += ev.message?.usage?.cache_read_input_tokens ?? 0;
+        usage.searches += ev.message?.usage?.server_tool_use?.web_search_requests ?? 0;
         usage.cache_write += ev.message?.usage?.cache_creation_input_tokens ?? 0;
       } else if (ev.type === "content_block_start") {
         // Build each block in the shape the API will accept back. Coercing everything that was not a
@@ -287,7 +292,7 @@ export async function* runAgentTurn(
       const echo = assistant.content.filter((b: any) =>
         b.type === "text" || b.type === "tool_use" || b.type === "thinking" || b.type === "redacted_thinking");
       messages.push({ role: "assistant", content: echo });
-      const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0 };
+      const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0, searches: 0 };
       // Rates are per model, not a constant. They were hardcoded to Opus, so changing MODEL to a cheaper
       // one would have kept billing customers Opus prices — the usage page is the billing base, and a
       // number that silently describes a different model is worse than no number.
@@ -301,6 +306,14 @@ export async function* runAgentTurn(
       if (assistant.stopReason === "max_tokens") {
         yield { t: "tool", d: "uzunluk siniri, kaldigi yerden devam ediyor" };
         messages.push({ role: "user", content: "Cevabin uzunluk sinirina takildi. Kaldigin yerden devam et, bastan yazma." });
+        continue;
+      }
+      // A server tool that hits its own iteration ceiling ends the turn with "pause_turn", not with an
+      // answer. Treating it as finished is how a half-researched reply gets reported as complete: push the
+      // assistant turn back and let the server resume where it stopped.
+      if (assistant.stopReason === "pause_turn") {
+        messages.push({ role: "assistant", content: assistant.content });
+        yield { t: "tool", d: "arama surdu — devam ediliyor" };
         continue;
       }
       if (assistant.stopReason !== "tool_use") {

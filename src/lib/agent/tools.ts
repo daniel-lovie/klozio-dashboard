@@ -143,7 +143,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "read_file",
-    description: "dashboard/ altindaki dosya ve klasorleri oku: kod, scriptler, agent mantigi. Depo kokundeki CLAUDE.md ve .claude/skills/ ERISIMIN DISINDA — orasi calisma dizininin ustunde. "
+    description: "dashboard/ altindaki dosya ve klasorleri oku: kod, scriptler, agent mantigi ve agent-knowledge/ altindaki skill dokumanlari (INDEX.md ile basla). Depo kokundeki CLAUDE.md ve .claude/skills/ erisimin disinda; agent-knowledge onlarin ulasabildigin kopyasi. "
       + "Bir seyin NASIL calistigini merak ediyorsan tahmin etme, kaynagi oku. Klasor verirsen icerigini listeler. "
       + "Gizli dosyalar (.env, anahtarlar) reddedilir.",
     input_schema: {

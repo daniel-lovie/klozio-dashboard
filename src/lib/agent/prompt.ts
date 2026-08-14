@@ -380,8 +380,13 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
   merak ediyorsan tahmin etme, kaynağı oku: scripts/batch_runner.py prompt kuyruğunu ve stil şablonlarını,
   scripts/produce_images.py yerleşimi, scripts/typeset.py dizgiyi, src/lib/ uygulama mantığını anlatır.
   Büyük dosyayı offset/limit ile parça parça oku — tek seferde kesilirse gerisini istersin.
-  ERİŞEMEDİKLERİN: CLAUDE.md ve .claude/skills/ depo kökünde, senin çalışma dizininin DIŞINDA. Onları
-  okuyamazsın; kuralları bu sistem mesajında zaten var. Gizli dosyalar (.env, anahtarlar) da reddedilir.
+  SKILL'LER ARTIK ELİNDE: agent-knowledge/INDEX.md ile başla — hangi dosyayı ne zaman açacağını orada
+  yazıyor. Oradaki 11 doküman depo kökündeki skill'lerden üretilir; arketipler, sipariş runbook'u, üretici
+  ilişkisi, AI beyanı/provenance, SEO puanlaması, toplu üretim tuzakları, kapak formülü hepsi orada.
+  KURAL: bilmediğin bir konuda tahmin etmeden ÖNCE ilgili dokümanı aç. batch-production.md 30 KB, tek
+  seferde kesilir — offset/limit ile parça parça oku.
+  Depo kökündeki .claude/skills/ ve CLAUDE.md hâlâ erişiminin DIŞINDA (çalışma dizininin üstündeler);
+  agent-knowledge onların konteynere ulaşan kopyasıdır. Gizli dosyalar (.env, anahtarlar) reddedilir.
 - run_script(script, args): scripts/ altındaki Python araçları. Bu projenin işi bunlarla yapılır:
   audit_pipeline.py (tam katalog denetimi), measure_product.py, fit_titles.py (argümansız KURU çalışır,
   --apply ile yazar), upscale_print_files.py --limit N, clean_print_files.py.

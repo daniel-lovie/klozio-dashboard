@@ -136,8 +136,14 @@ const CHECKS: Check[] = [
     key: "low_dpi",
     label: "baskı dosyası 300 PPI'ın altında",
     severity: "medium",
-    why: "10 inçlik baskıda 3000 px gerekir; altı yumuşak basar.",
-    sql: `SELECT id, slug, print_file_w || 'x' || print_file_h || ' px · ' ||
+    // The columns measure the CANVAS; the producer prints the bounding box. Measured over 216 DTF files:
+    // 205 pass this check and only 102 are genuinely 300 PPI at the artwork, 36 of the rest live on Etsy.
+    // SQL cannot open the PNG, so this stays a canvas check and says so — anything it flags is short even
+    // by the flattering measure. `measure_product.py` reads the bytes and is the authority.
+    why: "10 inçlik baskıda 3000 px gerekir; altı yumuşak basar. Bu sorgu KANVASI ölçer; "
+      + "üretici çizimin sınırlayıcı kutusunu basar, yani gerçek sayı daha kötü olabilir — "
+      + "kesin ölçüm için measure_product.py.",
+    sql: `SELECT id, slug, print_file_w || 'x' || print_file_h || ' px · kanvas ' ||
                  to_char(greatest(print_file_w, print_file_h) / 300.0, 'FM990.0') || ' inç' AS detail
             FROM products
            WHERE shop_id = $1 AND print_file IS NOT NULL

@@ -627,12 +627,14 @@ def stage_generate(c: dict, d: Path, r: Result, dry: bool, force: bool,
     out = hf({"op": "generate", "prompt": prompt, "out": str(raw),
               "model": c.get("model", DEFAULT_MODEL),
               "quality": c.get("quality", DEFAULT_QUALITY),
-              # 2k, not 4k: the cutout downsamples to 2048 either way, and 2048 is already well over
-              # what both placements need (embroidery chest-left is a 1200px printfile, the DTF front
-              # 1800px). Compared side by side the 4k output has no visible advantage after the
-              # resize. recraft_v4_1 is half the credits but could not draw the concepts — it
-              # returned an unrecognisable dice tower — so the saving is resolution, not model.
-              "resolution": c.get("resolution", "2k")}, shop_id=shop_id)
+              # 4k, not 2k. The old reasoning — "the cutout downsamples to 2048 either way" — was true
+              # only because local_cutout capped at 2048, which was itself the bug: 2048 across a 10 inch
+              # print is 205 PPI. And the argument that "the DTF front needs 1800px" is the same mistake
+              # stated as a requirement; 1800px at 10 inches is 180 PPI, not 300. 4k returns ~2880, which
+              # the cutout resamples DOWN to 3000 or leaves alone — supersampled, not stretched.
+              # recraft_v4_1 is half the credits but could not draw the concepts — it returned an
+              # unrecognisable dice tower — so the saving was never model choice.
+              "resolution": c.get("resolution", "4k")}, shop_id=shop_id)
     if not out.get("ok"):
         r.error = f"generate: {out.get('error')}"
         return None
@@ -765,6 +767,23 @@ def drop_flat_white_pockets(im: Image.Image, light: int = 247, neutral: int = 14
     return Image.fromarray(a, "RGBA"), int(mask.sum())
 
 
+# Every print file this repo has ever written carries no DPI and no colour profile — 246 of 246 measured.
+# An untagged PNG has no pHYs chunk, so the producer's RIP imports it at its own default (usually 72) and
+# somebody sets the physical size by hand on every order: exactly the manual step that produces a
+# wrong-sized print. Untagged RGB is *usually* assumed sRGB, and "usually" is not a standard to ship on
+# garment-dyed cotton, where a gamut mismatch shows as a visible shift in the saturated colours.
+def save_print_png(im: "Image.Image", out: Path, dpi: int = PRINT_PPI) -> Path:
+    """The only way a print file gets written: tagged sRGB, tagged DPI."""
+    from PIL import ImageCms                                       # noqa: PLC0415
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    except Exception:                                              # noqa: BLE001 — a tag is not worth a crash
+        icc = None
+    im.save(out, dpi=(dpi, dpi), **({"icc_profile": icc} if icc else {}))
+    return out
+
+
 def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tuple[Path, dict]:
     """Cut the artwork out of a KNOWN background colour, and prove it worked.
 
@@ -805,22 +824,78 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
         rgb = rgb[idx[0], idx[1]]                    # design colour outward, so nothing else can bleed
 
     out.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(np.dstack([rgb, alpha]), "RGBA").save(out)
+    save_print_png(Image.fromarray(np.dstack([rgb, alpha]), "RGBA"), out)
 
     opaque = keep.sum()
-    leftover = int((bg & keep).sum())
+    # Measured on the SAVED pixels, not on `keep`. `keep` is `erosion(~bg)`, so `bg & keep` is empty by
+    # construction — the old expression could not return anything but 0, and it was the gate the docstring
+    # calls decisive. Verified: 300 random masks at every density, plus an all-ink mask, all returned 0,
+    # while two real catalogue files carry >3000 pixels sitting inside the keying band. Ask the output what
+    # colour it actually is.
+    kept_rgb = rgb[keep] if opaque else np.empty((0, 3), dtype=rgb.dtype)
+    leftover = int((np.sqrt(((kept_rgb.astype(int) - np.array([kr, kg, kb])) ** 2).sum(axis=1)) <= tol).sum())
+    # The other direction, and the one the old expression was reaching for. When the ARTWORK itself contains
+    # the key colour, those pixels are classified as background and cut away — so they do not survive as
+    # ink, they punch a HOLE through the design. Counting key-coloured opaque pixels cannot see that; the
+    # hole is transparent. Count enclosed transparent regions instead: background that the artwork encloses
+    # was never background. 36 catalogue concepts ask for pink or magenta in their own palette.
+    holes_px = 0
+    if opaque:
+        lab, n = ndimage.label(~keep)
+        if n:
+            border = set(np.unique(np.concatenate([lab[0, :], lab[-1, :], lab[:, 0], lab[:, -1]])))
+            border.discard(0)
+            sizes = ndimage.sum(np.ones_like(lab, dtype=bool), lab, index=range(1, n + 1))
+            holes_px = int(sum(sz for i, sz in enumerate(sizes, start=1) if i not in border))
+    # The wider version of the same question. A soft glow or drop shadow blends ink into the matte over
+    # tens of pixels; those blended pixels land BEYOND `tol` from the key, so they survive as ink and ship
+    # as a bright magenta halo with every gate reporting clean. Distance cannot see it, hue can: measured on
+    # a synthetic glow, 20% of the artwork was magenta at a leftover_key_px of 0.
+    halo_frac = 0.0
+    if opaque:
+        f = kept_rgb.astype(float) / 255.0
+        mx, mn = f.max(axis=1), f.min(axis=1)
+        chroma = mx - mn
+        sat = np.divide(chroma, mx, out=np.zeros_like(mx), where=mx > 0)
+        # Hue only where there is enough chroma to have one; the key colour sits at ~328 degrees.
+        with np.errstate(invalid="ignore", divide="ignore"):
+            r, g, bl = f[:, 0], f[:, 1], f[:, 2]
+            hue = np.zeros_like(mx)
+            m = chroma > 1e-6
+            idxr = m & (mx == r); idxg = m & (mx == g); idxb = m & (mx == bl)
+            hue[idxr] = ((g - bl)[idxr] / chroma[idxr]) % 6
+            hue[idxg] = ((bl - r)[idxg] / chroma[idxg]) + 2
+            hue[idxb] = ((r - g)[idxb] / chroma[idxb]) + 4
+            hue = (hue * 60.0) % 360.0
+        key_hue = 328.0
+        near = (np.minimum(np.abs(hue - key_hue), 360.0 - np.abs(hue - key_hue)) <= 25.0) & (sat > 0.4)
+        halo_frac = round(float(near.sum()) / float(opaque), 4)
     # A subject that runs off the canvas is a fatal defect that looks fine in the raw frame — the crop is
     # only obvious once the design is on a garment and a wing or a boot ends in a straight line. It is also
     # free to detect: the matte fills the canvas edge to edge, so artwork touching the border means either
-    # the composition was cut off or the matte failed there. Measured across 30 shipped files: 0 touch.
+    # the composition was cut off or the matte failed there.
+    #
+    # Measured on `~bg`, NOT on `keep`. binary_erosion defaults to border_value=0, so it zeroes the outer
+    # two rows and columns of `keep` — the exact rows this samples. The old expression was therefore always
+    # 0.0, and "measured across 30 shipped files: 0 touch" was the artifact, not the evidence. 42 of 246
+    # stored files have an edge band above the 0.02 threshold, the worst at 0.951.
+    ink = ~bg
     edge_contact = max(float(b.mean()) for b in
-                       (keep[:2, :], keep[-2:, :], keep[:, :2], keep[:, -2:]))
+                       (ink[:2, :], ink[-2:, :], ink[:, :2], ink[:, -2:]))
+    # The artwork's own long side, not the canvas. ARTIFACT_CONTRACT asks for an even margin and then the
+    # margin was counted as resolution: a 3000px file whose art occupies 1699px prints at 200 PPI while
+    # every check in the repo called it 300. 105 of 216 files passed a check they should not have.
+    ys, xs = np.nonzero(keep)
+    art_px = int(max(xs.max() - xs.min() + 1, ys.max() - ys.min() + 1)) if opaque else 0
     report = {
         "opaque_frac": round(float(opaque) / keep.size, 4),
         "bg_frac": round(float(bg.sum()) / bg.size, 4),
         "leftover_key_px": leftover,
+        "holes_px": holes_px,
+        "halo_frac": halo_frac,
         "edge_contact": round(edge_contact, 4),
-        "size_in_at_300": round(max(im.size) / PRINT_PPI, 1),
+        "art_px": art_px,
+        "size_in_at_300": round(art_px / PRINT_PPI, 1),
     }
     return out, report
 
@@ -840,7 +915,11 @@ def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
     from scipy import ndimage                        # noqa: PLC0415 — only this stage needs it
 
     im = Image.open(raw).convert("RGB")
-    im.thumbnail((2048, 2048), Image.LANCZOS)
+    # PRINT_MAX_PX, not 2048. This is the BATCH path — the volume path — and 2048 across a 10 inch print is
+    # 205 PPI, so every product that came through here was a third short of the standard the shop states,
+    # architecturally, with no gate that could notice. key_cutout was fixed to PRINT_MAX_PX and this was
+    # left behind; 8 of the files still live on Etsy came out of it.
+    im.thumbnail((PRINT_MAX_PX, PRINT_MAX_PX), Image.LANCZOS)
     a = np.asarray(im).astype(int)
     h, w, _ = a.shape
     edge = np.concatenate([a[:6].reshape(-1, 3), a[-6:].reshape(-1, 3),
@@ -907,7 +986,7 @@ def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
     if pocket_px:
         print(f"  {out.stem}: {pocket_px} px duz beyaz cep acildi", file=sys.stderr)
     out.parent.mkdir(parents=True, exist_ok=True)
-    art.save(out)
+    save_print_png(art, out)
     return out
 
 
@@ -1002,7 +1081,7 @@ def stage_palette_snap(src: Path, declared: list[str], out: Path) -> Path:
     a[:, :, :3][opaque] = pal[nearest]
     a[:, :, 3][~opaque] = 0                     # kill soft edges: embroidery has no partial alpha
     out.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(a.astype(np.uint8), "RGBA").save(out)
+    save_print_png(Image.fromarray(a.astype(np.uint8), "RGBA"), out)
     return out
 
 
@@ -1098,7 +1177,10 @@ def stage_slogan(src: Path, slogan: str, out: Path, ink: str = "#111111") -> tup
     """
     art = open_rgba(src)
     art = art.crop(art.getbbox() or (0, 0, art.width, art.height))
-    W = H = 2048
+    # The print envelope, not 2048. This canvas IS the print file, so hard-coding 2048 fixed every
+    # sloganned design at 205 PPI no matter how good the source was — and then upsampled the cropped
+    # artwork to fill it, which is the "bigger but not sharper" failure in one step.
+    W = H = PRINT_MAX_PX
     # 6% margin cost real chest coverage: the print measured 43% of the shirt against the ~55% a
     # 12-inch front print should occupy. Printful fits the whole square into the print area, so every
     # transparent pixel of margin is print area given away.
@@ -1122,7 +1204,7 @@ def stage_slogan(src: Path, slogan: str, out: Path, ink: str = "#111111") -> tup
         y += (b - t) + int(H * 0.015)
         drawn += 1
     out.parent.mkdir(parents=True, exist_ok=True)
-    canvas.save(out)
+    save_print_png(canvas, out)
     return out, drawn
 
 
@@ -1903,8 +1985,11 @@ def main() -> int:
         if conn and not a.dry_run:
             conn.commit()
     if job:
-        job.finish("error" if any(x.error for x in results) else "done",
-                   f"{sum(1 for x in results if not x.error)}/{len(results)} tamam")
+        # `error` is set only by an EXCEPTION. A concept that FAILED its gates has `blocked=True` and no
+        # error, so a run where 7 of 10 designs never got their background removed reported "10/10 tamam,
+        # done" on the dashboard the operator watches remotely. Count what shipped, not what did not crash.
+        job.finish("error" if any(x.error or x.blocked for x in results) else "done",
+                   f"{sum(1 for x in results if not x.error and not x.blocked)}/{len(results)} tamam")
 
     if conn:
         if a.dry_run:

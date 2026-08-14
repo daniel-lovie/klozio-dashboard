@@ -20,6 +20,9 @@ from collections import Counter
 import psycopg2
 import psycopg2.extras
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import produce_images as pi   # noqa: E402 — the one authority on what a product's print size is
+
 TITLE_MAX = 140
 TITLE_BAND = (125, 140)
 TAGS_REQUIRED = 13
@@ -129,12 +132,16 @@ def main() -> int:
 
         if p["has_print"]:
             w, h = p["print_file_w"] or 0, p["print_file_h"] or 0
-            declared = 10.0
-            dp = p["design_params"] if isinstance(p["design_params"], dict) else {}
-            try:
-                declared = float(dp.get("print_inches") or 10.0)
-            except (TypeError, ValueError):
-                pass
+            # The same resolver produce_product and measure_product use, rather than a second reading of
+            # design_params. Reading `print_inches` raw and defaulting to 10 disagreed with the pipeline on
+            # every minimal/left-chest row — demanding 2850 px where the design prints 1140 — and an audit
+            # that cries wolf is an audit whose real flags get skipped.
+            declared = pi.print_placement(p["design_params"] if isinstance(p["design_params"], dict) else None)["inches"]
+            # NOTE: this reads the stored COLUMNS, which measure the canvas and can also disagree with the
+            # bytes (one row claims 3382x3382 for a 2048x2048 file and is therefore invisible to both this
+            # audit and the upscaler). The artwork's own size is what prints; measure_product.py reads the
+            # bytes and is the authority. This check is the cheap catalogue-wide sweep, so it is
+            # deliberately generous — it flags what is short even by the flattering measure.
             if max(w, h) < declared * PRINT_PPI * 0.95:
                 flag("baski dosyasi beyan edilen boyut icin dusuk cozunurluk", slug,
                      f"{w}x{h} px, {declared:g} inc icin {int(declared*PRINT_PPI)} gerekir")

@@ -76,12 +76,23 @@ def _upscale_one(pid: int, slug: str, blob: bytes) -> tuple[int, str, bytes | No
     alpha = src.getchannel("A").resize(up.size, Image.LANCZOS)
     out = Image.merge("RGBA", (*up.split(), alpha))
     out.thumbnail((TARGET, TARGET), Image.LANCZOS)
+    # Two LANCZOS passes over a binary mask feather it. Measured on a real cutout: a source with exactly
+    # two alpha values came out with 256 of them and 37,047 semi-transparent pixels — a 2-3px soft ring.
+    # On screen that is invisible; in DTF the white underbase is generated FROM the alpha, so a partial
+    # alpha means partial powder adhesion and a crumbly, haloed edge on dyed cotton. Put the edge back to
+    # binary. The guard below thresholds at >128 and so was blind to every pixel it had just created.
+    ch = list(out.split())
+    ch[3] = ch[3].point(lambda v: 255 if v >= 128 else 0)
+    out = Image.merge("RGBA", ch)
 
     # Prove it before writing. A silent alpha loss here reaches the producer as a solid block of ink.
     a0 = (np.asarray(src)[..., 3] > 128).mean()
     a1 = (np.asarray(out)[..., 3] > 128).mean()
     if abs(a0 - a1) > 0.02:
         return pid, slug, None, f"alfa degisti (%{a0*100:.1f} -> %{a1*100:.1f}), yazilmadi"
+    semi = int(((np.asarray(out)[..., 3] > 0) & (np.asarray(out)[..., 3] < 255)).sum())
+    if semi:
+        return pid, slug, None, f"{semi} yari saydam piksel kaldi — DTF beyaz altligi bozulur, yazilmadi"
     if max(out.size) < FLOOR:
         return pid, slug, None, f"hedefe ulasilamadi ({out.size[0]}x{out.size[1]})"
     # And that it is still the same design: the point of upscaling instead of regenerating.
@@ -93,7 +104,14 @@ def _upscale_one(pid: int, slug: str, blob: bytes) -> tuple[int, str, bytes | No
         return pid, slug, None, f"tasarim degismis (fark {diff:.0f}/255), yazilmadi"
 
     buf = io.BytesIO()
-    out.save(buf, format="PNG", optimize=True)
+    # Tagged sRGB and 300 DPI: an untagged PNG has no pHYs chunk and the producer's RIP imports it at its
+    # own default, which is the manual step that produces a wrong-sized print.
+    try:
+        from PIL import ImageCms                              # noqa: PLC0415
+        icc = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    except Exception:                                          # noqa: BLE001
+        icc = None
+    out.save(buf, format="PNG", optimize=True, dpi=(300, 300), **({"icc_profile": icc} if icc else {}))
     return pid, slug, buf.getvalue(), f"{src.size[0]} -> {out.size[0]} px, fark {diff:.0f}/255"
 
 

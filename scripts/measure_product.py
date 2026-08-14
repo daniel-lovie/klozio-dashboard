@@ -67,11 +67,20 @@ def main() -> int:
     # Resolution against the size this design says it prints at, not against a fixed ten inches.
     import produce_images as pi                              # noqa: PLC0415
     want_in = pi.print_placement(params if isinstance(params, dict) else None)["inches"]
+    # Measured on the ARTWORK, not the canvas. The producer prints the bounding box — produce_images.fit_quad
+    # scales `design.getbbox()` to the declared inches — while every check in this repo measured the whole
+    # canvas, transparent margin included. ARTIFACT_CONTRACT asks the generator for an even margin, so the
+    # margin was designed in and then counted as resolution: a 3000px file whose art occupies 1699px prints
+    # at 200 PPI and passed as 300.
+    ys, xs = np.nonzero(opaque)
+    art_px = int(max(xs.max() - xs.min() + 1, ys.max() - ys.min() + 1)) if opaque.any() else 0
     out["print_file"] = {
         "px": [im.width, im.height],
-        "size_in_at_300": round(max(im.size) / br.PRINT_PPI, 1),
+        "art_px": art_px,
+        "size_in_at_300": round(art_px / br.PRINT_PPI, 1),
+        "canvas_in_at_300": round(max(im.size) / br.PRINT_PPI, 1),
         "declared_in": want_in,
-        "meets_300ppi": max(im.size) / br.PRINT_PPI >= want_in * 0.95,
+        "meets_300ppi": art_px / br.PRINT_PPI >= want_in * 0.95,
         "opaque_pct": round(float(opaque.mean()) * 100, 1),
     }
 

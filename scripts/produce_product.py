@@ -152,8 +152,9 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # must not ship.
     cut, rep = br.key_cutout(raw, work / f"{p['slug']}-cutout.png")
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
-          f"kalan anahtar piksel {rep['leftover_key_px']}, kenar temasi %{rep['edge_contact']*100:.1f}, "
-          f"300 PPI'da {rep['size_in_at_300']} inc", file=sys.stderr)
+          f"kalan anahtar piksel {rep['leftover_key_px']}, delik {rep['holes_px']}px, "
+          f"hale %{rep['halo_frac']*100:.2f}, kenar temasi %{rep['edge_contact']*100:.1f}, "
+          f"cizim {rep['art_px']}px = 300 PPI'da {rep['size_in_at_300']} inc", file=sys.stderr)
     if rep["bg_frac"] < 0.15:
         raise RuntimeError(
             f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
@@ -161,12 +162,26 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     if rep["leftover_key_px"] > 200:
         raise RuntimeError(f"kesimden sonra {rep['leftover_key_px']} anahtar renk pikseli kaldi — "
                            "zemin temizlenemedi, dosya yayina verilmez")
+    # A glow or shadow blends ink into the matte over tens of pixels, and those blended pixels sit BEYOND
+    # the keying tolerance, so they survive as bright magenta ink while every distance-based check reports
+    # clean. Hue sees it. Threshold is 0.2% of the opaque area; a synthetic glow measured 20%.
+    if rep["halo_frac"] > 0.002:
+        raise RuntimeError(f"tasarimin %{rep['halo_frac']*100:.2f}'i anahtar renk tonunda — kenarda magenta "
+                           "hale var (yumusak parlama/golge zemine karismis), dosya yayina verilmez")
+    # The artwork used the key colour itself, so the cut removed it and left a hole THROUGH the design.
+    # 36 concepts in this catalogue ask for pink or magenta in their own palette.
+    if rep["holes_px"] > 2000:
+        raise RuntimeError(f"tasarimin icinde {rep['holes_px']} piksellik kapali delik var — cizimin kendisi "
+                           f"anahtar rengi ({br.KEY_COLOR}) kullanmis ve kesimde delinmis; konseptin "
+                           "paletinden pembe/magenta cikarilmali")
     if not 0.03 <= rep["opaque_frac"] <= 0.95:
         raise RuntimeError(f"opak alan %{rep['opaque_frac']*100:.1f} — tasarim ya kayboldu ya zemin kaldi")
     # Artwork on the border means the composition ran off the canvas. It is invisible in the raw frame and
     # unmissable on a tee, where a wing or a boot ends in a straight cut. Same treatment as a failed cut:
-    # the caller regenerates once. 2% tolerates the odd anti-aliased pixel; 30 shipped files measure 0.
-    if rep["edge_contact"] > 0.02:
+    # the caller regenerates once. Measured on ~bg now rather than on the eroded mask, which was
+    # always 0 — so the threshold is 6%, wide enough for a design that legitimately reaches toward an edge
+    # and narrow enough to catch a band running clean across it.
+    if rep["edge_contact"] > 0.06:
         raise RuntimeError(f"tasarim kenara degiyor (%{rep['edge_contact']*100:.1f}) — kompozisyon "
                            "canvas disina tasmis, kirpilmis dosya baskiya verilmez")
     # Not fatal: a short file still prints, just softer. Say it out loud rather than shipping quietly under

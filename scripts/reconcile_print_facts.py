@@ -69,7 +69,7 @@ def main() -> int:
 
         rw, rh = im.size
         art = max(bb[2] - bb[0], bb[3] - bb[1])
-        want = pi.print_placement(dp if isinstance(dp, dict) else None)["inches"]
+        want = pi.print_placement(dp)["inches"]
         ppi = round(art / max(want, 0.1))
 
         if (w, h) != (rw, rh):

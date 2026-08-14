@@ -92,7 +92,10 @@ def generate(p: dict, work: Path) -> Path:
     # Refuse before spending. The cut keys on magenta, so artwork that asks for magenta is punched full of
     # holes by the step that is supposed to clean it — measured as `holes_px` after the fact, but the fact
     # costs a generation. 36 catalogue concepts name pink or magenta in their own palette.
-    bad_hue = br.concept_uses_key_hue(prompt)
+    # Checked on the SUBJECT, not the raw prompt: every stored prompt names the magenta BACKGROUND, which
+    # is the pipeline's own instruction and exactly what is supposed to be there. Running the check on the
+    # raw text refused every product in the catalogue for the one magenta that is correct.
+    bad_hue = br.concept_uses_key_hue(br.strip_background_talk(prompt))
     if bad_hue:
         raise RuntimeError(
             f"konsept paletinde '{bad_hue}' var — kesim anahtar rengi ({br.KEY_COLOR}) magenta oldugu icin "
@@ -106,6 +109,10 @@ def generate(p: dict, work: Path) -> Path:
         # the colour, so any background sentence in the concept is removed first — leaving both would be a
         # contradiction resolved at random.
         subject = br.strip_background_talk(subject)
+        # No hook means no words, so the concept's own "leave a blank headline area" instruction has to go
+        # too — otherwise it argues with FILL_CLAUSE in the same prompt and the model draws the empty box.
+        if not has_hook:
+            subject = br.strip_caption_talk(subject)
         # The artifact contract leads: what the file IS, before any description of what is in it. Unless the
         # stored concept already carries it — whoever wrote that prompt was told to send the concept only, and
         # prepending a second copy is the same duplication that once put two style orders in one prompt.
@@ -142,7 +149,8 @@ def generate(p: dict, work: Path) -> Path:
     # and leaves most of the 10 inch envelope empty, so a concept may declare its natural shape and the
     # generator is asked for that instead.
     params = p.get("design_params") or {}
-    ratio = params.get("aspect_ratio") if isinstance(params, dict) else None
+    from produce_images import as_params                          # noqa: PLC0415
+    ratio = as_params(params).get("aspect_ratio")
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
                 shop_id=p["shop_id"])
@@ -161,28 +169,52 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # must not ship.
     cut, rep = br.key_cutout(raw, work / f"{p['slug']}-cutout.png")
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
-          f"kalan anahtar piksel {rep['leftover_key_px']}, delik {rep['holes_px']}px, "
-          f"hale %{rep['halo_frac']*100:.2f}, kenar temasi %{rep['edge_contact']*100:.1f}, "
+          f"kalan anahtar %{rep['leftover_frac']*100:.3f} ({rep['leftover_key_px']}px), delik {rep['holes_px']}px, "
+          f"acik alan %{rep['pale_field_frac']*100:.0f}, hale %{rep['halo_frac']*100:.2f}, kenar temasi %{rep['edge_contact']*100:.1f}, "
           f"cizim {rep['art_px']}px = 300 PPI'da {rep['size_in_at_300']} inc", file=sys.stderr)
     if rep["bg_frac"] < 0.15:
         raise RuntimeError(
             f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
             f"{br.KEY_COLOR} arka plani cizmemis; prompt/urun kontrol edilmeli")
-    if rep["leftover_key_px"] > 200:
-        raise RuntimeError(f"kesimden sonra {rep['leftover_key_px']} anahtar renk pikseli kaldi — "
-                           "zemin temizlenemedi, dosya yayina verilmez")
+    # As a SHARE of the artwork. 200 pixels was never calibrated — it guarded a metric that always returned
+    # 0 — and on a 3000px print 300 stray pixels is a speck, while on a small patch it is dirt. Measured
+    # across 215 shipped files the median is 0 and the 99th percentile 143 absolute; 0.2% of the opaque
+    # area sits far above the norm and far below anything visible.
+    if rep["leftover_frac"] > 0.002:
+        raise RuntimeError(f"kesimden sonra opak alanin %{rep['leftover_frac']*100:.2f}'i anahtar renkte "
+                           f"({rep['leftover_key_px']} piksel) — zemin temizlenemedi, dosya yayina verilmez")
     # A glow or shadow blends ink into the matte over tens of pixels, and those blended pixels sit BEYOND
     # the keying tolerance, so they survive as bright magenta ink while every distance-based check reports
     # clean. Hue sees it. Threshold is 0.2% of the opaque area; a synthetic glow measured 20%.
-    if rep["halo_frac"] > 0.002:
-        raise RuntimeError(f"tasarimin %{rep['halo_frac']*100:.2f}'i anahtar renk tonunda — kenarda magenta "
-                           "hale var (yumusak parlama/golge zemine karismis), dosya yayina verilmez")
+    # Measured over the SILHOUETTE EDGE BAND, not the whole artwork, and calibrated against what has
+    # actually shipped: 215 files put the median at 0.00001 and the 90th percentile at 0.011, while a
+    # blend ring measures 1.0 — the two populations do not overlap. The tail (ob-c6-v1 at 0.69) is designs
+    # whose OUTLINE is pink, which the palette now forbids outright, so on new work any magenta in the edge
+    # band is a blend artefact by construction.
+    if rep["halo_frac"] > 0.5:
+        raise RuntimeError(f"silueti saran seridin %{rep['halo_frac']*100:.0f}'i anahtar renk tonunda — "
+                           "kenarda magenta hale var (yumusak parlama/golge zemine karismis), "
+                           "dosya yayina verilmez")
     # The artwork used the key colour itself, so the cut removed it and left a hole THROUGH the design.
     # 36 concepts in this catalogue ask for pink or magenta in their own palette.
-    if rep["holes_px"] > 2000:
+    # As a SHARE, like every other threshold here. 2000 absolute was another uncalibrated number: on a
+    # 2880px canvas a real generation returned 3357 hole pixels, which is 0.06% of the artwork — speckle
+    # from anti-aliasing where an ink edge grazed the keying band, not a hole through the design. A hole
+    # that matters is a visible gap.
+    if rep["holes_frac"] > 0.005:
         raise RuntimeError(f"tasarimin icinde {rep['holes_px']} piksellik kapali delik var — cizimin kendisi "
                            f"anahtar rengi ({br.KEY_COLOR}) kullanmis ve kesimde delinmis; konseptin "
                            "paletinden pembe/magenta cikarilmali")
+    # The sticker plate, as a BACKSTOP only. Calibrated against the catalogue rather than against the
+    # docstring's remembered "median 3.1%", which is wrong: measured over 214 files the median is 20.8%
+    # and the 95th percentile 62%. This shop's designs are cream-heavy, so paleness cannot separate "a
+    # cream design" from "a cream plate" and a gate at 30% would refuse half the catalogue. The real fix
+    # for the empty plaque is upstream — strip_caption_talk removes the concept's own "leave a blank
+    # headline area" instruction when the product has no words. This only catches the extreme.
+    if rep["pale_field_frac"] > 0.70:
+        raise RuntimeError(f"tasarimin %{rep['pale_field_frac']*100:.0f}'i acik renk duz alan — arkada "
+                           "krem plaka var (bos baslik alani cizilmis olabilir), koyu gomlekte sticker "
+                           "gibi durur; dosya yayina verilmez")
     if not 0.03 <= rep["opaque_frac"] <= 0.95:
         raise RuntimeError(f"opak alan %{rep['opaque_frac']*100:.1f} — tasarim ya kayboldu ya zemin kaldi")
     # Artwork on the border means the composition ran off the canvas. It is invisible in the raw frame and

@@ -67,13 +67,13 @@ dirty = cut(im2)
 # It does NOT come back as leftover ink: the blob matches the key, so it is cut away and leaves a HOLE.
 # The first version of this fix counted key-coloured opaque pixels and reported 0 here — the right number
 # for the wrong question. A hole is transparent; you have to look for the hole.
-check("key colour inside the artwork punches a hole that is counted", dirty["holes_px"] > 200, dirty)
-check("a clean cut has no enclosed holes", clean["holes_px"] == 0, clean)
+check("key colour inside the artwork punches a hole that is counted", dirty["holes_frac"] > 0.005, dirty)
+check("a clean cut has no enclosed holes", clean["holes_frac"] == 0, clean)
 
 drift = Image.new("RGB", (900, 900), tuple(min(255, c + 90) for c in KEY))   # matte drifted off key
 ImageDraw.Draw(drift).ellipse([250, 250, 650, 650], fill=(30, 40, 60))
 drifted = cut(drift)
-check("a matte that drifted off the key is caught as ink", drifted["halo_frac"] > 0.2, drifted)
+check("a matte that drifted off the key is caught as ink", drifted["halo_frac"] > 0.5, drifted)
 
 print("halo_frac · a blended glow survives the distance test and must not survive this one")
 glow = Image.new("L", (900, 900), 0)
@@ -82,8 +82,14 @@ soft = glow.filter(ImageFilter.GaussianBlur(25))
 base = Image.new("RGB", (900, 900), (30, 40, 60))
 im3 = Image.composite(base, canvas(), soft)                       # ink fading into the matte
 halo = cut(im3)
-check("a soft glow is caught by hue", halo["halo_frac"] > 0.02, halo)
-check("a hard-edged design is not", clean["halo_frac"] < 0.005, clean)
+check("a soft glow is caught by hue", halo["halo_frac"] > 0.5, halo)
+check("a hard-edged design is not", clean["halo_frac"] < 0.01, clean)
+# The discriminator is POSITION, not colour: a design may legitimately use pink inside.
+inner = canvas()
+_d = ImageDraw.Draw(inner)
+_d.ellipse([250, 250, 650, 650], fill=(30, 40, 60))
+_d.ellipse([350, 350, 550, 550], fill=(232, 60, 150))
+check("deliberate pink INSIDE the design is not a halo", cut(inner)["halo_frac"] < 0.05)
 
 print("edge_contact · artwork running off the canvas")
 im4 = canvas()

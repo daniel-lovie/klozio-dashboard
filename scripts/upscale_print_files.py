@@ -153,7 +153,7 @@ def main() -> int:
             c = conn(); k = c.cursor()
             k.execute("SELECT design_params FROM products WHERE id=%s", (pid,))
             dp = (k.fetchone() or [None])[0]
-            want = pi.print_placement(dp if isinstance(dp, dict) else None)["inches"]
+            want = pi.print_placement(dp)["inches"]
             k.execute("""UPDATE products SET print_file=%s, print_file_w=%s, print_file_h=%s,
                                 print_dpi=%s, updated_at=now() WHERE id=%s""",
                       (psycopg2.Binary(data), im.width, im.height, round(art / max(want, 0.1)), pid))

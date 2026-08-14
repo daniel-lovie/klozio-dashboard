@@ -93,14 +93,34 @@ LEFT_CHEST_MAX_IN = 5.0
 STYLE_SPOT = {"minimal": ("left_chest", 4.0)}
 
 
-def print_placement(params: dict | None) -> dict:
+def as_params(raw) -> dict:
+    """design_params, however it arrives.
+
+    The column is TEXT holding JSON, so psycopg2 hands back a str — and every caller that wrote
+    `params if isinstance(params, dict) else None` silently got None and fell through to the ten-inch
+    default. That is why a catalogue-wide measurement came back saying almost everything was a ten-inch
+    print: not a finding about the products, an artifact of the type check. A uniform result is a
+    measurement error until proven otherwise.
+    """
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, (str, bytes)):
+        try:
+            v = json.loads(raw)
+            return v if isinstance(v, dict) else {}
+        except (ValueError, TypeError):
+            return {}
+    return {}
+
+
+def print_placement(params) -> dict:
     """Resolve a product's stored placement into inches and position fractions.
 
     design_params may carry `placement` (a PRINT_SPOTS key) and `print_inches` (the LONGER side, in
     inches). Either may be missing, in which case the style's own scale decides, and failing that the
     full-front print the shop has always sold.
     """
-    p = params if isinstance(params, dict) else {}
+    p = as_params(params)
     style_spot, style_in = STYLE_SPOT.get(str(p.get("style") or ""), (DEFAULT_SPOT, None))
     spot_key = str(p.get("placement") or style_spot)
     if spot_key not in PRINT_SPOTS:

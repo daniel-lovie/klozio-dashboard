@@ -66,7 +66,7 @@ def main() -> int:
 
     # Resolution against the size this design says it prints at, not against a fixed ten inches.
     import produce_images as pi                              # noqa: PLC0415
-    want_in = pi.print_placement(params if isinstance(params, dict) else None)["inches"]
+    want_in = pi.print_placement(params)["inches"]
     # Measured on the ARTWORK, not the canvas. The producer prints the bounding box — produce_images.fit_quad
     # scales `design.getbbox()` to the declared inches — while every check in this repo measured the whole
     # canvas, transparent margin included. ARTIFACT_CONTRACT asks the generator for an even margin, so the

@@ -136,7 +136,7 @@ def main() -> int:
             # design_params. Reading `print_inches` raw and defaulting to 10 disagreed with the pipeline on
             # every minimal/left-chest row — demanding 2850 px where the design prints 1140 — and an audit
             # that cries wolf is an audit whose real flags get skipped.
-            declared = pi.print_placement(p["design_params"] if isinstance(p["design_params"], dict) else None)["inches"]
+            declared = pi.print_placement(p["design_params"])["inches"]
             # NOTE: this reads the stored COLUMNS, which measure the canvas and can also disagree with the
             # bytes (one row claims 3382x3382 for a 2048x2048 file and is therefore invisible to both this
             # audit and the upscaler). The artwork's own size is what prints; measure_product.py reads the

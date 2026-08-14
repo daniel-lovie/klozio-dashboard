@@ -291,6 +291,25 @@ def concept_uses_key_hue(text: str, tol: int = 90) -> str:
     return ""
 
 
+# The pipeline decides whether a design reserves room for words — the same rule as the background. A
+# stored concept that says "a wide blank headline area is left across the composition ... draw the empty
+# space, not the words" keeps saying it after the hook is cleared, and FILL_CLAUSE ("no band or panel left
+# empty") is appended right next to it. The model resolved the contradiction the way it resolves all of
+# them: at random. One product came back as a skull framing a cream plaque over half the artwork.
+_CAPTION_SENTENCE = re.compile(
+    r"[^.]*\b(blank|empty|clear|open)\s+(headline|caption|text|type|title|banner|space|area|band|panel|"
+    r"rectangle|strip)[^.]*\.?"
+    r"|[^.]*\b(space|room|area|band|panel|rectangle)\s+(is\s+)?(left|reserved|kept)\b[^.]*\.?"
+    r"|[^.]*\bfor (a|the) (phrase|caption|slogan|title|subtitle|headline|word|text)[^.]*\.?"
+    r"|[^.]*\bdraw the empty space[^.]*\.?", re.I)
+
+
+def strip_caption_talk(text: str) -> str:
+    """Remove any 'leave room for the words' instruction. Only used when there are no words."""
+    out = re.sub(r"\s{2,}", " ", _CAPTION_SENTENCE.sub("", text or "")).strip()
+    return out if out else (text or "").strip()
+
+
 def strip_background_talk(text: str) -> str:
     """Remove any background instruction from a concept, so the pipeline's own clause stands alone."""
     src = (text or "").strip()
@@ -893,6 +912,9 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
     # colour it actually is.
     kept_rgb = rgb[keep] if opaque else np.empty((0, 3), dtype=rgb.dtype)
     leftover = int((np.sqrt(((kept_rgb.astype(int) - np.array([kr, kg, kb])) ** 2).sum(axis=1)) <= tol).sum())
+    # As a share, because 300 pixels is dirt on a postage stamp and nothing on a 3000px print. The old
+    # absolute threshold of 200 was never calibrated — it guarded a metric that always returned 0.
+    leftover_frac = round(float(leftover) / float(opaque), 5) if opaque else 0.0
     # The other direction, and the one the old expression was reaching for. When the ARTWORK itself contains
     # the key colour, those pixels are classified as background and cut away — so they do not survive as
     # ink, they punch a HOLE through the design. Counting key-coloured opaque pixels cannot see that; the
@@ -906,29 +928,43 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
             border.discard(0)
             sizes = ndimage.sum(np.ones_like(lab, dtype=bool), lab, index=range(1, n + 1))
             holes_px = int(sum(sz for i, sz in enumerate(sizes, start=1) if i not in border))
-    # The wider version of the same question. A soft glow or drop shadow blends ink into the matte over
-    # tens of pixels; those blended pixels land BEYOND `tol` from the key, so they survive as ink and ship
-    # as a bright magenta halo with every gate reporting clean. Distance cannot see it, hue can: measured on
-    # a synthetic glow, 20% of the artwork was magenta at a leftover_key_px of 0.
+    # The wider version of the same question, restricted to where a halo can actually be. A soft glow or
+    # drop shadow blends ink into the matte over tens of pixels; those blended pixels land BEYOND the
+    # keying tolerance, so they survive as ink and no distance check can see them.
+    #
+    # Measured across the ENTIRE artwork this cannot be gated on: 215 shipped files put the 90th percentile
+    # at 0.9% and the worst at 15.9%, and those worst files (ob-c5-v1, spa-c5-v1) are designs that
+    # legitimately use pink INSIDE the drawing. A halo is not a colour, it is a POSITION — it hugs the
+    # silhouette. So the fraction is taken over the edge band only, where a design's interior fill cannot
+    # reach and a blend ring cannot avoid.
     halo_frac = 0.0
     if opaque:
-        f = kept_rgb.astype(float) / 255.0
+        f = rgb[keep].astype(float) / 255.0
         mx, mn = f.max(axis=1), f.min(axis=1)
         chroma = mx - mn
         sat = np.divide(chroma, mx, out=np.zeros_like(mx), where=mx > 0)
-        # Hue only where there is enough chroma to have one; the key colour sits at ~328 degrees.
         with np.errstate(invalid="ignore", divide="ignore"):
-            r, g, bl = f[:, 0], f[:, 1], f[:, 2]
+            r_, g_, b_ = f[:, 0], f[:, 1], f[:, 2]
             hue = np.zeros_like(mx)
             m = chroma > 1e-6
-            idxr = m & (mx == r); idxg = m & (mx == g); idxb = m & (mx == bl)
-            hue[idxr] = ((g - bl)[idxr] / chroma[idxr]) % 6
-            hue[idxg] = ((bl - r)[idxg] / chroma[idxg]) + 2
-            hue[idxb] = ((r - g)[idxb] / chroma[idxb]) + 4
+            ir, ig, ib = m & (mx == r_), m & (mx == g_), m & (mx == b_)
+            hue[ir] = ((g_ - b_)[ir] / chroma[ir]) % 6
+            hue[ig] = ((b_ - r_)[ig] / chroma[ig]) + 2
+            hue[ib] = ((r_ - g_)[ib] / chroma[ib]) + 4
             hue = (hue * 60.0) % 360.0
-        key_hue = 328.0
-        near = (np.minimum(np.abs(hue - key_hue), 360.0 - np.abs(hue - key_hue)) <= 25.0) & (sat > 0.4)
-        halo_frac = round(float(near.sum()) / float(opaque), 4)
+        near = np.zeros(keep.shape, dtype=bool)
+        near[keep] = (np.minimum(np.abs(hue - 328.0), 360.0 - np.abs(hue - 328.0)) <= 25.0) & (sat > 0.4)
+        # The outer ring of the silhouette: ink that the background touches.
+        band = keep & ~ndimage.binary_erosion(keep, np.ones((13, 13)))
+        if band.sum():
+            halo_frac = round(float((near & band).sum()) / float(band.sum()), 4)
+    # A large pale field inside the artwork is a backing plate: invisible against ivory, a cream slab on a
+    # dark garment. measure_product has computed this for a while and nothing ever gated on it, so a 48%
+    # cream plate reached a live listing. Median across the catalogue is 3.1%.
+    pale_frac = 0.0
+    if opaque:
+        lum = (kept_rgb.astype(float) @ np.array([0.2126, 0.7152, 0.0722]))
+        pale_frac = round(float((lum > 215).sum()) / float(opaque), 4)
     # A subject that runs off the canvas is a fatal defect that looks fine in the raw frame — the crop is
     # only obvious once the design is on a garment and a wing or a boot ends in a straight line. It is also
     # free to detect: the matte fills the canvas edge to edge, so artwork touching the border means either
@@ -950,7 +986,10 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
         "opaque_frac": round(float(opaque) / keep.size, 4),
         "bg_frac": round(float(bg.sum()) / bg.size, 4),
         "leftover_key_px": leftover,
+        "leftover_frac": leftover_frac,
+        "pale_field_frac": pale_frac,
         "holes_px": holes_px,
+        "holes_frac": round(float(holes_px) / float(opaque), 5) if opaque else 0.0,
         "halo_frac": halo_frac,
         "edge_contact": round(edge_contact, 4),
         "art_px": art_px,

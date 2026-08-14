@@ -138,6 +138,18 @@ def main() -> int:
         if new == title:
             skipped += 1
             continue
+        # A rewrite that does not land in the band is not an improvement, and at HIGH=140 a short title
+        # loses nothing to the trimmer — it comes back as a REORDERING of its own segments, because they
+        # are re-emitted in ranked rather than source order. That still counts as changed, so every one of
+        # the 312 short titles would have been rewritten to the same length, out of band, and the live ones
+        # pushed to Etsy by the title cron. The note said "banda oturmadi" and was printed and ignored.
+        # Write only when the result is in band, or when it at least pulls an over-140 title under Etsy's
+        # limit. Lengthening is a copywriting job this tool cannot do; see the module docstring.
+        if not (LOW <= len(new) <= HIGH) and not (len(title) > HIGH and len(new) <= HIGH):
+            print(f"  ATLANDI {slug}: {len(title)}->{len(new)} karakter, band {LOW}-{HIGH} disinda kalirdi "
+                  f"— kisa basliga anahtar kelime YAZILMALI, kirpilamaz", file=sys.stderr)
+            skipped += 1
+            continue
         # Two identical titles compete with each other in Etsy search; trimming must not create a collision.
         other = seen.get(new.lower())
         if other and other[0] != slug and other[1]:

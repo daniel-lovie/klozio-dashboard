@@ -6,8 +6,9 @@ import { getListing, updateListingFields } from "@/lib/etsy";
 
 /** Push locally-corrected titles onto the live listings that carry the old ones.
  *
- * 300 titles were refitted to the 80-95 band in the database and 85 of those rows are live, so until this
- * runs the buyer still sees the old 126-character title. It lives in the app rather than in a script
+ * Titles are refitted in the database first, so until this runs the buyer is still shown the old one.
+ * (The refit that prompted this pushed 300 rows to the then-current 80-95 band; the band is 125-140 as of
+ * 2026-08-14, which changes what gets written, not what this route does.) It lives in the app rather than in a script
  * because Etsy authentication — token refresh, per-shop credentials — is here, and a second copy of that
  * is exactly the kind of duplication that publishes to the wrong shop.
  *

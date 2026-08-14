@@ -134,7 +134,9 @@ export const TOOL_DEFS = [
       properties: {
         product_id: { type: "number", description: "products.id" },
         price_cents: { type: "number", description: "yeni cikis fiyati, kurus (ornek 2999 = $29.99)" },
-        title: { type: "string" },
+        // The band is in the schema because it is enforced: a title under 125 throws before anything is
+        // written, and the model had no way to learn that except by failing the call.
+        title: { type: "string", description: "125-140 karakter (140 Etsy'nin siniri, 125 calisma bandinin alt ucu) — daha kisasi reddedilir" },
         description: { type: "string" },
         tags: { type: "array", items: { type: "string" }, description: "en fazla 13, her biri <=20 karakter" },
       },
@@ -290,16 +292,91 @@ async function runScript(script: string, args: string[]): Promise<any> {
  *  Every guard below used to test the raw string, which meant a leading comment, a CTE, a schema prefix or
  *  a quoted literal walked past all of them — and the WHERE clause counted as part of the SET clause, so
  *  legitimate updates filtering on a protected column were refused while the real writes got through.
+ *
+ *  This is a single left-to-right pass, NOT a chain of .replace() calls. The chained version stripped
+ *  comments before string literals, so a `--` or a `/*` INSIDE a quoted string deleted the rest of the
+ *  query from the guard's view while Postgres still ran every character of it:
+ *
+ *      select 1 where 'a--'='a--'; delete from products where 1=1   -> guard saw "select 1 where 'a"
+ *
+ *  Both the multi-statement check and the DELETE check passed that, and node-pg's simple protocol runs
+ *  both statements. Order of operations is the whole defence: a tokenizer consumes whichever construct
+ *  opens first, so nothing can hide inside anything else.
  */
+function tokeniseSql(raw: string): { text: string; unterminated: boolean } {
+  const s = String(raw ?? "");
+  let out = "";
+  let i = 0;
+  let unterminated = false;
+  while (i < s.length) {
+    const two = s.slice(i, i + 2);
+    if (two === "--") {                                   // line comment
+      const nl = s.indexOf("\n", i);
+      i = nl === -1 ? s.length : nl + 1;
+      out += " ";
+      continue;
+    }
+    if (two === "/*") {                                   // block comment; Postgres nests them
+      let depth = 1;
+      i += 2;
+      while (i < s.length && depth > 0) {
+        if (s.slice(i, i + 2) === "/*") { depth++; i += 2; }
+        else if (s.slice(i, i + 2) === "*/") { depth--; i += 2; }
+        else i++;
+      }
+      if (depth > 0) unterminated = true;
+      out += " ";
+      continue;
+    }
+    const c = s[i];
+    if (c === "'") {                                      // string literal, '' is an escaped quote
+      i++;
+      let closed = false;
+      while (i < s.length) {
+        if (s[i] === "'") {
+          if (s[i + 1] === "'") { i += 2; continue; }
+          i++; closed = true; break;
+        }
+        i++;
+      }
+      if (!closed) unterminated = true;
+      out += "''";
+      continue;
+    }
+    if (c === '"') {                                      // quoted identifier -> bare, so "products" hits
+      i++;
+      let id = "";
+      let closed = false;
+      while (i < s.length) {
+        if (s[i] === '"') {
+          if (s[i + 1] === '"') { id += '"'; i += 2; continue; }
+          i++; closed = true; break;
+        }
+        id += s[i]; i++;
+      }
+      if (!closed) unterminated = true;
+      out += id;
+      continue;
+    }
+    if (c === "$") {                                      // dollar quoting: $$x$$ / $tag$x$tag$
+      const m = /^\$([A-Za-z_]\w*)?\$/.exec(s.slice(i));   // $1 placeholders do not match and fall through
+      if (m) {
+        const tag = m[0];
+        const end = s.indexOf(tag, i + tag.length);
+        if (end === -1) { unterminated = true; i = s.length; }
+        else i = end + tag.length;
+        out += "''";
+        continue;
+      }
+    }
+    out += c;
+    i++;
+  }
+  return { text: out.replace(/\s+/g, " ").trim().toLowerCase(), unterminated };
+}
+
 function normaliseSql(raw: string): string {
-  return String(raw ?? "")
-    .replace(/\/\*[\s\S]*?\*\//g, " ")        // block comments
-    .replace(/--[^\n]*/g, " ")                  // line comments
-    .replace(/'(?:[^']|'')*'/g, "''")            // string literals, kept as an empty marker
-    .replace(/"([^"]*)"/g, "$1")                 // quoted identifiers -> bare
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+  return tokeniseSql(raw).text;
 }
 
 /** Does this string carry more than one statement? node-pg's simple protocol runs them all in one call,
@@ -329,8 +406,13 @@ function refuseIrreversible(name: string, input: any): string | null {
   if (name === "shopify" && /\bmutation\b/i.test(String(input?.query ?? ""))
       // Shopify mutation names are camelCase — productDelete, collectionDelete,
       // productVariantsBulkDelete — so a \bdelete\b word boundary matched none of them and blocked only
-      // the one spelling that is not a real mutation.
-      && /(delete|destroy|remove)/i.test(String(input?.query ?? ""))) {
+      // the one spelling that is not a real mutation. Tested against the raw document it then went the
+      // other way and refused legitimate writes: a $removeTags variable, a metafield key "remove_bg", and
+      // a description reading "Remove before washing" each blocked the whole mutation. Strings and
+      // variable names are not field names, so they come out first; what is left is the query itself.
+      && /(delete|destroy|remove)/i
+        .test(String(input?.query ?? "").replace(/"""[\s\S]*?"""|"(?:[^"\\]|\\.)*"/g, '""')
+                                        .replace(/\$\w+/g, "$v"))) {
     return "ERROR: Shopify silme/kaldirma mutasyonu bu araçla yapılamaz — geri alınamaz. Operatöre sor.";
   }
   if (name === "printful" && method === "DELETE") {
@@ -341,21 +423,36 @@ function refuseIrreversible(name: string, input: any): string | null {
   // Etsy price living in inventory offerings rather than on the listing, the tag and title limits, the
   // read-back) never applied. Writing prompt rules did not change it. Refuse the four columns that tool
   // owns; everything else in the schema is still fair game for raw sql.
+  // An unterminated quote or block comment means the tokenizer lost the query, and a guard reading a
+  // half-parsed string is worse than no guard: it reports safe. Refuse rather than guess.
+  if (name === "sql" && tokeniseSql(String(input?.query ?? "")).unterminated) {
+    return "ERROR: SQL'de kapanmamis tirnak ya da /* yorumu var — sorgu ayristirilamadi, guvenlik "
+      + "kontrolleri calistirilamaz. Tirnaklari kapat ve tekrar gonder.";
+  }
   if (name === "sql" && isMultiStatement(String(input?.query ?? ""))) {
     return "ERROR: tek cagrida tek SQL ifadesi. Birden fazla ifade tek seferde calisir ve guvenlik "
       + "kontrollerini atlar; ifadeleri ayri cagrilara bol.";
   }
   const q = name === "sql" ? normaliseSql(String(input?.query ?? "")) : "";
+  const set = name === "sql" ? setClause(q) : "";
   if (name === "sql"
-      && /\bupdate\s+(only\s+)?(public\.)?products\b/.test(q)
-      && /\b(price_cents|title|description|tags)\s*=/.test(setClause(q))) {
+      // Any schema, not just public: `update klozio.products set title=…` walked past a (public\.)? test.
+      && /\bupdate\s+(only\s+)?(\w+\.)?products\b/.test(q)
+      // Two spellings of the same write. `SET (title, description) = (…)` is valid Postgres and never puts
+      // a protected column directly before an `=`, so the single-column test alone missed it entirely.
+      && (/\b(price_cents|title|description|tags)\s*=/.test(set)
+          || /\(\s*[^)]*\b(price_cents|title|description|tags)\b[^)]*\)\s*=/.test(set))) {
     return "ERROR: products.price_cents / title / description / tags ham SQL ile degistirilemez — "
       + "update_product aracini kullan. Sebebi: Etsy fiyati ilanin uzerinde degil ENVANTER TEKLIFLERINDE "
       + "duruyor, yani sadece satiri guncellersen bizim kayit yeni fiyati der, alici eskisini oder ve bu "
       + "ilk yanlis siparise kadar gorunmez. update_product ayrica basligi/tag'i limitlere gore dogrular "
       + "ve yazdiktan sonra ilani geri okur.";
   }
-  if (name === "sql" && /(^|\s|\()(delete\s+from|truncate|drop\s+(table|column)|alter\s+table)\b/.test(q)) {
+  // `drop\s+(table|column)` was narrower than the anchored /^(delete|truncate|drop)/ it replaced: drop
+  // index, view, schema, database and function all became reachable while the change was being sold as a
+  // fix. `drop <word>` covers every object type there will ever be; a column literally named "drop" is not
+  // a risk this schema has.
+  if (name === "sql" && /(^|\s|\()(delete\s+from|truncate|drop\s+\w+|alter\s+table)\b/.test(q)) {
     return "ERROR: DELETE/TRUNCATE/DROP bu araçla yapılamaz. Bir satırı kaldırmak yerine durumunu değiştir "
       + "(content_status='draft' gibi); gerçekten silinmesi gerekiyorsa neyin ve neden silineceğini yaz, "
       + "operatör çalıştırsın. Yanlış ürünün iptal edildiği olay tam olarak buydu.";
@@ -694,21 +791,25 @@ async function updateProduct(input: any): Promise<{
       const rs = prevCols.map((c, i) => { rv.push(prevVals[i]); return `${c}=$${rv.length}`; });
       rv.push(pid);
       await agentQuery(`UPDATE products SET ${rs.join(", ")}, updated_at=now() WHERE id = $${rv.length}`, rv);
-      // "Nothing changed" is only true when nothing reached Etsy. Title/description/tags go in one call
-      // and price in another, so the first can land and the second fail — reverting the row then leaves
-      // the listing holding the new title while our row holds the old one, and telling the operator that
-      // nothing changed is the same drift this tool exists to prevent, pointing the other way.
-      throw new Error(sentFields
-        ? `Etsy yazimi kismen uygulandi (${why}): baslik/aciklama/tag ILANDA GUNCELLENDI ama fiyat `
-          + `yazilamadi. Veritabani satiri eski haline donduruldu, yani SATIR ILE ILAN AYRISTI — elle `
-          + `uzlastirilmali.`
-        : `Etsy yazimi basarisiz (${why}) — veritabani satiri ESKI HALINE dondurüldu, hicbir sey `
-          + `degismedi. Sebebi cozup tekrar dene.`);
     } catch (e: any) {
-      if (String(e?.message ?? "").startsWith("Etsy yazimi basarisiz")) throw e;
       throw new Error(`Etsy yazimi basarisiz (${why}) VE geri alma da basarisiz (${e?.message}) — `
         + `satir ile ilan AYRISTI, elle duzeltilmeli.`);
     }
+    // Reported OUTSIDE the try, so the catch can only ever be about the revert UPDATE. Throwing the
+    // report from inside meant the catch re-read it as a revert failure — the partial-write message did
+    // not match the prefix the guard tested, so the one case it was written for came back to the operator
+    // as "geri alma da basarisiz" when the revert had in fact succeeded.
+    //
+    // "Nothing changed" is only true when nothing reached Etsy. Title/description/tags go in one call and
+    // price in another, so the first can land and the second fail — reverting the row then leaves the
+    // listing holding the new title while our row holds the old one, and telling the operator that
+    // nothing changed is the same drift this tool exists to prevent, pointing the other way.
+    throw new Error(sentFields
+      ? `Etsy yazimi kismen uygulandi (${why}): baslik/aciklama/tag ILANDA GUNCELLENDI ama fiyat `
+        + `yazilamadi. Veritabani satiri eski haline donduruldu, yani SATIR ILE ILAN AYRISTI — elle `
+        + `uzlastirilmali.`
+      : `Etsy yazimi basarisiz (${why}) — veritabani satiri ESKI HALINE dondurüldu, hicbir sey `
+        + `degismedi. Sebebi cozup tekrar dene.`);
   };
 
   return withShop(async () => {

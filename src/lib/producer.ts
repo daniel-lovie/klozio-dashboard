@@ -55,7 +55,10 @@ function run(pid: number, redo = false, stage: "all" | "artwork" | "finish" = "a
     // generous but present, because a hung child would hold the claim for ever.
     const stageArg = stage === "artwork" ? ["--artwork"] : stage === "finish" ? ["--finish"] : [];
     const child = spawn("python3", [SCRIPT, String(pid), ...(redo ? ["--redo"] : []), ...stageArg], {
-      env: process.env, timeout: 15 * 60_000,
+      // 5 minutes, not 15. The agent runs this inline inside an 800s request, so a 15-minute child could
+      // outlive the request that is waiting on it and take the transcript write down with it. A generation
+      // that has not finished in five minutes is hung, not slow.
+      env: process.env, timeout: 5 * 60_000,
     });
     let out = "";
     child.stdout.on("data", (d) => { out += d.toString(); });

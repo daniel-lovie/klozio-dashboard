@@ -3,6 +3,7 @@ import { q, one } from "../db";
 import { AGENT_SYSTEM } from "./prompt";
 import { TOOL_DEFS, execTool, SERVER_TOOLS } from "./tools";
 import { sanitiseHistory, stripImages } from "./history";
+import { keepWindow, startAtUserTurn } from "./window";
 
 // Sonnet by default, not Opus. The bill is dominated by output tokens and cache traffic, and the work
 // here — read some rows, write product copy, run SQL — is not what Opus is for. Opus 5 output is $25/MTok
@@ -24,30 +25,48 @@ const MAX_STEPS = 40;
 // still being told it had only talked.
 const WRITER_TOOLS = new Set(["update_product", "produce"]);
 
+/** script -> the flags that make THAT script write. Guessing from flag names was wrong in both
+ *  directions: `--live` means "only the listings already on Etsy" in audit_pipeline.py, a pure read, so an
+ *  audit-only turn was recorded as a write and silenced the promise nudge; and `clean_print_files.py` has
+ *  its own `--apply`, so matching the script name alone marked a dry run as a write. `--redo` belonged to
+ *  produce_product.py, which this tool refuses to run at all. */
+const SCRIPT_WRITE_FLAGS: Record<string, string[]> = {
+  "fit_titles.py": ["--apply"],
+  "clean_print_files.py": ["--apply"],
+  "upscale_print_files.py": ["--apply", "--live"],
+  "measure_product.py": [],
+  "audit_pipeline.py": [],
+  "audit_etsy_images.py": [],
+};
+
 function isWriter(name: string, input: any): boolean {
   if (WRITER_TOOLS.has(name)) return true;
   if (name === "run_script") {
+    const script = String(input?.script ?? "").replace(/^.*\//, "");
     const args = Array.isArray(input?.args) ? input.args.map(String) : [];
-    return args.some((a: string) => /^--(apply|live|redo)$/.test(a)) || /clean_|upscale_/.test(String(input?.script ?? ""));
+    // Unknown scripts are treated as writers: a false "this turn wrote something" only suppresses a
+    // nudge, while a false "it only read" would let a real write go unrecorded.
+    const flags = script in SCRIPT_WRITE_FLAGS ? SCRIPT_WRITE_FLAGS[script] : null;
+    return flags === null ? true : flags.some((f) => args.includes(f));
   }
   return false;
 }
 
-/** The slice we keep, with this turn's question kept whatever the length.
- *
- *  Applied on BOTH save and load. Pinning only on save was inert in the case it was written for: a long
- *  turn produced a 61-message window whose pinned question sat at index 0, and the next load took the last
- *  40 and dropped it again. The window is also trimmed to start at a user turn, because the API rejects a
- *  history that opens on an assistant message and a tail slice can easily land there.
- */
-function keepWindow(all: any[], n: number, pinned: any | null): any[] {
-  const tail = all.slice(-n);
-  const withPin = pinned && !tail.includes(pinned) ? [pinned, ...tail] : tail;
-  const firstUser = withPin.findIndex((m: any) => m?.role === "user");
-  return firstUser > 0 ? withPin.slice(firstUser) : withPin;
-}
 /** Inline image generations allowed per turn. Each one costs minutes; see the cap in the tool loop. */
 const MAX_PRODUCE_PER_TURN = 2;
+
+/** Stop the loop here so the `finally` block still gets to persist the transcript.
+ *
+ *  The route dies at 800s (maxDuration in api/agent/chat/route.ts) and takes the write with it, so every
+ *  budget number below is measured against that ceiling — not chosen for its own sake. */
+const TURN_CEILING_MS = 800_000;
+const TURN_BUDGET_MS = 600_000;
+/** What one `produce` can still cost when it starts (producer.ts caps its child at 5 minutes).
+ *
+ *  Checking the budget only between steps was not enough: a step is not preemptible, so a produce that
+ *  began at 550s ran to 850s and killed the request mid-write — the loss the budget check exists to
+ *  prevent, caused inside the guarded loop. A produce is refused unless it can finish under the ceiling. */
+const PRODUCE_WORST_CASE_MS = 300_000;
 
 /** USD per million tokens, per model. Keep in step with the vendor's price list. */
 const RATES: Record<string, { in: number; cacheWrite: number; cacheRead: number; out: number }> = {
@@ -255,11 +274,11 @@ export async function* runAgentTurn(
   const { resolveSession, titleFromFirstMessage } = await import("./sessions");
   const chatId = await resolveSession(shopId, opts.chatId);
   const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE id=$1`, [chatId]);
-  // Slice the window first, then repair what the slice broke. Doing it the other way round would let a
-  // freshly orphaned tool_result through.
+  // Order matters three ways: slice, then repair what the slice broke, then trim to a real user turn.
+  // Repairing before slicing would let a freshly orphaned tool_result through; trimming before repairing
+  // would measure a head that the repair then changes.
   const stored: any[] = row?.messages ?? [];
-  let messages: any[] = sanitiseHistory(
-    keepWindow(stored, 40, stored.find((m: any) => m?.role === "user") ?? null));
+  let messages: any[] = startAtUserTurn(sanitiseHistory(keepWindow(stored, 40, null)));
   const banner = `[Aktif mağaza: ${shopName} (shop_id=${shopId}) — tüm SQL sorgularında bu mağazaya filtrele]\n${userText}`;
   // Images go BEFORE the text: the model reads the reference first and then the instruction about it,
   // which is the order the operator means when they paste an example and say "like this, but…".
@@ -302,8 +321,8 @@ export async function* runAgentTurn(
     for (let step = 0; step < MAX_STEPS; step++) {
       // The request itself dies at 800s and takes the transcript persist with it. Stop short, say so, and
       // let the finally block record what actually happened.
-      if (Date.now() - startedAt > 600_000) {
-        const note = "⚠️ Sure butcesi doldu (700sn). Yapilanlar kaydedildi; kalanini tekrar iste.";
+      if (Date.now() - startedAt > TURN_BUDGET_MS) {
+        const note = `⚠️ Sure butcesi doldu (${TURN_BUDGET_MS / 1000}sn). Yapilanlar kaydedildi; kalanini tekrar iste.`;
         yield { t: "error", d: note };
         say(note);
         finished = true;
@@ -422,6 +441,17 @@ export async function* runAgentTurn(
           results.push({ type: "tool_result", tool_use_id: block.id, content: refusal });
           continue;
         }
+        // Time, not just count. See PRODUCE_WORST_CASE_MS.
+        if (block.name === "produce"
+            && Date.now() - startedAt + PRODUCE_WORST_CASE_MS > TURN_CEILING_MS) {
+          const refusal = "ERROR: bu turda 'produce' calistiracak kadar sure kalmadi — istegin tavani "
+            + `${TURN_CEILING_MS / 1000}sn ve bir uretim ${PRODUCE_WORST_CASE_MS / 1000}sn surebilir. `
+            + "Satiri content_status='approved' yap, producer dongusu sirasi gelince uretir; durumu "
+            + "'production_status' ile bildir.";
+          yield { t: "tool", d: "produce ▸ sure yetmiyor — kuyruga yonlendirildi" };
+          results.push({ type: "tool_result", tool_use_id: block.id, content: refusal });
+          continue;
+        }
         if (block.name === "produce") produceCalls++;
         if (block.name === "ask") {
           // The payload travels as its own event: the UI renders real buttons, instead of the browser
@@ -457,7 +487,7 @@ export async function* runAgentTurn(
       messages.push({ role: "user", content: results });
       // A single step can spend minutes in produce or three in a script, so checking only at the top of
       // the loop let a turn sail past the ceiling mid-step and lose the transcript write.
-      if (Date.now() - startedAt > 600_000) {
+      if (Date.now() - startedAt > TURN_BUDGET_MS) {
         const note = "⚠️ Sure butcesi doldu. Yapilanlar kaydedildi; kalanini tekrar iste.";
         yield { t: "error", d: note };
         say(note);
@@ -491,7 +521,7 @@ export async function* runAgentTurn(
     // the oldest user message in the loaded history instead — a stale question teleported to the front of
     // the transcript, which is worse than the eviction it was meant to prevent.
     const window = keepWindow(messages, 60, questionIdx >= 0 ? messages[questionIdx] : null);
-    const clean = stripImages(sanitiseHistory(window));
+    const clean = startAtUserTurn(stripImages(sanitiseHistory(window)));
     await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }
   yield { t: "done" };

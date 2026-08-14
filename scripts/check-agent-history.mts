@@ -13,6 +13,7 @@
  * No database, no API key, no network.
  */
 import { sanitiseHistory, malformedThinking } from "../src/lib/agent/history.ts";
+import { keepWindow, isUserTurn, startAtUserTurn } from "../src/lib/agent/window.ts";
 
 let failures = 0;
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -88,5 +89,53 @@ console.log("sanitiseHistory · tool pairing");
   check("orphaned tool_result dropped", results.length === 0, out);
 }
 
+
+// ---------------------------------------------------------------------------------------------------
+// The window. Asserted here because the invariant it protects — a history never opens on an assistant
+// message — was stated in a comment and true in neither of the two implementations that claimed it.
+const U = (t: string) => ({ role: "user", content: t });
+const A = (t: string) => ({ role: "assistant", content: [{ type: "text", text: t }] });
+const CALL = (id: string) => ({ role: "assistant", content: [{ type: "tool_use", id, name: "sql", input: {} }] });
+const RESULT = (id: string) => ({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: "[]" }] });
+
+console.log("isUserTurn");
+check("a typed question is a user turn", isUserTurn(U("merhaba")));
+check("a tool_result is NOT a user turn", !isUserTurn(RESULT("t1")));
+check("an image+text turn is a user turn",
+      isUserTurn({ role: "user", content: [{ type: "image" }, { type: "text", text: "bunun gibi" }] }));
+check("an assistant message is not a user turn", !isUserTurn(A("tamam")));
+
+console.log("keepWindow");
+{
+  const q = U("soru"), all = [q, A("a"), A("b")];
+  check("pin already inside the tail is not duplicated", keepWindow(all, 2, q).filter((m) => m === q).length === 1);
+  check("pin outside the tail is prepended", keepWindow(all, 1, q)[0] === q);
+  check("no pin, no prepend", keepWindow(all, 1, null).length === 1);
+}
+
+console.log("window + sanitise · the shape actually sent to the API");
+{
+  // A realistic tool-heavy transcript: four turns, each a question then eight tool steps.
+  const history: any[] = [];
+  for (let turn = 1; turn <= 4; turn++) {
+    history.push(U(`soru-${turn}`));
+    for (let s = 0; s < 8; s++) { history.push(CALL(`t${turn}_${s}`)); history.push(RESULT(`t${turn}_${s}`)); }
+    history.push(A(`cevap-${turn}`));
+  }
+  // Load path: slice, repair, then trim.
+  const loaded = startAtUserTurn(sanitiseHistory(keepWindow(history, 40, null)));
+  check("loaded history opens on a real user turn", isUserTurn(loaded[0]), loaded[0]);
+  // Save path: same, with this turn's question pinned by identity.
+  const question = U("bu turun sorusu");
+  const live = [...history, question, CALL("x1"), RESULT("x1"), A("bitti")];
+  const saved = startAtUserTurn(sanitiseHistory(keepWindow(live, 60, question)));
+  check("saved history opens on a real user turn", isUserTurn(saved[0]), saved[0]);
+  check("the pinned question survives the save", saved.includes(question));
+  // The regression the old boundary test missed: a tail that begins on an orphaned tool_result.
+  const orphan = startAtUserTurn(sanitiseHistory([RESULT("gone"), A("cevap"), U("soru"), A("cevap2")]));
+  check("an orphaned tool_result head does not leave an assistant head", isUserTurn(orphan[0]), orphan[0]);
+  check("a window with no user turn at all comes back empty",
+        startAtUserTurn(sanitiseHistory([A("a"), A("b")])).length === 0);
+}
 console.log(failures ? `\n${failures} check(s) failed` : "\nall checks passed");
 process.exit(failures ? 1 : 0);

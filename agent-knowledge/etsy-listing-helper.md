@@ -64,8 +64,12 @@ Use this template for every listing:
 ```
 ## Listing {N} — {design short name}
 
-### 1. Title (~15 words, ≤140 chars)
+### 1. Title (125–140 chars, ≤140 hard limit)
 {listing-language title}
+
+> Length is the operating band, not a word count: **125–140 characters**, roughly 18–22 words, built as
+> four or five comma-separated keyword phrases. The earlier "~15 words" guidance lands around 90–110
+> characters and leaves a third of the searchable surface unused (operator decision 2026-08-14).
 
 > Translation: {title in conversation language — omit if same}
 

@@ -46,6 +46,9 @@ import produce_images as pi_mod                               # noqa: E402
 
 # How many candidates to draw before choosing. 1 keeps the old behaviour and the old bill.
 BEST_OF = max(1, int(os.environ.get("DESIGN_BEST_OF", "1")))
+# For a retry pass over concepts ALREADY KNOWN to put magenta in the artwork: narrow the keying tolerance
+# from the first draw instead of paying for one doomed wide-tolerance attempt first.
+HARD_MODE = os.environ.get("DESIGN_HARD_MODE") == "1"
 
 
 def conn():
@@ -82,10 +85,17 @@ def load(pid: int) -> dict:
 # from "two to five muted colours" to "six to twelve colourful ones": telling a model to be colourful
 # makes it reach for the one hue this pipeline cannot allow. A repeat of the same prompt repeats the same
 # mistake, so the retry says it louder and names the substitutes.
-REINFORCE = (". CRITICAL: use absolutely NO magenta, NO fuchsia, NO hot pink and NO bright pink anywhere "
-             "in the artwork, not even as a small accent or an outline — that exact colour is the "
-             "background and any of it inside the drawing is cut away, leaving holes. Where you would "
-             "reach for pink, use coral, crimson, burnt orange, plum or violet instead")
+# ABANDONED, kept as a record. Two attempts were made to talk the model out of putting magenta in the
+# drawing while keeping the magenta background it is required to paint. Both destroyed the background:
+# the first said "no magenta anywhere in the artwork" and got bg_frac 0.0 on five of five products; the
+# second spelled out "(1) the background is REQUIRED ... (2) the drawing must contain no magenta" and got
+# bg_frac 0.0 on three of five. A colour cannot be simultaneously mandatory and forbidden in one prompt —
+# the model collapses the distinction whichever way it is worded, and each rewrite cost five paid draws.
+#
+# What actually works is mechanical, not rhetorical: redraw (the generator is stochastic, and a clean
+# draw is the common case) and narrow the keying tolerance so the flat background still keys while a
+# coral or warm red in the drawing no longer falls inside the band.
+REINFORCE = ""
 
 
 def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Path:
@@ -169,7 +179,7 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
     params = p.get("design_params") or {}
     from produce_images import as_params                          # noqa: PLC0415
     ratio = as_params(params).get("aspect_ratio")
-    if reinforce:
+    if reinforce and REINFORCE:
         full = f"{full}{REINFORCE}"
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
@@ -523,10 +533,10 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                     # The extra attempt past BEST_OF is the retry for a stochastic miss: it only runs if
                     # nothing has passed yet, and it is the one that narrows the tolerance and shouts
                     # about magenta.
-                    retrying = attempt > BEST_OF
+                    retrying = attempt > BEST_OF or HARD_MODE
                     if retrying and best[1] is not None:
                         break
-                    raw = generate(p, work, reinforce=retrying, tag=f"a{attempt}")
+                    raw = generate(p, work, tag=f"a{attempt}")
                     job.tick("tasarim uretildi" if attempt == 1 else "tasarim tekrar uretildi")
                     try:
                         cand = cutout(p, raw, work, tol=TOL_TIGHT if retrying else TOL_WIDE,

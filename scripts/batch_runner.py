@@ -877,6 +877,20 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
     # shrinks, so a small source is left alone and reported as under-resolution rather than fake-upscaled.
     im.thumbnail((PRINT_MAX_PX, PRINT_MAX_PX), Image.LANCZOS)
     a = np.asarray(im).astype(int)
+    # Key on the colour the generator ACTUALLY painted, not the one it was asked for. It obeys the hex
+    # approximately — close enough to look right, far enough that a tight tolerance stops recognising it.
+    # Narrowing the band from 60 to 30 to stop a coral accent being keyed out instead produced bg_frac
+    # 0.0 on five of five products: the background itself had fallen outside the band. The background is
+    # the one region whose position is known — it fills the canvas edge to edge — so it can be measured
+    # rather than assumed, and then a tight tolerance is safe because it is centred on the truth.
+    border = np.concatenate([a[:4, :, :].reshape(-1, 3), a[-4:, :, :].reshape(-1, 3),
+                             a[:, :4, :].reshape(-1, 3), a[:, -4:, :].reshape(-1, 3)])
+    med = np.median(border, axis=0)
+    drift = float(np.sqrt(((med - np.array([kr, kg, kb])) ** 2).sum()))
+    # Only trust the border if it is recognisably the requested colour. If the generator painted no matte
+    # at all, the border is artwork and following it would key the design away.
+    if drift <= 90:
+        kr, kg, kb = (int(round(v)) for v in med)
     dist = np.sqrt(((a - np.array([kr, kg, kb])) ** 2).sum(axis=2))
     bg = dist <= tol
 
@@ -994,6 +1008,7 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
         "edge_contact": round(edge_contact, 4),
         "art_px": art_px,
         "size_in_at_300": round(art_px / PRINT_PPI, 1),
+        "key_drift": round(drift, 1),
     }
     return out, report
 

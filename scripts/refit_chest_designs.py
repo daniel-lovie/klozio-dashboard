@@ -96,7 +96,7 @@ def under_resolution() -> list[dict]:
     return out
 
 
-def repoint(p: dict) -> None:
+def repoint(p: dict, keep_hook: bool = False) -> None:
     """Placement, size, and no words. Written before generation so the compiler reads them."""
     dp = dict(p["dp"])
     dp["placement"] = PLACEMENT
@@ -108,8 +108,12 @@ def repoint(p: dict) -> None:
     k = c.cursor()
     # hook drives typeset. Emptying it is what makes the design wordless, and it also makes the prompt
     # compiler emit FILL_CLAUSE instead of reserving a caption band.
-    k.execute("""UPDATE products SET design_params = %s, hook = NULL, updated_at = now()
-                  WHERE id = %s""", (json.dumps(dp), p["id"]))
+    if keep_hook:
+        k.execute("UPDATE products SET design_params = %s, updated_at = now() WHERE id = %s",
+                  (json.dumps(dp), p["id"]))
+    else:
+        k.execute("""UPDATE products SET design_params = %s, hook = NULL, updated_at = now()
+                      WHERE id = %s""", (json.dumps(dp), p["id"]))
     c.commit()
     c.close()
 
@@ -187,20 +191,32 @@ def main() -> int:
     ap.add_argument("--limit", type=int)
     ap.add_argument("--live-only", action="store_true")
     ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--only", help="virgulle ayrilmis slug listesi")
+    # Personalised products are the exception the wordless rule cannot cover: the buyer is paying for
+    # their own name, so a print with no words is not a cleaner design, it is a different product with
+    # nothing to sell. Clearing `hook` on those five was the mistake; this is how they come back.
+    ap.add_argument("--keep-hook", action="store_true", help="hook'u SILME — kisisellestirilmis urunler")
     a = ap.parse_args()
 
     todo = under_resolution()
     if a.live_only:
         todo = [p for p in todo if p["live"]]
+    if a.only:
+        want = {x.strip() for x in a.only.split(",") if x.strip()}
+        todo = [p for p in todo if p["slug"] in want]
     if a.limit:
         todo = todo[:a.limit]
 
-    print(f"{len(todo)} urun {CHEST_IN:g} inc {PLACEMENT} baskisina alinacak, yazisiz "
+    # The banner has to say what THIS run does. It read "yazisiz" unconditionally, which was a lie the
+    # moment --keep-hook existed — and it printed that lie over the personalised products, the one set
+    # where losing the words is the whole defect being repaired.
+    words = "yazi KORUNUYOR (kisisellestirilmis)" if a.keep_hook else "yazisiz"
+    print(f"{len(todo)} urun {CHEST_IN:g} inc {PLACEMENT} baskisina alinacak, {words} "
           f"({sum(1 for p in todo if p['live'])} tanesi YAYINDA)\n")
     for p in todo[:10]:
         print(f"  {p['slug']:28} cizim {p['art']:>5}px  {p['want']:g}in -> {CHEST_IN:g}in "
               f"({p['art']/CHEST_IN:.0f} PPI){'  · YAYINDA' if p['live'] else ''}"
-              f"{'  · yazi silinecek' if (p['hook'] or '').strip() else ''}")
+              f"{('  · yazi: ' + (p['hook'] or '')[:28]) if a.keep_hook and (p['hook'] or '').strip() else ('  · yazi silinecek' if (p['hook'] or '').strip() else '')}")
     if len(todo) > 10:
         print(f"  … +{len(todo)-10} tane daha")
 
@@ -216,7 +232,7 @@ def main() -> int:
 
     def one(p: dict) -> None:
         old_blob, old_state = snapshot(p["id"])
-        repoint(p)
+        repoint(p, keep_hook=a.keep_hook)
         good, msg = regenerate(p)
         if good:
             measured, detail = verify(p["id"])

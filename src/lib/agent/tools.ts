@@ -143,7 +143,7 @@ export const TOOL_DEFS = [
   },
   {
     name: "read_file",
-    description: "Depodaki bir dosyayi ya da klasoru oku. Kod, script, skill dokumani, CLAUDE.md — hepsi. "
+    description: "dashboard/ altindaki dosya ve klasorleri oku: kod, scriptler, agent mantigi. Depo kokundeki CLAUDE.md ve .claude/skills/ ERISIMIN DISINDA — orasi calisma dizininin ustunde. "
       + "Bir seyin NASIL calistigini merak ediyorsan tahmin etme, kaynagi oku. Klasor verirsen icerigini listeler. "
       + "Gizli dosyalar (.env, anahtarlar) reddedilir.",
     input_schema: {
@@ -250,10 +250,26 @@ async function runScript(script: string, args: string[]): Promise<any> {
     const child = spawn("python3", [join(process.cwd(), "scripts", script), ...args],
                         { env: process.env, cwd: process.cwd() });
     let out = "", err = "";
+    // A hung script here blocked the turn until the 800s request ceiling killed the whole thing, which
+    // also discards the transcript persist in the loop's finally. workspace.ts has had this guard from
+    // the start; these two spawns did not.
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      child.kill("SIGKILL");
+      resolve({ error: `${script} 180sn icinde bitmedi, durduruldu` });
+    }, 180_000);
     child.stdout.on("data", (d) => { out += d; });
     child.stderr.on("data", (d) => { err += d; });
-    child.on("error", (e) => resolve({ error: String(e?.message ?? e) }));
+    child.on("error", (e) => {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      resolve({ error: String(e?.message ?? e) });
+    });
     child.on("close", () => {
+      if (done) return;
+      done = true; clearTimeout(timer);
       const line = out.trim().split("\n").filter(Boolean).pop() ?? "";
       try { resolve(JSON.parse(line)); }
       catch { resolve({ error: (err || out || "cikti okunamadi").slice(0, 300) }); }

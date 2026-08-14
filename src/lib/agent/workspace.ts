@@ -98,6 +98,15 @@ const SCRIPT_DENY = new Map<string, string>([
   ["shopify_hero_gaming.py", "vitrini degistirir — acik onay ister"],
   ["shopify_register_webhook.py", "magaza ayari degistirir — acik onay ister"],
   ["seed_ttrpg.py", "toplu veri tohumlar — operator calistirir"],
+  // Found by audit: these write outward or spend money and were reachable. The denylist stays a denylist
+  // rather than becoming an allowlist, because inverting it would block scripts the operator relies on
+  // mid-workflow — but anything that touches a LIVE listing in bulk, or bills, belongs here.
+  ["update_covers_bulk.py", "canli Etsy kapak gorsellerini TOPLU ezer — once ornek gosterilmeli, operator calistirir"],
+  ["shopify_technique_toggle.py", "canli Shopify secenegi yazar — acik onay ister"],
+  ["shopify_hero_copy.py", "canli vitrin metnini degistirir — acik onay ister"],
+  ["reshoot_embroidery.py", "her nakis urununu toplu yeniden uretir — UCRETLI"],
+  ["batch_runner.py", "toplu UCRETLI uretim; produce'un tur basina 2 cagri sinirini atlatir"],
+  ["make_emb_render.py", "ayri ve UCRETLI bir adim — operator calistirir"],
 ]);
 
 export async function runRepoScript(name: string, args: string[]):

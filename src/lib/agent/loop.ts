@@ -64,6 +64,8 @@ const PROMISE =
   /\b(yaz|üret|uret|ekle|hazırl|hazirl|oluştur|olustur|planl|gir|kayded|aç|ac|kur|başlat|baslat)(ıyorum|iyorum|uyorum|üyorum|acağım|ecegim|eceğim|acagim)\b/i;
 // No closing \b: Turkish glues suffixes straight onto the borrowed word, with or without an apostrophe
 // ("INSERT'i çalıştırıyorum", "INSERTleri"), and \b would only match the bare form.
+// Requires BOTH a promise verb and the SQL noun. On its own the noun fired on ordinary prose such as
+// "listing_stats'te bir update gorunmuyor", which is a report, not a promise.
 const PROMISED_SQL = /\b(insert|update|delete)/i;
 
 function promisedWork(said: string): boolean {
@@ -250,7 +252,17 @@ export async function* runAgentTurn(
   let finished = false;               // did the model answer, or did we run out of steps?
 
   try {
+    const startedAt = Date.now();
     for (let step = 0; step < MAX_STEPS; step++) {
+      // The request itself dies at 800s and takes the transcript persist with it. Stop short, say so, and
+      // let the finally block record what actually happened.
+      if (Date.now() - startedAt > 700_000) {
+        const note = "⚠️ Sure butcesi doldu (700sn). Yapilanlar kaydedildi; kalanini tekrar iste.";
+        yield { t: "error", d: note };
+        messages.push({ role: "assistant", content: [{ type: "text", text: note }] });
+        finished = true;
+        break;
+      }
       // Retry a cut stream instead of ending the turn. `overloaded_error`, an api_error and a dropped
       // connection all arrive mid-stream, and without a retry each one cost the operator the whole
       // request — including the research already done — and they had to retype it. Three attempts with
@@ -414,7 +426,12 @@ export async function* runAgentTurn(
   } finally {
     // Never persist a message the API will reject on the next turn: an empty content array, a tool_use
     // whose result never arrived, or a tool_result the window slice separated from its tool_use.
-    const clean = stripImages(sanitiseHistory(messages.slice(-60)));
+    // Keep the operator's own question: a 40-step turn can append 80 messages, so a plain tail slice
+    // drops the user turn that started the work and the next turn opens mid-tool-result.
+    const first = messages.findIndex((m: any) => m.role === "user");
+    const tail = messages.slice(-60);
+    const window = first >= 0 && !tail.includes(messages[first]) ? [messages[first], ...tail] : tail;
+    const clean = stripImages(sanitiseHistory(window));
     await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }
   yield { t: "done" };

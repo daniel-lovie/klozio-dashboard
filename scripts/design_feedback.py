@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS design_feedback (
     prompt        text,
     design_model  text,
     attempt       int,
+    -- Who judged it. Several people rate the same design on purpose: one person's taste is a preference,
+    -- five people agreeing is a signal, and where they disagree is where the house style is not decided.
+    rater         text,
     created_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS design_feedback_product ON design_feedback (product_id, created_at DESC);

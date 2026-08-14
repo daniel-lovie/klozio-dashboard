@@ -36,5 +36,9 @@ export const config = {
   //     container fail its healthcheck and the platform kept serving the previous build. A liveness
   //     check that can be broken by the login system is not a liveness check.
   //   api/etsy/callback — Etsy redirects the seller back here with no session of ours yet.
-  matcher: ["/((?!_next|api/health|api/etsy/callback|.*\\..*).*)"],
+  //   rate, api/rate — the design rating link. The people whose taste is worth collecting will not be
+  //     given dashboard accounts, so this path carries its own token (lib/rate-token.ts) and grants
+  //     exactly one thing: see a design, record a verdict. Running it through Clerk would mean an
+  //     account each, which is the reason the data never gets collected.
+  matcher: ["/((?!_next|api/health|api/etsy/callback|api/rate|rate|.*\\..*).*)"],
 };

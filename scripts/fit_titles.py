@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bring titles into the 80-95 character operating band without losing the keyword that earns the click.
+"""Bring titles into the 125-140 character operating band without losing the keyword that earns the click.
 
 Titles average 126 characters here, built as four or five comma-separated keyword phrases. The band is a
 standard this shop states; meeting it means dropping phrases, so which ones go is the whole question.
@@ -10,8 +10,10 @@ Rules, in order:
   2. "Comfort Colors" is kept when present. It is not decoration: it is a search term buyers type.
   3. Remaining segments are added longest-first while they fit, so the band fills with the most specific
      phrases rather than whatever happened to come next.
-  4. A title that still falls under 80 gets back the best segment that fits, because an under-length title
-     wastes search surface just as an over-length one wastes attention.
+  4. A title that still falls under 125 gets back the best segment that fits, because an under-length title
+     wastes search surface just as an over-length one wastes attention. NOTE: this tool can only DROP
+     segments — it cannot invent keywords, so it cannot lift a short title into the band. Titles below 125
+     need new keyword phrases written, which is a content job, not a trimming one.
 
 Nothing is written without --apply, and a title that cannot be fitted is reported rather than mangled.
 
@@ -26,7 +28,7 @@ import sys
 
 import psycopg2
 
-LOW, HIGH = 80, 95
+LOW, HIGH = 125, 140
 KEYWORD_HEAD = 40
 
 

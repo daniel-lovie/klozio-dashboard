@@ -651,7 +651,11 @@ async function updateProduct(input: any): Promise<{
   if (input.title !== undefined) {
     const t = String(input.title).trim();
     // Etsy rejects over 140 and the copy playbook wants 125-140; refusing here beats a 400 mid-write.
-    if (t.length < 10 || t.length > 140) throw new Error(`title ${t.length} karakter — Etsy siniri 140, playbook 125-140`);
+    // The validator accepted 10-140 while its own error text quoted 125-140, so it enforced neither. The
+    // operating band is 125-140 (operator decision 2026-08-14); 140 is Etsy's hard limit.
+    if (t.length > 140) throw new Error(`title ${t.length} karakter — Etsy siniri 140`);
+    if (t.length < 125) throw new Error(`title ${t.length} karakter — calisma bandi 125-140, cok kisa. `
+      + `Anahtar kelime obegi ekle; kirpma degil yazma isi.`);
     if (t !== p.title) { put("title", t); changed.push("title"); }
   }
   if (input.description !== undefined) {

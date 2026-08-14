@@ -21,7 +21,7 @@ import psycopg2
 import psycopg2.extras
 
 TITLE_MAX = 140
-TITLE_BAND = (80, 95)
+TITLE_BAND = (125, 140)
 TAGS_REQUIRED = 13
 TAG_MAX = 20
 SEO_FLOOR = 85

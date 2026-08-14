@@ -36,7 +36,8 @@ export function resolveInRepo(rel: string): string | null {
   return p;
 }
 
-export async function readRepoFile(rel: string): Promise<{ ok: boolean; text: string }> {
+export async function readRepoFile(rel: string, offset = 0, limit = 0):
+  Promise<{ ok: boolean; text: string }> {
   const p = resolveInRepo(rel);
   if (!p) return { ok: false, text: `ERROR: '${rel}' okunamaz (repo disi ya da gizli dosya)` };
   try {
@@ -49,24 +50,64 @@ export async function readRepoFile(rel: string): Promise<{ ok: boolean; text: st
       };
     }
     if (s.size > 4_000_000) return { ok: false, text: `ERROR: dosya cok buyuk (${Math.round(s.size / 1e6)}MB)` };
+    // A binary read comes back as mojibake that looks like a corrupted file rather than the wrong request.
+    if (/\.(png|jpe?g|webp|gif|ico|woff2?|ttf|otf|zip|pdf)$/i.test(p)) {
+      return { ok: false, text: `ERROR: '${rel}' ikili bir dosya. Urun gorseli icin 'look' aracini kullan.` };
+    }
     const body = await readFile(p, "utf8");
+    // Line ranges, because the interesting part of a thousand-line script is rarely the first third and a
+    // silent truncation reads as "that is the whole file".
+    if (offset > 0 || limit > 0) {
+      const lines = body.split("\n");
+      const from = Math.max(0, (offset || 1) - 1);
+      const take = limit > 0 ? limit : 400;
+      const slice = lines.slice(from, from + take);
+      const head = `[${rel} · ${from + 1}-${Math.min(from + take, lines.length)} / ${lines.length} satir]\n`;
+      return { ok: true, text: head + slice.join("\n") };
+    }
     return body.length > MAX_CHARS
-      ? { ok: true, text: `${body.slice(0, MAX_CHARS)}\n\n… kesildi (${body.length} karakter)` }
+      ? { ok: true, text: `${body.slice(0, MAX_CHARS)}\n\n… kesildi (${body.length} karakter). `
+                          + `Gerisi icin offset/limit ver.` }
       : { ok: true, text: body };
   } catch (e: any) {
     return { ok: false, text: `ERROR: ${String(e?.message ?? e).slice(0, 200)}` };
   }
 }
 
-/** produce_product.py is excluded on purpose: `produce` already wraps it with the per-turn cap that keeps
- *  one request from spending twenty minutes of image generation. A second door around a limit is no limit. */
-const SCRIPT_DENY = new Set(["produce_product.py"]);
+/** Scripts the agent may not run, and why.
+ *
+ * produce_product.py: `produce` already wraps it with the per-turn cap that keeps one request from spending
+ * twenty minutes of image generation. A second door around a limit is no limit.
+ *
+ * The rest publish, reprice, or push to a storefront. CLAUDE.md makes those explicit-approval actions, and
+ * the whole argument for building this tool layer was that a rule living only in the prompt stops being a
+ * rule the moment a tool permits the thing. Leaving a one-call path to "go live" and trusting the prompt to
+ * hold it would repeat exactly the mistake this file exists to avoid. The operator runs these.
+ */
+const SCRIPT_DENY = new Map<string, string>([
+  ["produce_product.py", "toplu/tekil uretim icin 'produce' aracini kullan (tur basina 2 cagri siniri)"],
+  ["reprice_personalized_emb.py", "fiyat degistirir — acik talep ister, operator calistirir"],
+  ["requeue_etsy.py", "Etsy'ye yazar — acik onay ister"],
+  ["resync_etsy_images.py", "Etsy'ye gorsel yukler — acik onay ister"],
+  ["publish_ttrpg.py", "yayina alir — acik onay ister"],
+  ["shopify_golive.py", "magazayi yayina alir — acik onay ister"],
+  ["shopify_port.py", "Shopify'a urun yazar — acik onay ister"],
+  ["shopify_cleanup.py", "Shopify'da siler — acik onay ister"],
+  ["shopify_homepage.py", "vitrini degistirir — acik onay ister"],
+  ["shopify_home_images.py", "vitrini degistirir — acik onay ister"],
+  ["shopify_hero_gaming.py", "vitrini degistirir — acik onay ister"],
+  ["shopify_register_webhook.py", "magaza ayari degistirir — acik onay ister"],
+  ["seed_ttrpg.py", "toplu veri tohumlar — operator calistirir"],
+]);
 
 export async function runRepoScript(name: string, args: string[]):
   Promise<{ ok: boolean; text: string }> {
-  if (!/^[\w.-]+\.py$/.test(name) || SCRIPT_DENY.has(name)) {
-    return { ok: false, text: `ERROR: '${name}' calistirilamaz. scripts/ altindaki bir .py dosyasi ver; `
-      + `produce_product.py haric (onun icin 'produce' aracini kullan).` };
+  if (!/^[\w.-]+\.py$/.test(name)) {
+    return { ok: false, text: `ERROR: '${name}' gecerli bir script adi degil; scripts/ altindaki bir .py ver.` };
+  }
+  const denied = SCRIPT_DENY.get(name);
+  if (denied) {
+    return { ok: false, text: `ERROR: '${name}' bu araçla calistirilamaz — ${denied}.` };
   }
   const p = resolveInRepo(path.join("scripts", name));
   if (!p) return { ok: false, text: `ERROR: '${name}' bulunamadi` };

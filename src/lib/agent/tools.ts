@@ -138,7 +138,11 @@ export const TOOL_DEFS = [
       + "Gizli dosyalar (.env, anahtarlar) reddedilir.",
     input_schema: {
       type: "object",
-      properties: { path: { type: "string", description: "repo koku goreli, orn 'scripts/batch_runner.py' ya da 'scripts'" } },
+      properties: {
+        path: { type: "string", description: "repo koku goreli, orn 'scripts/batch_runner.py' ya da 'scripts'" },
+        offset: { type: "number", description: "bu satirdan basla (1'den). Buyuk dosyayi parca parca oku." },
+        limit: { type: "number", description: "kac satir (varsayilan 400)" },
+      },
       required: ["path"],
     },
   },
@@ -271,9 +275,11 @@ export async function execTool(name: string, input: any):
     if (name === "read_file") {
       const { readRepoFile } = await import("./workspace");
       const rel = String(input.path ?? "");
-      const r = await readRepoFile(rel);
+      const r = await readRepoFile(rel, Number(input.offset) || 0, Number(input.limit) || 0);
       await logEvent("agent_tool", { detail: `read_file ${rel}` });
-      return { result: clip(r.text), summary: `read_file ▸ ${rel}${r.ok ? "" : " (red)"}` };
+      // Source files run well past the 12k default clip, and a file cut to a third silently answers the
+      // wrong question. Reads get their own, larger ceiling; offset/limit is how the rest is reached.
+      return { result: clip(r.text, 45_000), summary: `read_file ▸ ${rel}${r.ok ? "" : " (red)"}` };
     }
     if (name === "run_script") {
       const { runRepoScript } = await import("./workspace");
@@ -281,7 +287,7 @@ export async function execTool(name: string, input: any):
       const args = Array.isArray(input.args) ? input.args.map(String) : [];
       const r = await runRepoScript(script, args);
       await logEvent("agent_tool", { detail: `run_script ${script} ${args.join(" ")}`.slice(0, 180) });
-      return { result: clip(r.text), summary: `run_script ▸ ${script} ${r.ok ? "ok" : "hata"}` };
+      return { result: clip(r.text, 30_000), summary: `run_script ▸ ${script} ${r.ok ? "ok" : "hata"}` };
     }
     if (name === "look") {
       const pid = Number(input.product_id);

@@ -247,14 +247,59 @@ KEY_NAME = "bright magenta"
 
 # Sentences that try to set the background themselves. Left in place they contradict the clause below, and a
 # contradiction is resolved by the model at random — which is how this failed in the first place.
+# Tested against real stored concepts: the old pattern caught "Isolated on a plain solid uniform magenta
+# background" and missed "Set against a flat magenta backdrop", "floats on an even magenta field" and "on a
+# solid magenta ground" — every common paraphrase. A surviving background sentence contradicts the key
+# clause, and a contradiction is resolved by the model at random, which is how nine white ducks shipped as
+# white smears.
 _BG_SENTENCE = re.compile(
-    r"[^.]*\b(isolated on|background colou?r|plain (solid|uniform)[^.]*background|transparent background)\b[^.]*\.?",
+    r"[^.]*\b(isolated on|set against|floats? on|sits? on"
+    r"|backdrop|background|plain (solid|uniform)[^.]*(background|backdrop|field|ground)"
+    r"|(even|flat|solid|plain)\s+\w*\s*(field|ground))\b[^.]*\.?",
     re.I)
+
+
+# When the background talk is glued into the same sentence as the subject ("A crane on a solid magenta
+# ground."), deleting the sentence deletes the concept. Fall back to deleting the phrase from its
+# preposition onward, which leaves "A crane".
+_BG_PHRASE = re.compile(
+    r"\s*\b(on|against|over|upon|atop|in front of)\s+(a|an|the)?\s*[^.,;]*?"
+    r"\b(background|backdrop|field|ground|backing)\b[^.,;]*", re.I)
+
+
+# The concept's own palette can make the file uncuttable before a single credit is spent: the cut keys on
+# magenta, so a concept that asks for pink artwork gets holes punched through it. 36 rows in this catalogue
+# do exactly that. Cheaper to refuse the concept than to generate, cut, measure and discard.
+_KEY_HUE_WORDS = re.compile(r"\b(magenta|fuchsia|fuscia|hot pink|bubblegum|neon pink|#e6007e)\b", re.I)
+
+
+def concept_uses_key_hue(text: str, tol: int = 90) -> str:
+    """The offending colour, or empty. Checked before generation, not after.
+
+    Words AND hexes. Word-matching alone is both too loose and too tight: "blush pink #E79BAA" reads as a
+    problem and is not one (it sits 161 away from the key, well outside the keying band), while a concept
+    that names no colour word at all can still carry a hex that lands inside it. Measure the hexes.
+    """
+    m = _KEY_HUE_WORDS.search(text or "")
+    if m:
+        return m.group(0)
+    kr, kg, kb = (int(KEY_COLOR[i:i + 2], 16) for i in (1, 3, 5))
+    for hx in re.findall(r"#([0-9a-f]{6})\b", text or "", re.I):
+        r_, g_, b_ = (int(hx[i:i + 2], 16) for i in (0, 2, 4))
+        if ((r_ - kr) ** 2 + (g_ - kg) ** 2 + (b_ - kb) ** 2) ** 0.5 <= tol:
+            return f"#{hx}"
+    return ""
 
 
 def strip_background_talk(text: str) -> str:
     """Remove any background instruction from a concept, so the pipeline's own clause stands alone."""
-    return re.sub(r"\s{2,}", " ", _BG_SENTENCE.sub("", text or "")).strip()
+    src = (text or "").strip()
+    out = re.sub(r"\s{2,}", " ", _BG_SENTENCE.sub("", src)).strip()
+    if out:
+        return out
+    # Sentence-level strip took the subject with it. Cut the phrase instead.
+    narrow = re.sub(r"\s{2,}", " ", _BG_PHRASE.sub("", src)).strip().rstrip(",.;— ")
+    return narrow if narrow else src
 
 
 # The print envelope, in one place. The producer prints at 300 PPI and the largest area on a Comfort Colors
@@ -342,8 +387,10 @@ PALETTE_HINT = (
     "colour palette: rich and colourful, six to twelve FLAT solid colours, each with a role — one or two "
     "carry the main shapes, one draws the contour, the rest are accents; every colour a flat fill with a "
     "hard edge. No gradients, no soft glows, no airbrush fades, no blurred transitions. Strong contrast "
-    "against the garment. The one forbidden hue is magenta or hot pink — it is the background key colour "
-    "and any of it inside the artwork is cut away"
+    "against the garment. Where the design needs a light ink use warm cream #F2E8D5, not pure white: these "
+    "are garment-dyed washed blanks and #FFFFFF next to them reads as a cheap transfer. The one forbidden "
+    "hue is magenta or hot pink — it is the background key colour and any of it inside the artwork is cut "
+    "away"
 )
 
 # The muted earth look, kept as an option rather than a default. design_params.palette='muted' selects it;
@@ -772,6 +819,9 @@ def drop_flat_white_pockets(im: Image.Image, light: int = 247, neutral: int = 14
 # somebody sets the physical size by hand on every order: exactly the manual step that produces a
 # wrong-sized print. Untagged RGB is *usually* assumed sRGB, and "usually" is not a standard to ship on
 # garment-dyed cotton, where a gamut mismatch shows as a visible shift in the saturated colours.
+import typeset as _typeset                                     # noqa: E402 — the type this shop sets
+
+
 def save_print_png(im: "Image.Image", out: Path, dpi: int = PRINT_PPI) -> Path:
     """The only way a print file gets written: tagged sRGB, tagged DPI."""
     from PIL import ImageCms                                       # noqa: PLC0415
@@ -813,7 +863,16 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
 
     # The blend ring: where ink meets the key colour the generator mixes the two, so those pixels are part
     # key and would tint the edge. Take the ring off rather than trying to un-mix it.
-    keep = ndimage.binary_erosion(~bg, np.ones((5, 5)))
+    #
+    # 3x3, not 5x5, and given back afterwards. A 5x5 erosion takes two pixels off every side and an
+    # OPENING cannot restore anything thinner than its kernel — measured on a stroke card, widths 1-4px
+    # were erased outright and every survivor lost 4px. At 300 PPI that is 0.34mm off every edge and every
+    # line under 0.42mm gone: hatching, whiskers and distress texture, which is most of what "engraving"
+    # style means. One pixel per side is enough for the blend ring; anything wider than the ring is now
+    # caught by halo_frac, which measures colour instead of guessing at a radius.
+    ring = np.ones((3, 3))
+    keep = ndimage.binary_erosion(~bg, ring)
+    keep = ndimage.binary_dilation(keep, ring) & ~bg
     # Speckles inside the artwork (a stray key-coloured pixel in a dark line) are noise, not holes.
     keep = ndimage.binary_closing(keep, np.ones((3, 3)))
     alpha = np.where(keep, 255, 0).astype(np.uint8)
@@ -958,8 +1017,21 @@ def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
     # Measured, not guessed: sampling inward from the boundary, 34-37% of pixels at the edge are
     # near-white, 24-29% at 2px, 1-3% at 4px and none at 6px. The blend zone is four pixels, so that
     # is what comes off — 0.25% of a 2048px canvas, invisible on artwork with thick outlines.
-    grow = max(5, int(min(alpha.shape) * 0.0025))
-    keepmask = ndimage.binary_erosion(alpha > 128, np.ones((grow * 2 + 1, grow * 2 + 1)))
+    #
+    # The comment above reasons about "two pixels" and "four pixels" and then the code took FIVE per side
+    # — an 11x11 kernel on a 2048 canvas — with no compensating dilation. Measured on strokes of known
+    # width: everything below 12px was erased ENTIRELY and every surviving stroke lost 10px. In physical
+    # units that is every line under 1.2mm gone and every edge 1.1mm thinner than drawn, silently, with
+    # opaque_frac drifting down a little and nothing reporting it. Hatching, whisker lines and distress
+    # texture are exactly what disappears.
+    #
+    # Erode to remove the blend ring, then dilate the SAME radius to give the shapes back. That is an
+    # opening of the background rather than a one-way choke of the foreground: the ring still goes, the
+    # line work stays.
+    grow = 2
+    k = np.ones((grow * 2 + 1, grow * 2 + 1))
+    keepmask = ndimage.binary_erosion(alpha > 128, k)
+    keepmask = ndimage.binary_dilation(keepmask, k) & (alpha > 128)
     alpha = np.where(keepmask, 255, 0).astype(np.uint8)
 
     # Extend the colour outward past the alpha edge. Zeroing alpha does not change RGB, so every
@@ -1057,7 +1129,46 @@ def gate_alpha(path: Path | None, r: Result) -> None:
     if _drawn_checkerboard(im):
         r.add("G1 alpha", FAIL, "drawn checkerboard detected — 'transparency' is painted, not alpha")
         return
-    r.add("G1 alpha", PASS, f"RGBA, corner alpha {worst}")
+    # Partial alpha is not a cosmetic detail in DTF: the white underbase is generated FROM the alpha, so a
+    # feathered edge means partial powder adhesion and a crumbly halo on dyed cotton. 178 of 246 stored
+    # files carry semi-transparency, one at 25.6% of canvas.
+    semi = int(((a > 0) & (a < 255)).sum())
+    if semi > a.size * 0.002:
+        r.add("G1 alpha", FAIL, f"{semi} yari saydam piksel — DTF beyaz altligi kirilir, alfa ikili olmali")
+        return
+    r.add("G1 alpha", PASS, f"RGBA, corner alpha {worst}, yari saydam {semi}")
+
+
+def gate_resolution(path: Path | None, r: Result, want_in: float) -> None:
+    """G9 — is the ARTWORK actually 300 PPI at the size this design prints?
+
+    There was no resolution gate at all, in the path that produces the volume. `PRINT_MIN_IN = 9.5` was
+    written down as the floor and referenced by no code anywhere — a constant that only ever appeared in
+    documentation. Meanwhile the batch path was capped at 2048 px, which is 205 PPI across a 10 inch
+    print, and `stage_seed` marked every one of those rows `ready`/`approved` regardless.
+
+    Measured on the artwork, not the canvas: the prompt asks the generator for an even margin, so the
+    canvas overstates the resolution by however much margin it left. Of 216 DTF files, 205 passed a
+    canvas check and 102 were genuinely 300 PPI.
+    """
+    if path is None or not Path(path).exists():
+        r.add("G9 resolution", SKIP, "no cutout yet")
+        return
+    im = Image.open(path)
+    if im.mode != "RGBA":
+        r.add("G9 resolution", SKIP, f"mode={im.mode}")
+        return
+    bb = Image.fromarray((np.asarray(im)[:, :, 3] > 128).astype(np.uint8) * 255).getbbox()
+    if not bb:
+        r.add("G9 resolution", FAIL, "opak piksel yok — tasarim bos")
+        return
+    art_px = max(bb[2] - bb[0], bb[3] - bb[1])
+    ppi = art_px / max(want_in, 0.1)
+    if ppi < PRINT_PPI * 0.95:
+        r.add("G9 resolution", FAIL,
+              f"cizim {art_px}px, {want_in:g} incte {ppi:.0f} PPI — {PRINT_PPI} gerekiyor, yumusak basar")
+        return
+    r.add("G9 resolution", PASS, f"cizim {art_px}px = {ppi:.0f} PPI @ {want_in:g}in")
 
 
 # =================================================================================================
@@ -1696,7 +1807,11 @@ def write_provenance(c: dict, d: Path, spec: dict, r: Result, threads: list[str]
         "| Cover | make_cover.py, type hand-set in PIL | `covers/` |",
         "",
         "## Typography", "",
-        "All type is hand-set with PIL in a licensed system face (Arial Bold / Futura). "
+        # Names the faces the code actually loads, imported rather than restated. This line used to say
+        # "a licensed system face (Arial Bold / Futura)": typeset.py never loaded either — Futura is used
+        # for mockup badges, not for the printed type — and neither is a face this project could show a
+        # licence for. A compliance archive that names the wrong tool is worse than one that names none.
+        f"All type is hand-set with PIL in {_typeset.FONT_CREDIT}. "
         "The generator was instructed `NO text, NO letters, NO numbers` — AI never renders type here.",
         "",
         "## Trademark re-check on the output", "",
@@ -1746,6 +1861,10 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
     raw = stage_generate(c, d, r, dry, force, shop_id=spec.get("shop_id"))
     cut = stage_cutout(raw, c, d, r, dry, force, shop_id=spec.get("shop_id"))
     gate_alpha(cut, r)
+    # The size THIS design prints at, resolved the same way produce_product and the compositor resolve it,
+    # so the gate and the physical object agree.
+    import produce_images as _pi                                   # noqa: PLC0415
+    gate_resolution(cut, r, _pi.print_placement(c.get("design_params") or {"style": c.get("style")})["inches"])
 
     # --- palette snap + threads (embroidery only)
     art = cut
@@ -1861,7 +1980,7 @@ def run_concept(c: dict, spec: dict, cur, dry: bool, force: bool) -> Result:
 # =================================================================================================
 
 GATE_KEYS = ["G1 alpha", "G2 threads", "G3 cover", "G4 listing",
-             "G5 shop_id", "G6 shopify img", "G7 personalise", "G8 trademark"]
+             "G5 shop_id", "G6 shopify img", "G7 personalise", "G8 trademark", "G9 resolution"]
 
 
 def report(results: list[Result], spec: dict, dry: bool) -> int:

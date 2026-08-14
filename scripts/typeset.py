@@ -26,40 +26,65 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-# Font roles, in preference order. macOS paths first so local work uses the good faces; the Alpine
-# packages next (ttf-liberation carries a Times clone and a genuinely condensed Sans Narrow, which are
-# the two shapes the winners use); DejaVu last. A generic fallback is announced, never silent — type set
-# in the wrong face is the kind of defect that looks like nothing and reads as cheap.
+# Font roles. The repo's own faces come FIRST, and they are the only ones whose licence this project can
+# show you: assets/fonts/ carries Liberation Serif and Sans (SIL OFL 1.1) and Oswald (SIL OFL 1.1), each
+# with its licence file beside it.
+#
+# It used to prefer the macOS system faces — Times New Roman, Impact, Arial. Those are Monotype faces
+# bundled with the OS, and nothing in this repo substantiated the "commercially licensed font" that
+# CLAUDE.md and every PROVENANCE.md claim. Worse, the container has none of them, so the SAME product
+# typeset locally and typeset on the server came out in different typefaces — Impact here,
+# LiberationSansNarrow there. A vendored font fixes both: one licence on record, one rendering everywhere.
+#
+# The system paths stay as a last resort so a checkout without assets/ still renders, but they are
+# announced rather than used silently.
+FONTS = Path(__file__).resolve().parent.parent / "assets" / "fonts"
 FONT_ROLES: dict[str, list[str]] = {
     "serif": [
-        "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
-        "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
+        str(FONTS / "LiberationSerif-Bold.ttf"),
         "/usr/share/fonts/liberation/LiberationSerif-Bold.ttf",
         "/usr/share/fonts/liberation2/LiberationSerif-Bold.ttf",
-        "/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
     ],
     "condensed": [
-        "/System/Library/Fonts/Supplemental/Impact.ttf",
+        str(FONTS / "Oswald-Variable.ttf"),
         "/usr/share/fonts/liberation-sans-narrow/LiberationSansNarrow-Bold.ttf",
-        "/usr/share/fonts/liberation/LiberationSansNarrow-Bold.ttf",
-        "/usr/share/fonts/liberation2/LiberationSansNarrow-Bold.ttf",
         "/usr/share/fonts/dejavu/DejaVuSansCondensed-Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Impact.ttf",
     ],
     "sans": [
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+        str(FONTS / "LiberationSans-Bold.ttf"),
         "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
     ],
 }
+# The licence line the provenance archive should carry. 16 PROVENANCE.md files said type was set in
+# "Arial Bold / Futura" — typeset.py has never referenced Futura, and Arial is not a font this project can
+# prove a licence for. An archive that names the wrong tool is worse than one that names none.
+FONT_CREDIT = ("Liberation Serif Bold / Liberation Sans Bold (SIL OFL 1.1) and Oswald (SIL OFL 1.1), "
+               "vendored in dashboard/assets/fonts with their licences")
+
 _warned: set[str] = set()
 
 
 def font(role: str, size: int) -> ImageFont.FreeTypeFont:
-    for path in FONT_ROLES.get(role, FONT_ROLES["sans"]):
+    for i, path in enumerate(FONT_ROLES.get(role, FONT_ROLES["sans"])):
         try:
-            return ImageFont.truetype(path, size)
+            f = ImageFont.truetype(path, size)
         except OSError:
             continue
+        # Oswald ships as a variable font and instantiates at Regular; poster type is the design, so it
+        # has to be set at Bold or the whole layout reads thin.
+        try:
+            f.set_variation_by_name("Bold")
+        except (OSError, ValueError, AttributeError):
+            pass
+        if i and path not in _warned:
+            _warned.add(path)
+            print(f"UYARI typeset: '{role}' icin depodaki font bulunamadi, {path} kullaniliyor — "
+                  f"yerel ve sunucu ciktisi FARKLI yazi tipiyle cikar ve bu fontun lisansi kayitli degil",
+                  file=sys.stderr)
+        return f
     if role not in _warned:
         _warned.add(role)
         print(f"UYARI typeset: '{role}' icin uygun font yok, bitmap yedegine dusuldu — "
@@ -233,17 +258,25 @@ def compose(art: Image.Image, text: str | None, style: str = "engraving",
     elif layout == "poster":
         # Big condensed type IS the design; art tucks under it.
         lines = _wrap(d, words, "condensed", int(size * 0.16), inner, 0.0)[:3]
-        band = int(size * 0.15) * len(lines)
+        band_h = int(size * 0.15)
+        band = band_h * len(lines)
+        # ONE size across the block, and advance by the band that size was fitted to. This path called _fit
+        # INSIDE the loop, so each line took its own size — a short word grew and a long one shrank, and a
+        # three-line hook came out as three unrelated captions. Rendered and looked at: line 1 small, line 2
+        # huge, line 3 medium. The caption path below documents this exact fix as done; it was done there
+        # and not here. It also advanced by 0.145 while fitting glyphs to 0.15, so the lines overlapped by
+        # half a percent of the canvas on every poster.
+        f = min((_fit(d, line, "condensed", inner, band_h, track=0.0)[0] for line in lines),
+                key=lambda ff: ff.size)
         s = min(inner / art.width, (size - band - 4 * pad) / art.height)
         art = art.resize((int(art.width * s), int(art.height * s)), Image.LANCZOS)
         canvas.alpha_composite(art, ((size - art.width) // 2, pad + band + pad))
         y = pad
         for line in lines:
-            f, _ = _fit(d, line, "condensed", inner, int(size * 0.15), track=0.0)
             w = text_width(d, line, f, 0.0)
             t = d.textbbox((0, 0), line, font=f)[1]
             d.text(((size - w) // 2, y - t), line, font=f, fill=fill)
-            y += int(size * 0.145)
+            y += band_h
             drawn += 1
     else:
         # caption / small: serif caps under the illustration, letter-spaced. The strongest formula.

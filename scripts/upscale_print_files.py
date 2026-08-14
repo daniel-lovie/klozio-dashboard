@@ -29,6 +29,9 @@ from pathlib import Path
 
 import numpy as np
 import psycopg2
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import produce_images as pi   # noqa: E402 — one authority on a product's print size
 from PIL import Image
 
 TARGET = 3000                 # 10 inches at 300 PPI
@@ -141,10 +144,19 @@ def main() -> int:
                 print(f"  HATA {slug}: {msg}", file=sys.stderr)
                 continue
             im = Image.open(io.BytesIO(data))
+            # The REAL effective PPI, not the number we wish were true. Writing 300 unconditionally is how
+            # a 2048px file ended up recorded at 300 dpi (and, via template-clone, at 323): upscaling to a
+            # bigger canvas does not make the artwork 300 PPI if the artwork still occupies 1900 of those
+            # pixels. This column is what the product page shows the operator.
+            bb = im.convert("RGBA").getbbox()
+            art = max(bb[2] - bb[0], bb[3] - bb[1]) if bb else max(im.size)
             c = conn(); k = c.cursor()
+            k.execute("SELECT design_params FROM products WHERE id=%s", (pid,))
+            dp = (k.fetchone() or [None])[0]
+            want = pi.print_placement(dp if isinstance(dp, dict) else None)["inches"]
             k.execute("""UPDATE products SET print_file=%s, print_file_w=%s, print_file_h=%s,
-                                print_dpi=300, updated_at=now() WHERE id=%s""",
-                      (psycopg2.Binary(data), im.width, im.height, pid))
+                                print_dpi=%s, updated_at=now() WHERE id=%s""",
+                      (psycopg2.Binary(data), im.width, im.height, round(art / max(want, 0.1)), pid))
             c.commit(); c.close()
             ok += 1
             print(f"  {slug}: {msg}", file=sys.stderr)

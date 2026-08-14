@@ -7,6 +7,11 @@ FROM node:22-alpine
 # dependencies — not just the image libraries:
 #   py3-psycopg2  every producer script reads and writes the database; without it production failed on
 #                 every product and marked each one 'error' while the build looked perfectly healthy.
+# The typesetting faces are VENDORED at dashboard/assets/fonts (Liberation + Oswald, both SIL OFL 1.1,
+# licences beside them) and `COPY . .` brings them in. The Alpine packages below stay as a fallback only:
+# relying on them meant the same product came out in Impact locally and LiberationSansNarrow here, and
+# neither the local faces nor the claim that they were licensed had anything behind it.
+#
 #   ttf-dejavu    scripts/produce_images.py hand-sets the colourway badge. With no TrueType font PIL
 #                 falls back to a bitmap default and the badge renders unreadably small — a listing
 #                 image that ships looking broken.

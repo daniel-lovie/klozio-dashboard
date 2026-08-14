@@ -89,6 +89,15 @@ def generate(p: dict, work: Path) -> Path:
     # The stored prompt is a FULL prompt from an earlier batch, tail included. Appending a new tail to it
     # asked for flat vector and fine engraving at once; `subject_of` keeps the concept (and its own palette)
     # and drops the old style block.
+    # Refuse before spending. The cut keys on magenta, so artwork that asks for magenta is punched full of
+    # holes by the step that is supposed to clean it — measured as `holes_px` after the fact, but the fact
+    # costs a generation. 36 catalogue concepts name pink or magenta in their own palette.
+    bad_hue = br.concept_uses_key_hue(prompt)
+    if bad_hue:
+        raise RuntimeError(
+            f"konsept paletinde '{bad_hue}' var — kesim anahtar rengi ({br.KEY_COLOR}) magenta oldugu icin "
+            f"bu renk tasarimdan KESILIR ve delik acar. design_prompt'tan pembeyi/magentayi cikar "
+            f"(mercan, kiremit, mor ya da sicak kirmizi kullan) ve tekrar dene.")
     subject, has_palette = br.subject_of(prompt)
     if subject:
         # Whoever wrote the concept does not get to choose the background. One product's prompt said

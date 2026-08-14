@@ -285,6 +285,38 @@ async function runScript(script: string, args: string[]): Promise<any> {
  * rules, what cannot is refused. Creating a draft is recoverable; deleting a listing, charging a card, and
  * dropping rows are not.
  */
+/** The query with comments and string literals removed, lowercased.
+ *
+ *  Every guard below used to test the raw string, which meant a leading comment, a CTE, a schema prefix or
+ *  a quoted literal walked past all of them — and the WHERE clause counted as part of the SET clause, so
+ *  legitimate updates filtering on a protected column were refused while the real writes got through.
+ */
+function normaliseSql(raw: string): string {
+  return String(raw ?? "")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")        // block comments
+    .replace(/--[^\n]*/g, " ")                  // line comments
+    .replace(/'(?:[^']|'')*'/g, "''")            // string literals, kept as an empty marker
+    .replace(/"([^"]*)"/g, "$1")                 // quoted identifiers -> bare
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** Does this string carry more than one statement? node-pg's simple protocol runs them all in one call,
+ *  which turned "select 1; delete from products" into a total bypass of the checks below — verified
+ *  against the live database, including with an empty values array, which does NOT force one statement. */
+function isMultiStatement(sql: string): boolean {
+  const body = normaliseSql(sql).replace(/;\s*$/, "");
+  return body.includes(";");
+}
+
+/** The SET clause only — everything between SET and the first WHERE/RETURNING/FROM at depth zero. */
+function setClause(sql: string): string {
+  const m = /\bset\b(.*)$/.exec(sql);
+  if (!m) return "";
+  return m[1].split(/\bwhere\b|\breturning\b|\bfrom\b/)[0];
+}
+
 function refuseIrreversible(name: string, input: any): string | null {
   const method = String(input?.method ?? "").toUpperCase();
   const path = String(input?.path ?? "");
@@ -295,24 +327,35 @@ function refuseIrreversible(name: string, input: any): string | null {
     return "ERROR: Printful confirm PARA ÇEKER ve geri alınamaz. Operatörün açık talebi olmadan çağrılamaz.";
   }
   if (name === "shopify" && /\bmutation\b/i.test(String(input?.query ?? ""))
-      && /\b(delete|Delete)\b/.test(String(input?.query ?? ""))) {
-    return "ERROR: Shopify silme mutasyonu bu araçla yapılamaz — geri alınamaz. Operatöre sor.";
+      // Shopify mutation names are camelCase — productDelete, collectionDelete,
+      // productVariantsBulkDelete — so a \bdelete\b word boundary matched none of them and blocked only
+      // the one spelling that is not a real mutation.
+      && /(delete|destroy|remove)/i.test(String(input?.query ?? ""))) {
+    return "ERROR: Shopify silme/kaldirma mutasyonu bu araçla yapılamaz — geri alınamaz. Operatöre sor.";
+  }
+  if (name === "printful" && method === "DELETE") {
+    return "ERROR: Printful'da silme geri alınamaz — operatöre sor.";
   }
   // The general tool was beating the specific ones: across 306 logged calls the agent reached for raw sql
   // 88% of the time and used update_product exactly never — so every safety rule built into that tool (the
   // Etsy price living in inventory offerings rather than on the listing, the tag and title limits, the
   // read-back) never applied. Writing prompt rules did not change it. Refuse the four columns that tool
   // owns; everything else in the schema is still fair game for raw sql.
+  if (name === "sql" && isMultiStatement(String(input?.query ?? ""))) {
+    return "ERROR: tek cagrida tek SQL ifadesi. Birden fazla ifade tek seferde calisir ve guvenlik "
+      + "kontrollerini atlar; ifadeleri ayri cagrilara bol.";
+  }
+  const q = name === "sql" ? normaliseSql(String(input?.query ?? "")) : "";
   if (name === "sql"
-      && /^\s*update\s+products\b/i.test(String(input?.query ?? ""))
-      && /\bset\b[^;]*\b(price_cents|title|description|tags)\s*=/i.test(String(input?.query ?? ""))) {
+      && /\bupdate\s+(only\s+)?(public\.)?products\b/.test(q)
+      && /\b(price_cents|title|description|tags)\s*=/.test(setClause(q))) {
     return "ERROR: products.price_cents / title / description / tags ham SQL ile degistirilemez — "
       + "update_product aracini kullan. Sebebi: Etsy fiyati ilanin uzerinde degil ENVANTER TEKLIFLERINDE "
       + "duruyor, yani sadece satiri guncellersen bizim kayit yeni fiyati der, alici eskisini oder ve bu "
       + "ilk yanlis siparise kadar gorunmez. update_product ayrica basligi/tag'i limitlere gore dogrular "
       + "ve yazdiktan sonra ilani geri okur.";
   }
-  if (name === "sql" && /^\s*(delete|truncate|drop)\b/i.test(String(input?.query ?? ""))) {
+  if (name === "sql" && /(^|\s|\()(delete\s+from|truncate|drop\s+(table|column)|alter\s+table)\b/.test(q)) {
     return "ERROR: DELETE/TRUNCATE/DROP bu araçla yapılamaz. Bir satırı kaldırmak yerine durumunu değiştir "
       + "(content_status='draft' gibi); gerçekten silinmesi gerekiyorsa neyin ve neden silineceğini yaz, "
       + "operatör çalıştırsın. Yanlış ürünün iptal edildiği olay tam olarak buydu.";
@@ -640,14 +683,23 @@ async function updateProduct(input: any): Promise<{
 
   /** Put the row back the way it was, then say what happened. Reporting a failure while leaving the row
    *  changed is worse than either outcome alone: the operator reads "failed" and the database disagrees. */
+  let sentFields = false;   // did the listing already take the title/description/tags write?
   const revert = async (why: string): Promise<never> => {
     try {
       const rv: any[] = [];
       const rs = prevCols.map((c, i) => { rv.push(prevVals[i]); return `${c}=$${rv.length}`; });
       rv.push(pid);
       await agentQuery(`UPDATE products SET ${rs.join(", ")}, updated_at=now() WHERE id = $${rv.length}`, rv);
-      throw new Error(`Etsy yazimi basarisiz (${why}) — veritabani satiri ESKI HALINE dondurüldu, `
-        + `hicbir sey degismedi. Sebebi cozup tekrar dene.`);
+      // "Nothing changed" is only true when nothing reached Etsy. Title/description/tags go in one call
+      // and price in another, so the first can land and the second fail — reverting the row then leaves
+      // the listing holding the new title while our row holds the old one, and telling the operator that
+      // nothing changed is the same drift this tool exists to prevent, pointing the other way.
+      throw new Error(sentFields
+        ? `Etsy yazimi kismen uygulandi (${why}): baslik/aciklama/tag ILANDA GUNCELLENDI ama fiyat `
+          + `yazilamadi. Veritabani satiri eski haline donduruldu, yani SATIR ILE ILAN AYRISTI — elle `
+          + `uzlastirilmali.`
+        : `Etsy yazimi basarisiz (${why}) — veritabani satiri ESKI HALINE dondurüldu, hicbir sey `
+          + `degismedi. Sebebi cozup tekrar dene.`);
     } catch (e: any) {
       if (String(e?.message ?? "").startsWith("Etsy yazimi basarisiz")) throw e;
       throw new Error(`Etsy yazimi basarisiz (${why}) VE geri alma da basarisiz (${e?.message}) — `
@@ -666,6 +718,7 @@ async function updateProduct(input: any): Promise<{
         description: input.description !== undefined ? String(input.description) : undefined,
         tags: input.tags !== undefined ? input.tags : undefined,
       });
+      sentFields = true;
     }
     if (changed.includes("price")) {
       await updateInventory(listingId, {

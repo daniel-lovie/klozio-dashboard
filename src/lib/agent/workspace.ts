@@ -107,6 +107,10 @@ const SCRIPT_DENY = new Map<string, string>([
   ["reshoot_embroidery.py", "her nakis urununu toplu yeniden uretir — UCRETLI"],
   ["batch_runner.py", "toplu UCRETLI uretim; produce'un tur basina 2 cagri sinirini atlatir"],
   ["make_emb_render.py", "ayri ve UCRETLI bir adim — operator calistirir"],
+  // Same rule, three scripts it had missed: each writes images onto LIVE listings.
+  ["swap_crest_images.py", "canli ilan fotograflarini degistirir — acik onay ister"],
+  ["resync_ttrpg_images.py", "canli ilan gorsel setini yeniden kurar — acik onay ister"],
+  ["rebuild_listing_images.py", "HER ilanin gorsel setini yeniden kurar — acik onay ister"],
 ]);
 
 export async function runRepoScript(name: string, args: string[]):

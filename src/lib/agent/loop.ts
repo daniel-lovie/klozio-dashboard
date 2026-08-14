@@ -69,7 +69,10 @@ const PROMISE =
 const PROMISED_SQL = /\b(insert|update|delete)/i;
 
 function promisedWork(said: string): boolean {
-  return PROMISE.test(said) || PROMISED_SQL.test(said);
+  // AND, not OR. The SQL noun alone fired on ordinary reporting prose — "listing_stats'te bir update
+  // gorunmuyor", "son updated_at 2026-08-10" — so a read-only turn that summarised its findings was told
+  // it had promised work and burned two extra round trips being nudged.
+  return PROMISE.test(said) && PROMISED_SQL.test(said);
 }
 
 export type AgentEvent =
@@ -244,6 +247,8 @@ export async function* runAgentTurn(
         ],
       }
     : { role: "user", content: banner });
+  // Index of the operator's question in THIS turn, for the persist window below.
+  const questionIdx = messages.length - 1;
   await titleFromFirstMessage(chatId, userText);
   // Persist the question BEFORE the model runs. The whole turn used to be written in `finally`, so a
   // refresh while the agent was working showed neither the message the operator had just sent nor any sign
@@ -309,12 +314,16 @@ export async function* runAgentTurn(
       // That is precisely how a malformed thinking block reached the history and poisoned every later
       // turn: the filter excluded thinking, went empty, and the fallback put the block back. An empty
       // result now means nothing usable was returned, which the check above already treats as an error.
-      // server_tool_use and its result blocks belong here too: a web search whose results are filtered out
-      // leaves the model's own next sentence citing evidence that is no longer in the conversation.
+      // Only blocks this file reconstructs FAITHFULLY may be echoed. Keeping server_tool_use and
+      // web_search_tool_result here looked like an improvement — a search whose results are filtered out
+      // leaves the next sentence citing evidence no longer in context — but `content_block_start` below
+      // builds every unrecognised type as { type, text: "" }, so those blocks came back with no id, no
+      // name, no tool_use_id and no content. Replayed, the API answers 400 for ever: the permanent-400
+      // this file already carries a long comment about, reintroduced through the echo path.
+      // Losing search evidence from history is the lesser bug and it is the one we keep until
+      // content_block_start captures those blocks with their real fields.
       const echo = assistant.content.filter((b: any) =>
-        b.type === "text" || b.type === "tool_use" || b.type === "thinking" || b.type === "redacted_thinking"
-        || b.type === "server_tool_use" || b.type === "web_search_tool_result"
-        || b.type === "web_fetch_tool_result");
+        b.type === "text" || b.type === "tool_use" || b.type === "thinking" || b.type === "redacted_thinking");
       messages.push({ role: "assistant", content: echo });
       const u = assistant.usage ?? { input_tokens: 0, output_tokens: 0, cache_read: 0, cache_write: 0, searches: 0 };
       // Rates are per model, not a constant. They were hardcoded to Opus, so changing MODEL to a cheaper
@@ -433,9 +442,12 @@ export async function* runAgentTurn(
     // whose result never arrived, or a tool_result the window slice separated from its tool_use.
     // Keep the operator's own question: a 40-step turn can append 80 messages, so a plain tail slice
     // drops the user turn that started the work and the next turn opens mid-tool-result.
-    const first = messages.findIndex((m: any) => m.role === "user");
+    // Pin THIS turn's question, captured by index when it was pushed. findIndex(role==="user") returned
+    // the oldest user message in the loaded history instead — a stale question teleported to the front of
+    // the transcript, which is worse than the eviction it was meant to prevent.
     const tail = messages.slice(-60);
-    const window = first >= 0 && !tail.includes(messages[first]) ? [messages[first], ...tail] : tail;
+    const asked = questionIdx >= 0 ? messages[questionIdx] : null;
+    const window = asked && !tail.includes(asked) ? [asked, ...tail] : tail;
     const clean = stripImages(sanitiseHistory(window));
     await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }

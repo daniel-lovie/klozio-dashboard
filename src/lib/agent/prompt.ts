@@ -133,6 +133,17 @@ products(id, slug, niche, title, description, tags, materials, price_cents, quan
   — 59 kolonun tamamı. Bu blok bir zamanlar 21 kolonu atlıyordu, aralarında ZORUNLU olan hook da vardı;
   yarım şema tam sanıldığı için hiç şemadan kötüdür. Şüphe duyarsan information_schema'dan doğrula.
   mockup_prompt kolonları ölü (AI mockup üretimi kaldırıldı) — okuma, yazma.
+product_images(product_id, rank, role, label, filename, mime, bytes) — rank1 = kapak (Ivory model, renk rozetli)
+mockup_blanks(name, kind model|flat, colorway, quad, print_box jsonb, px_per_inch, angle, collar_y,
+  opacity, shade, bytes) — lisanslı blank fotoğraflar. print_box = ÖLÇÜLMÜŞ baskı dikdörtgeni,
+  produce_images.py tasarımı buna göre yerleştirir. Elleme, tahminle değiştirme.
+schedule(id, product_id, scheduled_at, status approved|publishing|published|failed, approved_at, approved_by, last_error)
+fulfillment_orders(id, receipt_id, transaction_id, product_id, quantity, size, colorway, personalization,
+  buyer_name, ship_* kolonları, status new|generating|qa|ready|sent_to_producer|shipped|done|problem,
+  order_print_file, printful_order_id, printful_status draft|confirmed|failed, agent_state, interpreted_text)
+listing_stats(shop_id, product_id, etsy_listing_id, views, favorites, captured_on) — GÜNLÜK snapshot;
+  Etsy'nin mağaza-analitik API'si YOK, elimizdeki tek ölçüm bu + siparişler. Performans sorularında
+  en son captured_on satırlarını al, 7 gün öncesiyle farkı = haftalık görüntülenme.
   Etsy'nin mağaza-analitik API'si YOK, elimizdeki tek ölçüm bu + siparişler. Performans sorularında
   en son captured_on satırlarını al, 7 gün öncesiyle farkı = haftalık görüntülenme.
 usage_events(shop_id, provider, kind, model, input_tokens, output_tokens, cache_read, cache_write, units, cost_usd)

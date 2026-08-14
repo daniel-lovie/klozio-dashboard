@@ -19,7 +19,33 @@ const MODEL = process.env.PERSONALIZER_MODEL || "claude-opus-5";
 const MAX_STEPS = 40;
 
 /** Tools that change something. Everything else is a read, however expensive. */
+// run_script writes: fit_titles.py --apply, clean_print_files.py and upscale_print_files.py all change
+// data, and the tool description advertises exactly that. A turn that did its work through a script was
+// still being told it had only talked.
 const WRITER_TOOLS = new Set(["update_product", "produce"]);
+
+function isWriter(name: string, input: any): boolean {
+  if (WRITER_TOOLS.has(name)) return true;
+  if (name === "run_script") {
+    const args = Array.isArray(input?.args) ? input.args.map(String) : [];
+    return args.some((a: string) => /^--(apply|live|redo)$/.test(a)) || /clean_|upscale_/.test(String(input?.script ?? ""));
+  }
+  return false;
+}
+
+/** The slice we keep, with this turn's question kept whatever the length.
+ *
+ *  Applied on BOTH save and load. Pinning only on save was inert in the case it was written for: a long
+ *  turn produced a 61-message window whose pinned question sat at index 0, and the next load took the last
+ *  40 and dropped it again. The window is also trimmed to start at a user turn, because the API rejects a
+ *  history that opens on an assistant message and a tail slice can easily land there.
+ */
+function keepWindow(all: any[], n: number, pinned: any | null): any[] {
+  const tail = all.slice(-n);
+  const withPin = pinned && !tail.includes(pinned) ? [pinned, ...tail] : tail;
+  const firstUser = withPin.findIndex((m: any) => m?.role === "user");
+  return firstUser > 0 ? withPin.slice(firstUser) : withPin;
+}
 /** Inline image generations allowed per turn. Each one costs minutes; see the cap in the tool loop. */
 const MAX_PRODUCE_PER_TURN = 2;
 
@@ -231,7 +257,9 @@ export async function* runAgentTurn(
   const row = await one<{ messages: any[] }>(`SELECT messages FROM agent_chats WHERE id=$1`, [chatId]);
   // Slice the window first, then repair what the slice broke. Doing it the other way round would let a
   // freshly orphaned tool_result through.
-  let messages: any[] = sanitiseHistory((row?.messages ?? []).slice(-40));
+  const stored: any[] = row?.messages ?? [];
+  let messages: any[] = sanitiseHistory(
+    keepWindow(stored, 40, stored.find((m: any) => m?.role === "user") ?? null));
   const banner = `[Aktif mağaza: ${shopName} (shop_id=${shopId}) — tüm SQL sorgularında bu mağazaya filtrele]\n${userText}`;
   // Images go BEFORE the text: the model reads the reference first and then the instruction about it,
   // which is the order the operator means when they paste an example and say "like this, but…".
@@ -249,6 +277,14 @@ export async function* runAgentTurn(
     : { role: "user", content: banner });
   // Index of the operator's question in THIS turn, for the persist window below.
   const questionIdx = messages.length - 1;
+// Append to the assistant turn already at the end rather than pushing a second one. Three exits below
+  // push a note, and after a pause_turn continue the last message is already an assistant turn — two in
+  // a row is the malformed shape the pause_turn fix removed, reintroduced by its neighbours.
+  const say = (text: string) => {
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant" && Array.isArray(last.content)) last.content.push({ type: "text", text });
+    else messages.push({ role: "assistant", content: [{ type: "text", text }] });
+  };
   await titleFromFirstMessage(chatId, userText);
   // Persist the question BEFORE the model runs. The whole turn used to be written in `finally`, so a
   // refresh while the agent was working showed neither the message the operator had just sent nor any sign
@@ -266,10 +302,10 @@ export async function* runAgentTurn(
     for (let step = 0; step < MAX_STEPS; step++) {
       // The request itself dies at 800s and takes the transcript persist with it. Stop short, say so, and
       // let the finally block record what actually happened.
-      if (Date.now() - startedAt > 700_000) {
+      if (Date.now() - startedAt > 600_000) {
         const note = "⚠️ Sure butcesi doldu (700sn). Yapilanlar kaydedildi; kalanini tekrar iste.";
         yield { t: "error", d: note };
-        messages.push({ role: "assistant", content: [{ type: "text", text: note }] });
+        say(note);
         finished = true;
         break;
       }
@@ -406,7 +442,7 @@ export async function* runAgentTurn(
         // Every tool added since — look, measure, read_file, run_script, production_status, ask, and the
         // web tools — marked the turn as having written something, so the guard died the moment the prompt
         // started telling the agent to measure before it speaks. Name the writers instead.
-        if (WRITER_TOOLS.has(block.name)
+        if (isWriter(block.name, block.input)
             || (block.name === "sql"
                 && /\b(insert|update|delete)\b/i.test(String(block.input?.query ?? block.input?.sql ?? "")))) {
           wrote = true;
@@ -419,6 +455,15 @@ export async function* runAgentTurn(
         results.push({ type: "tool_result", tool_use_id: block.id, content: blocks ?? result });
       }
       messages.push({ role: "user", content: results });
+      // A single step can spend minutes in produce or three in a script, so checking only at the top of
+      // the loop let a turn sail past the ceiling mid-step and lose the transcript write.
+      if (Date.now() - startedAt > 600_000) {
+        const note = "⚠️ Sure butcesi doldu. Yapilanlar kaydedildi; kalanini tekrar iste.";
+        yield { t: "error", d: note };
+        say(note);
+        finished = true;
+        break;
+      }
     }
     // Running out of steps used to end the turn in silence: no event, no note, just `done`. After a
     // reload the operator saw their question with no answer under it and no way to tell a hung request
@@ -428,7 +473,7 @@ export async function* runAgentTurn(
     if (!finished) {
       const note = `⚠️ Adim siniri doldu (${MAX_STEPS}). Is yarim kalmis olabilir — kalan kismi tekrar isteyin.`;
       yield { t: "error", d: note };
-      messages.push({ role: "assistant", content: [{ type: "text", text: note }] });
+      say(note);
     }
   } catch (e: any) {
     const note = `⚠️ ${String(e?.message ?? e).slice(0, 400)}`;
@@ -436,7 +481,7 @@ export async function* runAgentTurn(
     // Keep the failure in the transcript. The error event is only an SSE frame, so reloading the page
     // erased it and left three unanswered questions on screen — which is how a thread that was loudly
     // reporting a 400 on every turn looked, to the operator, like an agent that had frozen.
-    messages.push({ role: "assistant", content: [{ type: "text", text: note }] });
+    say(note);
   } finally {
     // Never persist a message the API will reject on the next turn: an empty content array, a tool_use
     // whose result never arrived, or a tool_result the window slice separated from its tool_use.
@@ -445,9 +490,7 @@ export async function* runAgentTurn(
     // Pin THIS turn's question, captured by index when it was pushed. findIndex(role==="user") returned
     // the oldest user message in the loaded history instead — a stale question teleported to the front of
     // the transcript, which is worse than the eviction it was meant to prevent.
-    const tail = messages.slice(-60);
-    const asked = questionIdx >= 0 ? messages[questionIdx] : null;
-    const window = asked && !tail.includes(asked) ? [asked, ...tail] : tail;
+    const window = keepWindow(messages, 60, questionIdx >= 0 ? messages[questionIdx] : null);
     const clean = stripImages(sanitiseHistory(window));
     await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }

@@ -233,7 +233,10 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
   KAZANANLARIN NEREDEYSE HEPSİNDE YAZI VAR — bu bir istatistik, kural değil. Varsayılanın bir hook olsun;
   kullanıcı yazısız istediyse yazısız yap (bkz. yukarıdaki yazısız tasarım kuralı). Konsepti bir metinle
   (hook) birlikte kur ve tasarımda o metne yer bırak.
-  Palet: 2-5 renk, mat/toprak tonları veya koyu garment üzerine krem. Neon ve saf beyaz yok.
+  Palet: DÜZ renk sayısı serbest, 6-15 tipik. Kısıt renk SAYISI değil DÜZLÜK: gradyan, yumuşak parlama,
+  airbrush geçiş yok. DTF tam rengi doğal basar. "2-5 renk / mat toprak tonları" ESKİ kuraldı ve solgun
+  tasarımlar üretti (290 üründen 209'u) — artık geçerli değil. Operatör kararı: tasarımlar RENKLİ ve göz
+  alıcı olacak. Tek renkli minimal iş bir stildir, varsayılan değil. Saf beyaz zemine dikkat, neon serbest.
 - STİL SEÇ: design_params.style ∈ {engraving, plate, collection, character, retro, minimal}.
   Varsayılan 'engraving' (en güçlü formülün stili). Bu alan prompt kuyruğunu belirler; boş bırakırsan
   engraving kullanılır. Düz vektör amblem ARTIK VARSAYILAN DEĞİL — kazananların çoğu dokulu illüstrasyon.
@@ -480,8 +483,9 @@ Soru her seferinde şu: müşterinin gördüğü baytı hangi kod üretiyor, ve 
 2 FİKİR ÇEKİRDEĞİ: bir konu, bir eylem, bir mesaj, en fazla bir yardımcı motif ailesi.
 3 KOMPOZİSYON: doğal dış siluet + hiyerarşi. Siluet tam görünür, kenar boşluğu eşit.
 4 STİL DİLBİLGİSİ: ortam + çizgi karakteri + şekil dili + doku davranışı + dönem/ruh hali. TEK ortam.
-5 PALET VE GİYSİ ARAYÜZÜ: 2-5 renk, HER RENGE GÖREV ver (hangisi ana şekli taşır, hangisi kontur,
-  hangisi az kullanılan aksan) + hedef giysi rengiyle kontrast.
+5 PALET VE GİYSİ ARAYÜZÜ: DÜZ renkler, 6-15 tipik, üst sınır yok. HER RENGE GÖREV ver (hangisi ana şekli
+  taşır, hangisi kontur, hangisi aksan) + hedef giysi rengiyle kontrast. Sayıyı değil GEÇİŞİ kıs: gradyan
+  ve yumuşak parlama DTF'de kirlenir, düz renk kirlenmez.
 6 TİPOGRAFİ: bizde yazı promptta değil, sonradan lisanslı fontla dizilir. Prompt harf istemez.
 7 BASKI DAVRANIŞI: opak şekiller, sağlam çizgi kalınlığı, kırılgan toz yok, halftone/grain SADECE
   tasarımın içinde (tüm görselin üstünde değil — matte'i kirletir ve kesimden sonra kir olarak kalır).
@@ -505,7 +509,8 @@ En-boy oranı kare değilse design_params.aspect_ratio ile ver (fikir geniş ya 
   güvenliği. Herhangi biri 3'ün altındaysa konsepti at. Eşitlikte silueti net, öğesi az olan kazanır.
 - Kullanıcı "seçeyim" derse üç seçeneği puanlarıyla göster; "sen yap" derse en yükseğini al ve devam et.
 - BEĞENİLİRLİK EVRENSEL SEVİMLİLİK DEĞİL: kazanan konsept hedef nişe "bu benim gibiler için" dedirtir.
-  Formül: sınırlı ve kasıtlı palet + göğüste doğal duran siluet + 3 metreden okunan tek odak noktası.
+  Formül: kasıtlı palet (az değil — her rengin görevi olsun) + göğüste doğal duran siluet + 3 metreden
+  okunan tek odak noktası.
 - Yenilik tutarlı olmalı: bir baskın fikir, en fazla iki yenilik kolu. Yaratıcı görünmek için ilgisiz
   öğe birleştirme.
 

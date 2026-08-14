@@ -31,14 +31,24 @@ OUT = DASHBOARD / "agent-knowledge"
 
 # name -> when the agent should open it. The line becomes the index entry, so it is written for the model
 # to route on, not for a human to admire.
+#
+# Reference files matter as much as the SKILL.md. Only SKILL.md was copied, so every "playbook:
+# references/x.md" pointer inside a synced skill was a dead link in the container — including the two the
+# operator's standing directives name by path (cover-image.md for the cover formula and for the rule that
+# mockups are produced in higgsfield from a reference image). The agent was being told to follow a file it
+# could not open, and the reachable substitute said the opposite.
 WANTED: dict[str, str] = {
+    "tshirt-design-prompt-engineer": "Tasarim promptu yazarken: 10 katmanli derleyici, katman sirasi, "
+                                     "stil katmanina konu/renk sizdirmama kurali.",
     "veteran-playbooks": "Konsept yazarken: altı arketip, başlık formülleri, fiyat bantları, tempo kuralları. "
                          "CLAUDE.md her yeni konseptin bir arketipe eşlenmesini şart koşuyor.",
     "order-fulfillment": "Sipariş geldiğinde: üreticiye giden paket, etiket (Etsy arayüzünden, API YOK), "
                          "takip girişi, kusur/yeniden baskı/kayıp kargo politikası.",
     "pod-fulfillment": "Üretici ilişkisi: kayıtlı ortak, blank ve renk adları, maliyet modeli, "
                        "üretim ortağının Etsy'de kayıtlı olması şartı.",
-    "ai-design": "AI beyanı, 'Designed by' atıfı ve provenance arşivi — yayın kapısı.",
+    "ai-design": "TASARIM YONU (renkli/goz alici, duzluk kurali, palet) + AI beyani, 'Designed by' atifi "
+                 "ve provenance arsivi. Tasarim yonu icin de BURAYA bak — index eskiden sadece beyan "
+                 "tarafini anlatiyordu ve yon bolumu hic acilmiyordu.",
     "etsy-seo": "İlan skorlaması ve 85 yayın eşiği; başlık/tag/açıklama puanlama kalemleri.",
     "batch-production": "Toplu üretimin tuzakları: yer tutucu token'lar, ENABLE_PRODUCER, ölçüm kapıları, "
                         "stil/palet çelişkileri, kesim ve dizgi hataları.",
@@ -49,7 +59,13 @@ WANTED: dict[str, str] = {
     "shopify-ops": "Shopify tarafı: ürün mutasyonları, kişiselleştirme alanı, koleksiyon/fiyat.",
 }
 
-HEADER = ("<!-- URETILMIS DOSYA — ELLE DUZENLEME. Kaynak: .claude/skills/{name}/SKILL.md\n"
+EXTRA = [
+    ("reference__bestseller-teardown.md", "research/competitor-teardowns/hilariousteezz-texas.md",
+     "KATEGORI BESTSELLER'I (%6.19 donusum). Tasarlamadan ONCE oku: stil, baslik yapisi, kapak, fiyat. "
+     "Stili kopyala, ticari markasini ASLA."),
+]
+
+HEADER = ("<!-- URETILMIS DOSYA — ELLE DUZENLEME. Kaynak: .claude/skills/{src}\n"
           "     Guncellemek icin: python3 scripts/sync_agent_knowledge.py -->\n\n")
 
 
@@ -65,9 +81,27 @@ def build() -> dict[Path, str]:
              "açacağın aşağıda. Büyük dosyalarda offset/limit kullan — tek seferde kesilirse gerisini iste.\n"]
     for name, when in WANTED.items():
         src = (SKILLS / name / "SKILL.md").read_text(encoding="utf-8")
-        files[OUT / f"{name}.md"] = HEADER.format(name=name) + src
+        files[OUT / f"{name}.md"] = HEADER.format(src=f"{name}/SKILL.md") + src
         kb = round(len(src) / 1024)
         index.append(f"- **agent-knowledge/{name}.md** (~{kb} KB) — {when}")
+        # references/ travels with its skill. A SKILL.md that says "playbook: references/cover-image.md"
+        # is not knowledge the agent has unless that file is in the container too.
+        refs = sorted((SKILLS / name / "references").glob("*.md"))
+        for r in refs:
+            body = r.read_text(encoding="utf-8")
+            files[OUT / f"{name}__{r.name}"] = HEADER.format(src=f"{name}/references/{r.name}") + body
+            index.append(f"    - **agent-knowledge/{name}__{r.name}** (~{round(len(body) / 1024)} KB) — "
+                         f"{name} skill'inin referansi")
+    # Documents that are not skills but that the agent is told to follow. The bestseller teardown is the
+    # reference CLAUDE.md names as the style standard; it lived under research/, outside every sync, so the
+    # directive "study category bestsellers before designing" reached the agent as an unopenable path.
+    for out_name, rel, when in EXTRA:
+        src_path = SKILLS.parent.parent / rel
+        if not src_path.exists():
+            raise SystemExit(f"kaynak yok: {rel}")
+        body = src_path.read_text(encoding="utf-8")
+        files[OUT / out_name] = HEADER.format(src=f"../{rel}") + body
+        index.append(f"- **agent-knowledge/{out_name}** (~{round(len(body) / 1024)} KB) — {when}")
     files[OUT / "INDEX.md"] = "\n".join(index) + "\n"
     return files
 

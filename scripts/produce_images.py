@@ -83,6 +83,8 @@ PRINT_SPOTS = {
     "left_chest":   {"x": 0.78, "y": 0.06, "inches": 4.0,  "label": "Left chest"},
 }
 DEFAULT_SPOT = "center_chest"
+# The widest a left-chest patch gets before it stops being one.
+LEFT_CHEST_MAX_IN = 5.0
 
 # Some styles ARE a placement. The minimal preset asks for "one small simple motif ... reads clearly at
 # three inches" — a pocket print — and every one of them was still blown up to ten inches and centred,
@@ -100,7 +102,10 @@ def print_placement(params: dict | None) -> dict:
     """
     p = params if isinstance(params, dict) else {}
     style_spot, style_in = STYLE_SPOT.get(str(p.get("style") or ""), (DEFAULT_SPOT, None))
-    spot = PRINT_SPOTS.get(str(p.get("placement") or style_spot), PRINT_SPOTS[DEFAULT_SPOT])
+    spot_key = str(p.get("placement") or style_spot)
+    if spot_key not in PRINT_SPOTS:
+        spot_key = DEFAULT_SPOT
+    spot = PRINT_SPOTS[spot_key]
     if p.get("print_inches") is None and p.get("placement") is None and style_in:
         p = {**p, "print_inches": style_in}
     inches = p.get("print_inches")
@@ -111,7 +116,15 @@ def print_placement(params: dict | None) -> dict:
     # The physical print area caps it; anything larger cannot be produced whatever the row says. The label
     # reports the capped value, not the request — a badge reading 99" on a 10" print is a lie in the gallery.
     inches = min(inches, PRINT_INCHES)
-    return {"x": spot["x"], "y": spot["y"], "inches": inches,
+    # A left-chest print is a small patch by definition. `placement=left_chest` with `print_inches=10` was
+    # accepted in silence and composited 10 inches wide at x=0.78 — off the shoulder and off the garment.
+    # The pair is incoherent, so the placement wins and the size is corrected out loud rather than shipped.
+    if spot_key == "left_chest" and inches > LEFT_CHEST_MAX_IN:
+        print(f"UYARI: left_chest {inches:g}\" istendi, {LEFT_CHEST_MAX_IN:g}\" ile sinirlandi — "
+              f"sol gogus kucuk bir yamadir; buyuk baski istiyorsan placement=center_chest yap",
+              file=sys.stderr)
+        inches = LEFT_CHEST_MAX_IN
+    return {"x": spot["x"], "y": spot["y"], "inches": inches, "spot": spot_key,
             "label": f"{spot['label']} {inches:g}\""}
 
 

@@ -104,13 +104,25 @@ def generate(p: dict, work: Path) -> Path:
         # No hook means no words, so the style must not reserve a band for them — otherwise the design ships
         # with an empty panel where a caption was going to go, which is the defect that used to make the
         # pipeline refuse wordless designs outright.
-        full = (f"{head}{subject.rstrip(',')}, {lead}{pal}"
-                f"{br.style_tail(style, with_palette=not has_palette, subject=subject, with_text=has_hook)}")
+        # The real placement, not the style's guess. print_placement() is the same resolver the compositor
+        # uses, so the prompt and the mockup now read one number instead of disagreeing by construction.
+        from produce_images import print_placement
+        dp = p.get("design_params") if isinstance(p.get("design_params"), dict) else {}
+        spot = print_placement(dp)
+        tail = br.style_tail(style, with_palette=not has_palette, subject=subject, with_text=has_hook,
+                             print_in=spot.get("inches"), placement=spot.get("spot"),
+                             palette=dp.get("palette"))
+        full = f"{head}{subject.rstrip(',')}, {lead}{pal}{tail}"
     else:
         # The legacy prompt could not be reduced to a subject. Use it unchanged — it produced something
         # coherent before — and say out loud that this product needs its concept rewritten to get the new look.
         # Even an unconvertible legacy prompt gets the key colour: it is what makes the file cuttable.
-        full = f"{br.strip_background_talk(prompt)}, {br.key_clause()}"
+        # PROMPT_TAIL_COMMON goes on even here. It is the ONLY place the prompt says NO text, NO letters,
+        # NO words — and this branch used to omit it, so an unconvertible concept was the one path on which
+        # the model was free to render its own malformed lettering. That breaks a non-negotiable (all type
+        # is hand-set in a licensed font) and falsifies the provenance archive, which claims AI never sets
+        # type here. A fallback may lose style; it may not lose a rule.
+        full = (f"{br.strip_background_talk(prompt)}, {br.PROMPT_TAIL_COMMON}, {br.key_clause()}")
         print(f"UYARI {p['slug']}: eski prompt yeni stile cevrilemedi, konu oldugu gibi kullanildi — "
               f"konsept yeniden yazilmali", file=sys.stderr)
     # 2k generated a 2048 px source, and after keying that is a 205 PPI print file — a fifth short of the

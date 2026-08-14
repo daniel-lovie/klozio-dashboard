@@ -95,13 +95,19 @@ Always compute effective DPI at the intended print size:
 ```
 effective DPI = pixel width ÷ print width in inches
 ```
-Target: **~4500 × 5400 px at 300 DPI** (12 × 18 in). Upscaling is mandatory, not optional.
+Target: **3000 px on the longest side at 300 DPI** — exactly 10 inches, the widest a Comfort Colors 1717
+front takes. This is the number the code enforces (`PRINT_MAX_PX` in `batch_runner.py`): it is both the
+ceiling (a larger file is bytes the DTF software resamples away) and the floor (smaller prints soft).
+Upscaling to reach it is mandatory, not optional.
+
+> An earlier version of this line said "~4500 × 5400 px (12 × 18 in)", which was wrong twice: 4500 px at
+> 300 DPI is **15** inches, not 12, and 15 inches does not fit the garment. Corrected 2026-08-14.
 
 ### Steps
 
 1. **Generate** — prompt per the rules below. Produce several variants; selection is part of authorship.
 2. **Select & log** — record which raw output you chose and why, in `PROVENANCE.md`.
-3. **Upscale** — to ~4500×5400. Never simply stretch; use a real upscaler.
+3. **Upscale** — to 3000 px on the longest side. Never simply stretch; use a real upscaler.
 4. **Remove background** — must end fully transparent. **No white fill, no colored fill, no off-white
    halo.** A halo is invisible on screen and obvious on a printed garment.
 5. **Clean edges** — AI output tends to soft, feathered edges. Harden them, especially for DTF.
@@ -114,6 +120,18 @@ The **higgsfield MCP** covers this chain directly: `generate_image`, `upscale_im
 `remove_background`, `outpaint_image`. Prefer it over describing a manual workflow the user then has to
 perform elsewhere. Common external equivalents: Topaz Gigapixel or Real-ESRGAN for upscale, remove.bg or
 Photoshop for background.
+
+## Placement and print size — ASK, do not assume
+
+A big centre-chest print and a small left-chest patch are **not the same design**. They need different
+detail density, different silhouettes, and they sell to different buyers. Before compiling a prompt, ask
+the operator which one this is — the answer is not inferable from the concept.
+
+Size is not fixed at 10 x 10 either. **10 inches is the CEILING**, not the target: 3 x 9, 2 x 10 and 4 x 4
+are all legitimate print shapes, and forcing a square wastes most of the envelope on a tall or wide idea.
+Set `design_params.placement` (`center_chest` | `left_chest`), `print_inches` (the LONGER side) and
+`aspect_ratio` together — the prompt compiler reads all three, and a left-chest print is capped at 5
+inches because a bigger one lands off the shoulder.
 
 ## Design direction — colourful and eye-catching is the target
 
@@ -203,7 +221,7 @@ An AI-produced infringement is still our infringement.
 - [ ] Layered source file saved
 - [ ] All type hand-set in a commercially licensed font — **no AI-rendered text**
 - [ ] Font licenses recorded
-- [ ] ~4500×5400 px, 300 DPI, effective DPI checked at intended print size
+- [ ] 3000 px longest side, 300 DPI, effective DPI checked at the intended print size
 - [ ] Fully transparent background — no fill, no halo
 - [ ] Edges hardened
 - [ ] Passes the 300×300 thumbnail test

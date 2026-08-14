@@ -677,9 +677,15 @@ async function productionStatus(): Promise<{
     recent_errors: errors.rows ?? [],
     ...((blocked.rows ?? []).length ? {
       blocked_no_design_model: blocked.rows,
+      // This used to tell the agent to write 'nano_banana_pro' — the one model the prompt forbids, for a
+      // measured reason (a pale sticker plate over half the canvas). 179 of 296 rows carry that value, and
+      // since design_model is what the Etsy AI-disclosure archive cites as proof of authorship, the archive
+      // names a model that did not draw the file. produce_product.py hardcodes gpt_image_2 regardless.
       blocked_warning: "Bu satirlarda design_model BOS: kuyruk onlari alir ama uretim 'Invalid input at "
-        + "params' ile patlar. UPDATE products SET design_model='nano_banana_pro' ile duzelt, sonra "
-        + "design_state=NULL yaparak kuyruga geri koy. Kullaniciya bunlarin uretilmeyecegini soyle.",
+        + "params' ile patlar. UPDATE products SET design_model='gpt_image_2' ile duzelt (uretim zaten "
+        + "bunu kullaniyor; nano_banana_pro YAZMA — solgun sticker plakasi uretiyor ve arsivde yanlis "
+        + "model kaydi birakir), sonra design_state=NULL yaparak kuyruga geri koy. Kullaniciya bunlarin "
+        + "uretilmeyecegini soyle.",
     } : {}),
     ...((wordless.rows ?? []).length ? {
       wordless_no_hook: wordless.rows,

@@ -189,38 +189,38 @@ STYLE_TAILS = {
         # layer; the style layer describes the MEDIUM only. Cross-hatching is not a monochrome technique.
         "vintage 19th-century engraving style, fine cross-hatched line work, etched texture, "
         "aged printmaking feel, high contrast, "
-        "detailed but readable at 10 inches, centred subject with clear empty space above and below "
+        "centred subject with clear empty space above and below "
         "for a caption"),
     # Dense botanical / naturalist plate with muted earth tones.
     "plate": (
         # "arranged specimens" is a SUBJECT and "aged paper texture" invites a paper patch behind the art —
         # the cream backing plate that makes a design unprintable on dark cotton. Texture belongs in the ink.
-        "antique botanical plate illustration, muted earth palette, hand-inked outlines with soft "
+        "antique botanical plate illustration, hand-inked outlines with soft "
         "flat fills, subtle aged ink texture inside the shapes, "
         "generous empty band at the top and bottom for a caption"),
     # A grid of small drawings — the highest perceived-value layout in the sample.
     "collection": (
         "a neat grid of eight to twelve small separate hand-drawn illustrations of the same theme, "
-        "even spacing, consistent line weight, limited muted palette, each item complete and "
+        "even spacing, consistent line weight, each item complete and "
         "recognisable on its own, empty space in the middle or bottom "
         "reserved for a caption"),
     # Character with an identity: cat with a cocktail, raccoon with a flag.
     "character": (
         "a single hand-drawn character with personality and a prop, expressive face, retro cartoon "
-        "line work, limited muted palette, soft grain shading, "
+        "line work, soft grain shading, "
         "arched empty space above the character for a title and a clear band below for a subtitle"),
     # 70s poster: condensed shapes, sunset bands, halftone.
     "retro": (
         # "sun-ray or horizontal band motif" used to sit here. The style layer must not name SUBJECTS: it
         # added rays to concepts that never asked for them, and rays are the exact object that GREW when we
         # tried to ban them. Medium, line character, texture, mood — nothing else.
-        "1970s screen-print poster style, limited three-colour palette, halftone dot shading, "
+        "1970s screen-print poster style, halftone dot shading, "
         "slightly distressed ink texture, "
         "a wide empty rectangle across the centre where large type will sit"),
     # Tiny left-chest or centre-chest motif; the garment colour carries the product.
     "minimal": (
-        "one small simple motif, clean minimal line art, two colours at most, generous margins, "
-        "no background elements, reads clearly at three inches, "
+        "one small simple motif, clean minimal line art, generous margins, "
+        "no background elements, "
         "small empty space beneath for a short caption"),
 }
 DEFAULT_STYLE = "engraving"
@@ -235,8 +235,13 @@ DEFAULT_STYLE = "engraving"
 # NAMED a colour. The subject was nine WHITE ducks, the generator chose white, and no algorithm on earth
 # separates a white duck from a white backdrop. The result shipped as white smears on a dark tee.
 #
-# Magenta because nothing we draw can be magenta: every style tail asks for muted earth tones and the
-# palette clause bans neon outright, so a leftover pixel of this colour is unambiguously background.
+# Magenta because nothing we draw is magenta. That used to be guaranteed by the palette — every style tail
+# asked for muted earth tones and the palette clause banned neon — and it is NOT guaranteed any more: the
+# palette layer now asks for six to twelve saturated colours, and hot pink is one a model reaches for. So
+# the guarantee moved from "our colours happen to avoid it" to two explicit statements: key_clause() below
+# says the key colour appears nowhere inside the artwork, and PALETTE_HINT names magenta as the one hue the
+# palette may not contain. Both are needed — a design that eats its own pixels in the cutout looks like a
+# cutout bug and is actually a palette collision.
 KEY_COLOR = "#E6007E"
 KEY_NAME = "bright magenta"
 
@@ -327,12 +332,29 @@ def wants_label_shape(subject: str | None) -> bool:
 # Each colour also gets a job. A palette listed as four hexes invites the model to spread all four evenly
 # and the result reads as a swatch; naming which colour carries the shapes, which draws the contour and
 # which is the sparing accent is what produces the restrained look the winners have.
+#
+# REVISED 2026-08-14 (operator directive): the constraint is FLATNESS, not colour count. This clause used
+# to say "two to five colours only, muted and slightly desaturated ... no neon" and it was appended to
+# every prompt, so it decided the palette of the whole catalogue — the cream-and-charcoal look we kept
+# rejecting was this sentence rendered literally, not a design choice. DTF prints full colour natively;
+# what it punishes is soft transitions. So the count is free and the gradients are banned.
 PALETTE_HINT = (
-    "colour palette: two to five colours only, muted and slightly desaturated, each with a role — "
+    "colour palette: rich and colourful, six to twelve FLAT solid colours, each with a role — one or two "
+    "carry the main shapes, one draws the contour, the rest are accents; every colour a flat fill with a "
+    "hard edge. No gradients, no soft glows, no airbrush fades, no blurred transitions. Strong contrast "
+    "against the garment. The one forbidden hue is magenta or hot pink — it is the background key colour "
+    "and any of it inside the artwork is cut away"
+)
+
+# The muted earth look, kept as an option rather than a default. design_params.palette='muted' selects it;
+# it is the right choice for some concepts and was the wrong choice for all of them.
+PALETTE_HINT_MUTED = (
+    "colour palette: two to five FLAT colours, muted and slightly desaturated, each with a role — "
     "warm cream #F2E8D5 or deep charcoal #2B2B2B carries the main shapes, the other of the two draws "
     "contour and shadow, and one earth tone (rust #B5563A, olive #6B7250, ochre #C9A227, faded indigo "
-    "#3F4A6E) is the accent, used sparingly; no neon, no pure white"
+    "#3F4A6E) is the accent, used sparingly; no neon, no pure white, no gradients"
 )
+PALETTES = {"colourful": PALETTE_HINT, "muted": PALETTE_HINT_MUTED}
 
 
 # The stored design_prompt is the FULL assembled prompt from the batch that created the product, tail and
@@ -372,8 +394,21 @@ def subject_of(prompt: str) -> tuple[str, bool]:
     # that would generate confident nonsense. When the remainder does not look like a subject — too short,
     # or opening on a leftover fragment — the caller is told so and uses the original prompt instead, and the
     # product is flagged for a rewritten concept. Better a design in the old style than a design of nothing.
-    looks_broken = (len(text) < 60
-                    or re.match(r"^\s*(\d|isolated\b|exclusions\b|no\b)", text, re.I) is not None)
+    #
+    # Only a prompt that was actually CUT can have been broken by the cut. Applied to every prompt, this
+    # heuristic condemned perfectly good new concepts for opening on a digit or the word "no" — "3 raccoons
+    # stacked in a trenchcoat…" (86 chars) and "No thoughts, just a fat pigeon…" (85 chars) both took the
+    # fallback path, which drops NINE of the ten layers including the only sentence that says NO text. The
+    # prompt this agent is told to write is short and subject-only by design, so the guard was aimed at the
+    # instruction the rest of the system gives.
+    # The signal is whether a SUBJECT survived, not how long the string is. Length condemned new concepts
+    # for being terse — which is exactly what the agent is instructed to write — and a leading digit or the
+    # word "no" condemned "3 raccoons stacked in a trenchcoat…" and "No thoughts, just a fat pigeon…", both
+    # perfectly good. Measured after the background sentence comes out, because that is what turned the one
+    # real casualty ("5mm. Isolated on a plain solid deep pine green background") into a fragment: strip the
+    # background talk and "5mm." is all that is left. Fewer than three words is not a subject.
+    core = strip_background_talk(text)
+    looks_broken = len(core.split()) < 3 or re.match(r"^\s*exclusions\b", core, re.I) is not None
     if looks_broken:
         return "", bool(palette)
     if palette:
@@ -398,13 +433,34 @@ CAPTION_SPACE = {
 for _k, _clause in CAPTION_SPACE.items():
     assert _clause in STYLE_TAILS[_k], f"CAPTION_SPACE[{_k}] artik tail ile eslesmiyor"
 
+# The real print size, stated once. The style tails used to carry their own numbers — engraving said
+# "readable at 10 inches", minimal said "reads clearly at three inches" — and design_params.print_inches
+# never reached the prompt at all, so a left-chest 4 inch product was compiled as a 10 inch centre print.
+# Three numbers for one physical object, and the brief and the output could not agree by construction.
+def size_clause(inches: float | None, placement: str | None = None) -> str:
+    """How large this actually prints, so detail density matches the real object."""
+    try:
+        n = float(inches) if inches is not None else PRINT_MAX_IN
+    except (TypeError, ValueError):
+        n = PRINT_MAX_IN
+    n = max(1.0, min(n, PRINT_MAX_IN))
+    where = "on the left chest" if placement == "left_chest" else "across the chest"
+    # Under about five inches the design is read at arm's length on a small patch: fine hatching closes up
+    # and thin strokes vanish in DTF. Over it, detail is an asset. Same sentence, opposite advice.
+    detail = ("bold simple shapes and thick strokes, no fine hatching, no small detail — it must read at a "
+              "glance at this size" if n <= 5.0 else
+              "detail is welcome but every stroke stays solid and printable at this size")
+    return f"printed about {n:g} inches on its longest side {where}; {detail}"
+
+
 # Said positively, because the model needs to know what to do with the space, not only what not to do.
 FILL_CLAUSE = ("the artwork itself fills the whole composition, no band or panel left empty for words, "
                "no caption area")
 
 
 def style_tail(style: str | None, with_palette: bool = True, subject: str | None = None,
-               key_hex: str = KEY_COLOR, with_text: bool = True) -> str:
+               key_hex: str = KEY_COLOR, with_text: bool = True, print_in: float | None = None,
+               placement: str | None = None, palette: str | None = None) -> str:
     """The full instruction tail for a concept's style.
 
     `subject` is the concept's own shape description; pass it so a concept that genuinely asks for a
@@ -416,7 +472,8 @@ def style_tail(style: str | None, with_palette: bool = True, subject: str | None
         head = head.replace(CAPTION_SPACE.get(key, ""), "") + ", " + FILL_CLAUSE
     parts = [head]
     if with_palette:
-        parts.append(PALETTE_HINT)
+        parts.append(PALETTES.get(str(palette or "colourful"), PALETTE_HINT))
+    parts.append(size_clause(print_in, placement))
     if not wants_label_shape(subject):
         parts.append(NO_LABEL_CLAUSE)
     parts.append(TEXTURE_CLAUSE)

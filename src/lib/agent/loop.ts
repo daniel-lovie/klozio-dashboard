@@ -2,14 +2,17 @@
 import { q, one } from "../db";
 import { AGENT_SYSTEM } from "./prompt";
 import { TOOL_DEFS, execTool } from "./tools";
-import { sanitiseHistory } from "./history";
+import { sanitiseHistory, stripImages } from "./history";
 
 // Sonnet by default, not Opus. The bill is dominated by output tokens and cache traffic, and the work
 // here — read some rows, write product copy, run SQL — is not what Opus is for. Opus 5 output is $25/MTok
 // against Sonnet 5's $15, so the gap is narrower than it was when this comment first cited $75, but the
 // reasoning holds. Override per deployment with PERSONALIZER_MODEL if a task genuinely needs the bigger
 // model; re-measure before assuming the old ~5x cost ratio still applies.
-const MODEL = process.env.PERSONALIZER_MODEL || "claude-sonnet-5";
+// Opus. The step budget is 25 and a turn is one shot at the operator's request: the difference between
+// the tiers shows up exactly where this agent lives — multi-step plans, and noticing that its own
+// measurement was wrong before reporting it as a finding. Override with PERSONALIZER_MODEL to fall back.
+const MODEL = process.env.PERSONALIZER_MODEL || "claude-opus-5";
 const MAX_STEPS = 25;
 /** Inline image generations allowed per turn. Each one costs minutes; see the cap in the tool loop. */
 const MAX_PRODUCE_PER_TURN = 2;
@@ -228,7 +231,7 @@ export async function* runAgentTurn(
   // refresh while the agent was working showed neither the message the operator had just sent nor any sign
   // that something was happening — the transcript reappeared only when the turn ended, minutes later.
   await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`,
-          [JSON.stringify(sanitiseHistory(messages)), chatId]);
+          [JSON.stringify(stripImages(sanitiseHistory(messages))), chatId]);
 
   let wrote = false;                  // did this turn change anything, or only read?
   let nudges = 0;                     // how many times we have pushed it to keep its word
@@ -344,14 +347,18 @@ export async function* runAgentTurn(
             } };
           }
         }
-        const { result, summary } = await execTool(block.name, block.input);
+        const { result, summary, blocks } = await execTool(block.name, block.input);
         // Remember whether this turn changed anything, so the promise check below can tell an answer
         // that did the work from one that only talked about it.
         if (block.name !== "sql" || /\b(insert|update|delete)\b/i.test(String(block.input?.query ?? block.input?.sql ?? ""))) {
           wrote = true;
         }
         yield { t: "tool", d: summary };
-        results.push({ type: "tool_result", tool_use_id: block.id, content: result });
+        // A tool result may carry an image. `look` is the whole reason: the agent could act on a product
+        // and never see it, so asked whether a design was any good it answered — correctly — that it had
+        // no access to the image. Anthropic accepts content blocks here, so the picture goes back as a
+        // picture rather than as a sentence describing one.
+        results.push({ type: "tool_result", tool_use_id: block.id, content: blocks ?? result });
       }
       messages.push({ role: "user", content: results });
     }
@@ -375,7 +382,7 @@ export async function* runAgentTurn(
   } finally {
     // Never persist a message the API will reject on the next turn: an empty content array, a tool_use
     // whose result never arrived, or a tool_result the window slice separated from its tool_use.
-    const clean = sanitiseHistory(messages.slice(-60));
+    const clean = stripImages(sanitiseHistory(messages.slice(-60)));
     await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }
   yield { t: "done" };

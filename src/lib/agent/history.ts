@@ -26,6 +26,28 @@ export function malformedThinking(b: any): boolean {
   return false;
 }
 
+/** Replace stored images with a note about what was shown.
+ *
+ * A `look` result is roughly 250KB of base64. Persisting it would put that in the row AND re-send it on
+ * every later turn of the same thread, so a conversation that looked at six products would carry a
+ * megabyte and a half of pictures the model has already read. The image is what this turn needed; the
+ * record of having seen it is what the next turn needs.
+ */
+export function stripImages(messages: any[]): any[] {
+  return messages.map((m) => {
+    if (!Array.isArray(m?.content)) return m;
+    const content = m.content.map((b: any) => {
+      if (b?.type === "image") return { type: "text", text: "[gorsel gosterildi]" };
+      if (b?.type === "tool_result" && Array.isArray(b.content)) {
+        return { ...b, content: b.content.map((x: any) =>
+          x?.type === "image" ? { type: "text", text: "[gorsel gosterildi]" } : x) };
+      }
+      return b;
+    });
+    return { ...m, content };
+  });
+}
+
 /** Make a message list satisfy the API's content and tool-pairing contracts, whatever slicing did to it.
  *
  * A tool_result does not ride in its own message — it is content inside a USER message. So "trim until

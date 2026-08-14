@@ -132,6 +132,35 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "look",
+    description: "URUNE BAK. Uretilen kapak/detay/model karesini ya da baski dosyasini GORSEL olarak dondurur; "
+      + "gozunle degerlendirmen gereken her seyde kullan (tasarim iyi mi, arka plan temiz mi, yazi okunuyor mu). "
+      + "Baski dosyasi HAM DONMEZ: zemini seffaf oldugu icin kumas renginin uzerine dusurulup verilir — ham "
+      + "RGBA'ya bakmak bu projede uc kez yanlis teshis verdirdi. 'on' ile baska bir kumas rengi isteyebilirsin.",
+    input_schema: {
+      type: "object",
+      properties: {
+        product_id: { type: "number" },
+        what: { type: "string", enum: ["cover", "detail", "model", "print", "emb_render"],
+                description: "varsayilan cover. print = baskiya giden dosya." },
+        on: { type: "string", description: "Ivory | Pepper | Black | White | Bay | Moss (sadece print icin)" },
+      },
+      required: ["product_id"],
+    },
+  },
+  {
+    name: "measure",
+    description: "URUNU OLC. Saklanan baski dosyasindan hesaplanir, kolondan okunmaz: cozunurluk ve 300 PPI'da "
+      + "kac inc, opak oran, KENAR TEMASI (kirpilma), kalan anahtar renk pikseli, soluk arka plaka orani, her "
+      + "kumas rengine karsi kontrast ve hero'nun okunur olup olmadigi, bir de alicinin ODEDIGI fiyattan marj. "
+      + "'Temiz mi' sorusuna cevap vermeden once bunu cagir — hattin bastigi sayiyi aktarmak olcum degildir.",
+    input_schema: {
+      type: "object",
+      properties: { product_id: { type: "number" } },
+      required: ["product_id"],
+    },
+  },
+  {
     name: "etsy",
     description: "Authenticated Etsy v3 API call. path is relative to /v3/application (e.g. /listings/123 or /shops/{shop_id}/listings). Body only for POST/PUT/PATCH.",
     input_schema: {
@@ -170,7 +199,28 @@ export const TOOL_DEFS = [
 
 const clip = (s: string, n = 12000) => (s.length > n ? s.slice(0, n) + `\n…[${s.length - n} chars clipped]` : s);
 
-export async function execTool(name: string, input: any): Promise<{ result: string; summary: string }> {
+/** Run one of the measurement scripts and return its single JSON line. Same spawn pattern as produce:
+ *  the Python side owns the image maths, and duplicating it in TS is how two answers start disagreeing. */
+async function runScript(script: string, args: string[]): Promise<any> {
+  const { spawn } = await import("child_process");
+  const { join } = await import("path");
+  return new Promise((resolve) => {
+    const child = spawn("python3", [join(process.cwd(), "scripts", script), ...args],
+                        { env: process.env, cwd: process.cwd() });
+    let out = "", err = "";
+    child.stdout.on("data", (d) => { out += d; });
+    child.stderr.on("data", (d) => { err += d; });
+    child.on("error", (e) => resolve({ error: String(e?.message ?? e) }));
+    child.on("close", () => {
+      const line = out.trim().split("\n").filter(Boolean).pop() ?? "";
+      try { resolve(JSON.parse(line)); }
+      catch { resolve({ error: (err || out || "cikti okunamadi").slice(0, 300) }); }
+    });
+  });
+}
+
+export async function execTool(name: string, input: any):
+  Promise<{ result: string; summary: string; blocks?: any[] }> {
   try {
     if (name === "sql") {
       const q = String(input.query ?? "");
@@ -189,6 +239,36 @@ export async function execTool(name: string, input: any): Promise<{ result: stri
       const out = await produceOne(pid, stage);
       await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
       return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
+    }
+    if (name === "look") {
+      const pid = Number(input.product_id);
+      const what = String(input.what ?? "cover");
+      const args = [String(pid), what, ...(input.on ? ["--on", String(input.on)] : [])];
+      const r = await runScript("look_product.py", args);
+      if (r?.error || !r?.data) {
+        return { result: `ERROR: ${r?.error ?? "gorsel alinamadi"}`, summary: `look ▸ ${pid} hata` };
+      }
+      await logEvent("agent_tool", { detail: `look ${pid} ${what}` });
+      // The image travels as a real content block. Returning a description instead would be the same
+      // blindness this tool exists to end.
+      return {
+        result: `${r.slug} · ${what} · ${r.px?.[0]}x${r.px?.[1]}. ${r.note ?? ""}`,
+        summary: `look ▸ ${r.slug} ${what}`,
+        blocks: [
+          { type: "image", source: { type: "base64", media_type: r.media_type, data: r.data } },
+          { type: "text", text: `${r.slug} · ${what}. ${r.note ?? ""}` },
+        ],
+      };
+    }
+    if (name === "measure") {
+      const pid = Number(input.product_id);
+      const r = await runScript("measure_product.py", [String(pid)]);
+      await logEvent("agent_tool", { detail: `measure ${pid}` });
+      const pf = r?.print_file;
+      const summary = pf
+        ? `measure ▸ ${r.slug} ${pf.px?.[0]}px · kenar %${pf.edge_contact_pct} · kalan ${pf.leftover_key_px}`
+        : `measure ▸ ${r?.slug ?? pid}`;
+      return { result: clip(JSON.stringify(r)), summary };
     }
     if (name === "production_status") {
       const out = await productionStatus();

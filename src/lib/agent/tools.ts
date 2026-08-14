@@ -132,6 +132,34 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "read_file",
+    description: "Depodaki bir dosyayi ya da klasoru oku. Kod, script, skill dokumani, CLAUDE.md — hepsi. "
+      + "Bir seyin NASIL calistigini merak ediyorsan tahmin etme, kaynagi oku. Klasor verirsen icerigini listeler. "
+      + "Gizli dosyalar (.env, anahtarlar) reddedilir.",
+    input_schema: {
+      type: "object",
+      properties: { path: { type: "string", description: "repo koku goreli, orn 'scripts/batch_runner.py' ya da 'scripts'" } },
+      required: ["path"],
+    },
+  },
+  {
+    name: "run_script",
+    description: "scripts/ altindaki bir Python scriptini calistir ve ciktisini al. Denetim, olcum, toplu "
+      + "duzeltme, yeniden adlandirma — bu projenin isi bu scriptlerle yapilir. Ornekler: "
+      + "audit_pipeline.py (tam katalog denetimi), fit_titles.py (kuru calisma; --apply ile yazar), "
+      + "upscale_print_files.py --limit 5, clean_print_files.py. "
+      + "180 sn siniri var: uzun isleri --limit ile parcala. produce_product.py YASAK — onun icin 'produce' kullan. "
+      + "KOD DEGISTIREMEZSIN: dosya yazma araci yok ve keyfi python calistiramazsin.",
+    input_schema: {
+      type: "object",
+      properties: {
+        script: { type: "string", description: "orn 'audit_pipeline.py'" },
+        args: { type: "array", items: { type: "string" }, description: "orn ['--limit','5']" },
+      },
+      required: ["script"],
+    },
+  },
+  {
     name: "look",
     description: "URUNE BAK. Uretilen kapak/detay/model karesini ya da baski dosyasini GORSEL olarak dondurur; "
       + "gozunle degerlendirmen gereken her seyde kullan (tasarim iyi mi, arka plan temiz mi, yazi okunuyor mu). "
@@ -239,6 +267,21 @@ export async function execTool(name: string, input: any):
       const out = await produceOne(pid, stage);
       await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
       return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
+    }
+    if (name === "read_file") {
+      const { readRepoFile } = await import("./workspace");
+      const rel = String(input.path ?? "");
+      const r = await readRepoFile(rel);
+      await logEvent("agent_tool", { detail: `read_file ${rel}` });
+      return { result: clip(r.text), summary: `read_file ▸ ${rel}${r.ok ? "" : " (red)"}` };
+    }
+    if (name === "run_script") {
+      const { runRepoScript } = await import("./workspace");
+      const script = String(input.script ?? "");
+      const args = Array.isArray(input.args) ? input.args.map(String) : [];
+      const r = await runRepoScript(script, args);
+      await logEvent("agent_tool", { detail: `run_script ${script} ${args.join(" ")}`.slice(0, 180) });
+      return { result: clip(r.text), summary: `run_script ▸ ${script} ${r.ok ? "ok" : "hata"}` };
     }
     if (name === "look") {
       const pid = Number(input.product_id);

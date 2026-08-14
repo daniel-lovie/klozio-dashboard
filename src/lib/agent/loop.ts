@@ -13,7 +13,10 @@ import { sanitiseHistory, stripImages } from "./history";
 // the tiers shows up exactly where this agent lives — multi-step plans, and noticing that its own
 // measurement was wrong before reporting it as a finding. Override with PERSONALIZER_MODEL to fall back.
 const MODEL = process.env.PERSONALIZER_MODEL || "claude-opus-5";
-const MAX_STEPS = 25;
+// Raised from 25 when the agent gained reading and script execution. A turn that measures before it
+// speaks spends steps on evidence — audit, look, measure, then the work — and 25 was cutting off runs
+// that were doing exactly what they were told to do.
+const MAX_STEPS = 40;
 /** Inline image generations allowed per turn. Each one costs minutes; see the cap in the tool loop. */
 const MAX_PRODUCE_PER_TURN = 2;
 

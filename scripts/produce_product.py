@@ -40,6 +40,12 @@ sys.path.insert(0, str(HERE))
 import batch_runner as br                                      # noqa: E402
 from joblog import Job                                         # noqa: E402
 import typeset                                                 # noqa: E402
+import design_feedback                                        # noqa: E402
+import design_score                                           # noqa: E402
+import produce_images as pi_mod                               # noqa: E402
+
+# How many candidates to draw before choosing. 1 keeps the old behaviour and the old bill.
+BEST_OF = max(1, int(os.environ.get("DESIGN_BEST_OF", "1")))
 
 
 def conn():
@@ -70,9 +76,21 @@ def load(pid: int) -> dict:
     return d
 
 
-def generate(p: dict, work: Path) -> Path:
+# What to say on the SECOND attempt. The generic palette clause already asks for no magenta and the model
+# still reaches for it — measured across a 97-product migration, roughly one in six came back with magenta
+# INSIDE the artwork, which the cut then punches holes through. That rate went up when the palette moved
+# from "two to five muted colours" to "six to twelve colourful ones": telling a model to be colourful
+# makes it reach for the one hue this pipeline cannot allow. A repeat of the same prompt repeats the same
+# mistake, so the retry says it louder and names the substitutes.
+REINFORCE = (". CRITICAL: use absolutely NO magenta, NO fuchsia, NO hot pink and NO bright pink anywhere "
+             "in the artwork, not even as a small accent or an outline — that exact colour is the "
+             "background and any of it inside the drawing is cut away, leaving holes. Where you would "
+             "reach for pink, use coral, crimson, burnt orange, plum or violet instead")
+
+
+def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Path:
     """The paid step. Prompt comes from the row, so what was approved is what gets drawn."""
-    raw = work / f"{p['slug']}-raw.png"
+    raw = work / f"{p['slug']}{('-' + tag) if tag else ''}-raw.png"
     if raw.exists():
         return raw
     prompt = (p["design_prompt"] or "").strip()
@@ -151,6 +169,8 @@ def generate(p: dict, work: Path) -> Path:
     params = p.get("design_params") or {}
     from produce_images import as_params                          # noqa: PLC0415
     ratio = as_params(params).get("aspect_ratio")
+    if reinforce:
+        full = f"{full}{REINFORCE}"
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
                 shop_id=p["shop_id"])
@@ -159,21 +179,45 @@ def generate(p: dict, work: Path) -> Path:
     return raw
 
 
-def cutout(p: dict, raw: Path, work: Path) -> Path:
-    final = work / f"{p['slug']}-final.png"
+# How far from the key colour still counts as background. 60 is generous, which is right when the artwork
+# genuinely contains no pink — it swallows the whole blend ring. It stopped being right when the palette
+# became colourful: measured over a 97-product migration, a quarter of generations put SOME pink in the
+# drawing, and at tol=60 a coral or a warm red accent falls inside the band and gets punched out as a
+# hole. The background itself is drawn flat at exactly #E6007E, so a tight tolerance still keys it
+# perfectly. Second attempt narrows the band rather than repeating the same cut and hoping.
+TOL_WIDE, TOL_TIGHT = 60, 30
+
+
+def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1,
+           tag: str = "") -> Path:
+    # Each candidate needs its own files or the second draw silently reuses the first — the `if
+    # final.exists(): return final` resumability that makes a re-run cheap would make best-of-N a lie.
+    final = work / f"{p['slug']}{('-' + tag) if tag else ''}-final.png"
     if final.exists():
         return final
     # Key on the colour the prompt demanded, then CHECK it. A background that survived the cut is the one
     # defect that reaches the customer as visible dirt, and it is cheap to detect: the key colour cannot
     # legitimately appear in the artwork, so any of it left over means the generator drifted and the file
     # must not ship.
-    cut, rep = br.key_cutout(raw, work / f"{p['slug']}-cutout.png")
+    cut, rep = br.key_cutout(raw, work / f"{p['slug']}{('-' + tag) if tag else ''}-cutout.png", tol=tol)
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
           f"kalan anahtar %{rep['leftover_frac']*100:.3f} ({rep['leftover_key_px']}px), delik {rep['holes_px']}px, "
           f"acik alan %{rep['pale_field_frac']*100:.0f}, hale %{rep['halo_frac']*100:.2f}, kenar temasi %{rep['edge_contact']*100:.1f}, "
           f"cizim {rep['art_px']}px = 300 PPI'da {rep['size_in_at_300']} inc", file=sys.stderr)
+    # Every judgement below is a labelled example with its features already measured. Throwing that away
+    # is how a shop arrives at "we should train on our own style" with no data to train on.
+    def label(verdict: str, reason: str) -> None:
+        design_feedback.record_quietly(
+            product_id=p["id"], shop_id=p.get("shop_id"), source="pipeline", verdict=verdict,
+            reason=reason, metrics=rep, prompt=(p.get("design_prompt") or "")[:8000],
+            design_model=br.DEFAULT_MODEL, attempt=attempt)
+
+    def refuse(gate: str, message: str) -> None:
+        label("rejected", f"{gate} {message}")
+        raise RuntimeError(message)
+
     if rep["bg_frac"] < 0.15:
-        raise RuntimeError(
+        refuse("bg", 
             f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
             f"{br.KEY_COLOR} arka plani cizmemis; prompt/urun kontrol edilmeli")
     # As a SHARE of the artwork. 200 pixels was never calibrated — it guarded a metric that always returned
@@ -181,7 +225,7 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # across 215 shipped files the median is 0 and the 99th percentile 143 absolute; 0.2% of the opaque
     # area sits far above the norm and far below anything visible.
     if rep["leftover_frac"] > 0.002:
-        raise RuntimeError(f"kesimden sonra opak alanin %{rep['leftover_frac']*100:.2f}'i anahtar renkte "
+        refuse("leftover", f"kesimden sonra opak alanin %{rep['leftover_frac']*100:.2f}'i anahtar renkte "
                            f"({rep['leftover_key_px']} piksel) — zemin temizlenemedi, dosya yayina verilmez")
     # A glow or shadow blends ink into the matte over tens of pixels, and those blended pixels sit BEYOND
     # the keying tolerance, so they survive as bright magenta ink while every distance-based check reports
@@ -192,7 +236,7 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # whose OUTLINE is pink, which the palette now forbids outright, so on new work any magenta in the edge
     # band is a blend artefact by construction.
     if rep["halo_frac"] > 0.5:
-        raise RuntimeError(f"silueti saran seridin %{rep['halo_frac']*100:.0f}'i anahtar renk tonunda — "
+        refuse("halo", f"silueti saran seridin %{rep['halo_frac']*100:.0f}'i anahtar renk tonunda — "
                            "kenarda magenta hale var (yumusak parlama/golge zemine karismis), "
                            "dosya yayina verilmez")
     # The artwork used the key colour itself, so the cut removed it and left a hole THROUGH the design.
@@ -202,7 +246,7 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # from anti-aliasing where an ink edge grazed the keying band, not a hole through the design. A hole
     # that matters is a visible gap.
     if rep["holes_frac"] > 0.005:
-        raise RuntimeError(f"tasarimin icinde {rep['holes_px']} piksellik kapali delik var — cizimin kendisi "
+        refuse("holes", f"tasarimin icinde {rep['holes_px']} piksellik kapali delik var — cizimin kendisi "
                            f"anahtar rengi ({br.KEY_COLOR}) kullanmis ve kesimde delinmis; konseptin "
                            "paletinden pembe/magenta cikarilmali")
     # The sticker plate, as a BACKSTOP only. Calibrated against the catalogue rather than against the
@@ -212,18 +256,18 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
     # for the empty plaque is upstream — strip_caption_talk removes the concept's own "leave a blank
     # headline area" instruction when the product has no words. This only catches the extreme.
     if rep["pale_field_frac"] > 0.70:
-        raise RuntimeError(f"tasarimin %{rep['pale_field_frac']*100:.0f}'i acik renk duz alan — arkada "
+        refuse("pale_field", f"tasarimin %{rep['pale_field_frac']*100:.0f}'i acik renk duz alan — arkada "
                            "krem plaka var (bos baslik alani cizilmis olabilir), koyu gomlekte sticker "
                            "gibi durur; dosya yayina verilmez")
     if not 0.03 <= rep["opaque_frac"] <= 0.95:
-        raise RuntimeError(f"opak alan %{rep['opaque_frac']*100:.1f} — tasarim ya kayboldu ya zemin kaldi")
+        refuse("opaque", f"opak alan %{rep['opaque_frac']*100:.1f} — tasarim ya kayboldu ya zemin kaldi")
     # Artwork on the border means the composition ran off the canvas. It is invisible in the raw frame and
     # unmissable on a tee, where a wing or a boot ends in a straight cut. Same treatment as a failed cut:
     # the caller regenerates once. Measured on ~bg now rather than on the eroded mask, which was
     # always 0 — so the threshold is 6%, wide enough for a design that legitimately reaches toward an edge
     # and narrow enough to catch a band running clean across it.
     if rep["edge_contact"] > 0.06:
-        raise RuntimeError(f"tasarim kenara degiyor (%{rep['edge_contact']*100:.1f}) — kompozisyon "
+        refuse("edge_contact", f"tasarim kenara degiyor (%{rep['edge_contact']*100:.1f}) — kompozisyon "
                            "canvas disina tasmis, kirpilmis dosya baskiya verilmez")
     # Not fatal: a short file still prints, just softer. Say it out loud rather than shipping quietly under
     # standard, because nothing downstream measures this again.
@@ -239,6 +283,9 @@ def cutout(p: dict, raw: Path, work: Path) -> Path:
         br.stage_palette_snap(cut, br.hexes(p["thread_colors"]), final)
     else:
         final.write_bytes(Path(cut).read_bytes())
+    # Every gate passed. The positive half of the dataset — without it the record only ever learns what
+    # a bad design looks like.
+    label("accepted", "tum kapilar gecti")
     return final
 
 
@@ -461,19 +508,43 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                 # painted magenta on one attempt and something else on another with the same prompt. A
                 # stochastic miss should cost a second call, not the operator's afternoon, so the gate's
                 # verdict drives one retry before it becomes an error.
+                #
+                # BEST-OF-N. The loop used to stop at the first draw that was merely ALLOWED, which treats
+                # a design scraping past every gate and one comfortably clear of all of them as the same
+                # product. The generator is stochastic, so another draw is a different design for the
+                # price of one call — DESIGN_BEST_OF=3 buys the pick instead of the first pass. Default
+                # stays 1: this doubles or triples the paid step and that is the operator's decision, not
+                # a default someone discovers on an invoice.
                 art = None
-                for attempt in (1, 2):
-                    raw = generate(p, work)
+                best = (-1.0, None, None)
+                want_in = pi_mod.print_placement(p.get("design_params"))["inches"]
+                last_err: RuntimeError | None = None
+                for attempt in range(1, BEST_OF + 2):
+                    # The extra attempt past BEST_OF is the retry for a stochastic miss: it only runs if
+                    # nothing has passed yet, and it is the one that narrows the tolerance and shouts
+                    # about magenta.
+                    retrying = attempt > BEST_OF
+                    if retrying and best[1] is not None:
+                        break
+                    raw = generate(p, work, reinforce=retrying, tag=f"a{attempt}")
                     job.tick("tasarim uretildi" if attempt == 1 else "tasarim tekrar uretildi")
                     try:
-                        art = cutout(p, raw, work)
-                        break
+                        cand = cutout(p, raw, work, tol=TOL_TIGHT if retrying else TOL_WIDE,
+                                      attempt=attempt, tag=f"a{attempt}")
                     except RuntimeError as e:
-                        if attempt == 2:
-                            raise
-                        print(f"  UYARI kesim reddetti ({e}); bir kez daha uretiliyor", file=sys.stderr)
+                        last_err = e
+                        print(f"  UYARI kesim reddetti ({e})", file=sys.stderr)
                         raw.unlink(missing_ok=True)
-                        (work / f"{p['slug']}-cutout.png").unlink(missing_ok=True)
+                        continue
+                    pts, parts = design_score.score_file(cand.read_bytes(), want_in)
+                    print(f"  aday a{attempt}: {pts}/100 {parts}", file=sys.stderr)
+                    if pts > best[0]:
+                        best = (pts, cand, parts)
+                if best[1] is None:
+                    raise last_err or RuntimeError("hicbir aday kapilari gecemedi")
+                art = best[1]
+                if BEST_OF > 1:
+                    print(f"  secilen: {best[0]}/100", file=sys.stderr)
                 job.tick("arka plan temizlendi")
                 # Embroidery is typeset by the generator, not by us. print_file for an embroidery
                 # product is the digitiser's spec — flat colour, exact thread hexes — and its hook is a

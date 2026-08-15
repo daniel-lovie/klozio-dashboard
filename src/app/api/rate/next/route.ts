@@ -15,6 +15,19 @@
  * oldest or newest corner of the catalogue, which would calibrate everyone on one era of the shop.
  */
 const CALIBRATION = 40;
+
+/**
+ * Embroidery is not in the pool, and putting it there was a mistake.
+ *
+ * An embroidery product's print_file is the DIGITISER'S SPEC — flat colour, exact thread hexes, no
+ * shading — not the thing a customer wears. Raters were shown it next to finished DTF artwork and
+ * judged it as a design: both embroidery products that reached three votes scored 0/3, which says
+ * nothing about the product and everything about showing people the wrong file.
+ *
+ * Also the operator has paused embroidery on t-shirts (2026-08-15), so rating them would be collecting
+ * taste data about a product line that is not being made.
+ */
+const RATEABLE = `p.print_file IS NOT NULL AND p.technique <> 'embroidery'`;
 import { q } from "@/lib/db";
 import { checkRateToken, cleanRater } from "@/lib/rate-token";
 
@@ -28,7 +41,7 @@ export async function GET(req: Request) {
   let rows = await q<{ id: number; slug: string }>(
     `WITH calib AS (
         SELECT id, md5(id::text) AS k FROM products
-         WHERE print_file IS NOT NULL ORDER BY k LIMIT $2)
+         WHERE print_file IS NOT NULL AND technique <> 'embroidery' ORDER BY k LIMIT $2)
      SELECT p.id, p.slug FROM calib c JOIN products p ON p.id = c.id
       WHERE NOT EXISTS (SELECT 1 FROM design_feedback f
                          WHERE f.product_id = p.id AND f.source = 'operator' AND f.rater = $1)
@@ -41,7 +54,7 @@ export async function GET(req: Request) {
     rows = await q<{ id: number; slug: string }>(
       `SELECT p.id, p.slug
          FROM products p
-        WHERE p.print_file IS NOT NULL
+        WHERE ${RATEABLE}
           AND NOT EXISTS (SELECT 1 FROM design_feedback f
                            WHERE f.product_id = p.id AND f.source = 'operator' AND f.rater = $1)
         ORDER BY (SELECT count(*) FROM design_feedback f2
@@ -52,7 +65,7 @@ export async function GET(req: Request) {
   const done = await q<{ n: number }>(
     `SELECT count(*)::int AS n FROM design_feedback WHERE source='operator' AND rater=$1`, [rater]);
   const total = await q<{ n: number }>(
-    `SELECT count(*)::int AS n FROM products WHERE print_file IS NOT NULL`);
+    `SELECT count(*)::int AS n FROM products WHERE print_file IS NOT NULL AND technique <> 'embroidery'`);
 
   if (!rows.length) {
     return Response.json({ done: true, rated: done[0]?.n ?? 0, total: total[0]?.n ?? 0 });

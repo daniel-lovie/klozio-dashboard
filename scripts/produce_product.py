@@ -46,6 +46,10 @@ import produce_images as pi_mod                               # noqa: E402
 
 # How many candidates to draw before choosing. 1 keeps the old behaviour and the old bill.
 BEST_OF = max(1, int(os.environ.get("DESIGN_BEST_OF", "1")))
+# The only blanks a NEW embroidery product may use. Everything currently embroidered is a Comfort Colors
+# 1717 t-shirt (23) or a Yupoong dad hat (14) and none of them is a sweatshirt, so this refuses all of
+# today's shapes by design — that is the decision, not an oversight.
+EMB_OK = re.compile(r"sweat|crewneck|hoodie", re.I)
 # For a retry pass over concepts ALREADY KNOWN to put magenta in the artwork: narrow the keying tolerance
 # from the first draw instead of paying for one doomed wide-tolerance attempt first.
 HARD_MODE = os.environ.get("DESIGN_HARD_MODE") == "1"
@@ -61,7 +65,7 @@ def load(pid: int) -> dict:
     k.execute("""SELECT id, slug, shop_id, technique, design_prompt, thread_colors,
                         (print_file IS NOT NULL) AS has_print,
                         (SELECT count(*) FROM product_images g WHERE g.product_id = p.id) AS images,
-                        design_state, content_status, design_params, hook, hero_colorway
+                        design_state, content_status, design_params, hook, hero_colorway, blank
                    FROM products p WHERE id = %s""", (pid,))
     row = k.fetchone()
     c.close()
@@ -69,7 +73,7 @@ def load(pid: int) -> dict:
         sys.exit(f"urun {pid} yok")
     cols = ["id", "slug", "shop_id", "technique", "design_prompt", "thread_colors",
             "has_print", "images", "design_state", "content_status", "design_params",
-            "hook", "hero_colorway"]
+            "hook", "hero_colorway", "blank"]
     d = dict(zip(cols, row))
     if isinstance(d.get("design_params"), str):
         try:
@@ -501,6 +505,14 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
     p = load(pid)
     if p["content_status"] != "approved":
         return {"ok": False, "slug": p["slug"], "error": f"content_status={p['content_status']}, onayli degil"}
+    # Embroidery is paused for NEW products (operator, 2026-08-15): it stays on sweatshirts and comes off
+    # t-shirts. The 37 that exist keep running — this refuses to DRAW a new one, which is where the money
+    # goes, rather than touching anything already made. `has_print` is the test for "already made": a
+    # product with a file is being rebuilt, not created.
+    if p["technique"] == "embroidery" and not p["has_print"] and not EMB_OK.search(str(p.get("blank") or "")):
+        return {"ok": False, "slug": p["slug"],
+                "error": f"nakis yeni urunlerde durduruldu — blank '{p.get('blank')}' sweatshirt degil. "
+                         f"Mevcut nakis urunler calismaya devam eder; yeni nakis icin sweatshirt blank sec."}
     if redo:
         c = conn(); k = c.cursor()
         k.execute("""UPDATE products SET print_file=NULL, design_state=NULL, redo_note=NULL

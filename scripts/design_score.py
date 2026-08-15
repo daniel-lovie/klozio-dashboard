@@ -27,6 +27,7 @@ the actual goal rather than a proxy for it.
 from __future__ import annotations
 
 import io
+import json
 import os
 import sys
 from pathlib import Path
@@ -51,6 +52,67 @@ WEIGHTS = {
 
 def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
+
+
+# The learned half, kept apart from the physical half on purpose.
+#
+# assets/preference-model.json is fitted by learn_preference.py from the operator votes, per-rater
+# centred and validated out-of-fold. It orders two designs correctly about 61% of the time (95% interval
+# 55-67%), which is a real signal and a small one — so it is worth a MINORITY of the score. Weighting it
+# like the physical terms would be pretending 61% is taste.
+#
+# It only ever RANKS. Nothing here can refuse a design: the gates in produce_product decide what ships,
+# and a learned score that could also gate is how a model starts approving things to raise its own
+# number. If the file is missing, the rubric simply runs without this term.
+PREF_WEIGHT = 15
+
+
+def _preference(feats: dict | None) -> float:
+    if not feats:
+        return 0.5
+    try:
+        m = json.loads((Path(__file__).resolve().parent.parent / "assets" / "preference-model.json")
+                       .read_text())
+    except (OSError, ValueError):
+        return 0.5
+    z = [(feats.get(n, 0.0) - mu) / sd for n, mu, sd in zip(m["features"], m["mean"], m["std"])]
+    raw = sum(a * b for a, b in zip(z, m["weights"][:-1])) + m["weights"][-1]
+    # The target was a centred like-rate in roughly [-0.5, 0.5], so this maps back to 0-1 rather than
+    # inventing a scale.
+    return _clamp(raw + 0.5)
+
+
+def features_of(im: "Image.Image") -> dict | None:
+    """The learned model's inputs. Lives HERE, next to the scorer that consumes them, and is imported
+    by learn_preference — two copies of a feature definition is two models."""
+    im = im.convert("RGBA")
+    a = np.asarray(im)
+    opaque = a[..., 3] > 128
+    if opaque.sum() < 1000:
+        return None
+    rgb = a[..., :3][opaque].astype(float)
+    lum = rgb @ np.array([0.2126, 0.7152, 0.0722])
+    ys, xs = np.nonzero(opaque)
+    w = xs.max() - xs.min() + 1
+    h = ys.max() - ys.min() + 1
+    # Colourfulness: mean saturation of the ink. This is the axis the operator changed the palette on, so
+    # it is the one worth knowing about.
+    mx, mn = rgb.max(axis=1), rgb.min(axis=1)
+    sat = np.divide(mx - mn, np.maximum(mx, 1e-6))
+    # Distinct colours, quantised — a proxy for "flat and few" against "busy".
+    q = (rgb // 32).astype(int)
+    ncol = len(np.unique(q[:, 0] * 64 + q[:, 1] * 8 + q[:, 2]))
+    # Detail: how much of the ink is edge. A fine-hatched engraving scores high, a flat emblem low.
+    small = np.asarray(Image.fromarray((opaque * 255).astype(np.uint8)).resize((256, 256)))
+    edge = np.abs(np.diff(small.astype(int), axis=0)).mean() + np.abs(np.diff(small.astype(int), axis=1)).mean()
+    return {
+        "ink_lum": float(lum.mean()) / 255.0,
+        "colourfulness": float(sat.mean()),
+        "colour_count": min(ncol, 60) / 60.0,
+        "coverage": float(opaque.mean()),
+        "aspect": float(min(w, h)) / float(max(w, h)),
+        "detail": float(edge) / 255.0,
+    }
 
 
 def score(rep: dict, ink_luminance: float | None = None,
@@ -90,6 +152,7 @@ def score(rep: dict, ink_luminance: float | None = None,
     else:
         parts["contrast"] = WEIGHTS["contrast"] * _clamp(abs(ink_luminance - garment_luminance) / 90.0)
 
+    parts["preference"] = PREF_WEIGHT * _preference(rep.get("features"))
     total = round(sum(parts.values()), 1)
     return total, {k: round(v, 1) for k, v in parts.items()}
 
@@ -113,6 +176,9 @@ def score_file(path_or_bytes, want_in: float, garment_luminance: float | None = 
         # A finished file has already been cleaned, so contamination is measured as zero here rather than
         # guessed: the cut report is the authority on it and is passed in by the producer.
         "leftover_frac": 0.0, "holes_frac": 0.0, "halo_frac": 0.0,
+        # Without this the learned term silently fell back to its neutral default on every real call —
+        # the model was wired in and never actually consulted.
+        "features": features_of(im),
     }
     return score(rep, float(lum.mean()), garment_luminance)
 

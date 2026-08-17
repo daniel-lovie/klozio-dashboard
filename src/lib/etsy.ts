@@ -252,6 +252,22 @@ export const SIZE_UPCHARGE_CENTS: Record<string, number> = {
   "2X": 286, "3X": 572, "4X": 715,
 };
 
+/** The digital-download option, carried as a size value.
+ *
+ *  Klozio sells the print file alongside the shirt (operator tactic, 2026-08-16). It rides on the Size
+ *  property because Etsy allows only two variation properties and Colour holds the other one, and it is
+ *  sent as a CUSTOM value — no scale_id, no value_ids — because "Digital PNG" is not on Etsy's clothing
+ *  size scale. Etsy accepts the mixed property; verified live at 176 offerings per listing.
+ *
+ *  Nothing here is shop-specific on purpose. A product gets the option by carrying it in `sizes`, so
+ *  HillsByElgin simply never has it and no shop check is needed. The price is a flat anchor: 1714 is
+ *  $12.00 once the standing 30% sale applies.
+ *
+ *  NOTE: this is a variation on a PHYSICAL listing, not an Etsy digital download. Etsy will not deliver
+ *  the file — whoever fulfils the order has to send it. */
+export const DIGITAL_SIZE = "Digital PNG";
+export const DIGITAL_ANCHOR_CENTS = 1714;
+
 export async function updateInventory(
   listingId: number,
   opts: { colorways: string[]; sizes: string[]; priceCents: number; quantity: number; readinessStateId: number; skuPrefix: string }
@@ -278,15 +294,20 @@ export async function updateInventory(
   }
   for (const color of opts.colorways.length ? opts.colorways : ["Default"]) {
     for (const size of opts.sizes) {
+      const digital = size === DIGITAL_SIZE;
       const vid = SIZE_VALUE_IDS[size];
-      if (!vid) throw new Error(`Unknown size "${size}" — no Etsy value_id mapping`);
-      const cents = opts.priceCents + (SIZE_UPCHARGE_CENTS[size] ?? 0);
+      if (!digital && !vid) throw new Error(`Unknown size "${size}" — no Etsy value_id mapping`);
+      const cents = digital
+        ? DIGITAL_ANCHOR_CENTS
+        : opts.priceCents + (SIZE_UPCHARGE_CENTS[size] ?? 0);
       if (cents !== opts.priceCents) variesBySize = true;
       products.push({
-        sku: `${opts.skuPrefix}-${color.toUpperCase().replace(/\s+/g, "")}-${size}`,
+        sku: `${opts.skuPrefix}-${color.toUpperCase().replace(/\s+/g, "")}-${digital ? "PNG" : size}`,
         property_values: [
           // property_name is REQUIRED or Etsy returns 400 "Expected string value for 'property_name'"
-          { property_id: SIZE_PROPERTY, property_name: "Size", scale_id: SIZE_SCALE, value_ids: [vid], values: [size] },
+          digital
+            ? { property_id: SIZE_PROPERTY, property_name: "Size", values: [DIGITAL_SIZE] }
+            : { property_id: SIZE_PROPERTY, property_name: "Size", scale_id: SIZE_SCALE, value_ids: [vid], values: [size] },
           { property_id: CUSTOM1_PROPERTY, property_name: "Color", values: [color] },
         ],
         offerings: [

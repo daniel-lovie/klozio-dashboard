@@ -74,6 +74,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--pattern", default="%-m_-v1", help="slug kalibi")
+    ap.add_argument("--start", help="ilk gun, YYYY-MM-DD (varsayilan: yarin)")
+    # Re-running should MOVE the calendar, not add a second copy of it. Without this a reschedule leaves
+    # the old rows in place and the product publishes twice.
+    ap.add_argument("--replace", action="store_true", help="bu partinin mevcut kuyrugunu sil, yeniden kur")
     a = ap.parse_args()
 
     c = psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -114,8 +118,20 @@ def main() -> int:
     if len(blocked) > 15:
         print(f"  … +{len(blocked)-15} tane daha")
 
-    start = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
-        hour=PUBLISH_HOUR_UTC, minute=0, second=0, microsecond=0)
+    if a.start:
+        y, m, d = (int(x) for x in a.start.split("-"))
+        start = datetime(y, m, d, PUBLISH_HOUR_UTC, 0, tzinfo=timezone.utc)
+        if start < datetime.now(timezone.utc):
+            print(f"UYARI: {a.start} {PUBLISH_HOUR_UTC}:00 UTC gecmiste — o gun hemen yayinlanir",
+                  file=sys.stderr)
+    else:
+        start = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+            hour=PUBLISH_HOUR_UTC, minute=0, second=0, microsecond=0)
+    if a.replace and a.apply:
+        k.execute("""DELETE FROM schedule s USING products p
+                      WHERE p.id = s.product_id AND p.slug LIKE %s AND s.published_at IS NULL""",
+                  (a.pattern,))
+        print(f"eski kuyruk silindi ({k.rowcount} satir)")
     print(f"\ntakvim ({PER_DAY}/gun, {DAYS} gun, {PUBLISH_HOUR_UTC}:00 UTC):")
     queued = 0
     for day in range(DAYS):

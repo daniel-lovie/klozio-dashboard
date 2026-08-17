@@ -116,6 +116,10 @@ def upload(h: dict, shop: str, listing: int, rank: int, name: str, blob: bytes) 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only")
+    # Without this the script sweeps EVERY shop. The Klozio free-shipping tactic is Klozio-only by
+    # operator decision (2026-08-16), and pushing HillsByElgin covers as a side effect of it would be
+    # a change nobody asked for on a shop with 95 live listings.
+    ap.add_argument("--shop", type=int, help="sadece bu shop_id")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
@@ -123,22 +127,29 @@ def main() -> None:
     conn = psycopg2.connect(os.environ["DATABASE_URL"], keepalives=1, keepalives_idle=20)
     cur = conn.cursor()
 
-    # Shop 2 only. Klozio (shop 1) is being run separately by hand, and an image push is not a
-    # harmless read — it deletes what is there now.
+    # The shop is now an ARGUMENT, not a constant. It was hardcoded to 2 with a comment saying Klozio
+    # "is being run separately by hand" — which meant the flag added above would have been accepted and
+    # silently ignored, and a Klozio run would have pushed HillsByElgin's covers instead. An image push
+    # is not a harmless read: it deletes what is on the listing now.
+    shop = a.shop if a.shop else 2
     q = """SELECT p.id, p.slug, p.etsy_listing_id, count(g.id), p.shop_id
              FROM products p JOIN product_images g ON g.product_id=p.id
-            WHERE p.etsy_listing_id IS NOT NULL AND p.shop_id = 2
+            WHERE p.etsy_listing_id IS NOT NULL AND p.shop_id = %s
               -- Progress has to be recorded or every run starts over. The proxy drops this
               -- connection somewhere around the twentieth listing, so a run that cannot resume
               -- re-uploads the same twenty for ever and never reaches the rest.
               AND (p.etsy_images_synced_at IS NULL
                    OR p.etsy_images_synced_at < (SELECT max(x.created_at) FROM product_images x
                                                   WHERE x.product_id = p.id))
-              AND EXISTS (SELECT 1 FROM product_images x
+              -- The rank-1 filename test below is a HillsByElgin cover convention. It is kept for that
+              -- shop and skipped for any other, because applied to Klozio it matches nothing and the
+              -- script would report "0 listings" rather than saying the filter excluded them.
+              {cover_filter}"""
+    q = q.replace("{cover_filter}", """AND EXISTS (SELECT 1 FROM product_images x
                            WHERE x.product_id=p.id AND x.rank=1
                              AND (x.filename LIKE '%%-ivory-model.jpg'
-                                  OR x.filename LIKE '%%-left-model.jpg'))"""
-    params: list = []
+                                  OR x.filename LIKE '%%-left-model.jpg'))""" if shop == 2 else "")
+    params: list = [shop]
     if a.only:
         q += " AND p.slug=%s"
         params.append(a.only)
@@ -188,8 +199,14 @@ def main() -> None:
             creds[sid] = shop_creds(k, sid)
         blobs = {}
         for pid, *_ in chunk:
+            # role IS NULL is not cosmetic: free_shipping_stamp.py parks the pre-stamp original as a
+            # sibling row at rank 9000 so the stamp stays reversible. Uploading it hands Etsy a rank of
+            # 9000 and the whole listing fails with "ListingImages must be ordered 1 - 20" — after the
+            # real images have already gone up and before the old ones are deleted, which is how a
+            # listing ends up with twelve images. Backups are not listing images.
             k.execute("""SELECT rank, filename, bytes FROM product_images
-                          WHERE product_id=%s ORDER BY rank LIMIT %s""", (pid, MAX_IMAGES))
+                          WHERE product_id=%s AND (role IS NULL OR role NOT IN ('cover_unstamped'))
+                          ORDER BY rank LIMIT %s""", (pid, MAX_IMAGES))
             blobs[pid] = [(r, f, bytes(b)) for r, f, b in k.fetchall()]
         c.close()
         done_ids: list = []

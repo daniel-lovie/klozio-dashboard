@@ -38,9 +38,17 @@ TOKEN_FILE = os.path.expanduser(os.environ.get("PROXY_TOKEN_FILE", "~/.ollama/pr
 # read as "the local model is unreliable" when it is only slow.
 READ_TIMEOUT = 600
 
-# Curl sets these itself and urllib sets them again; forwarding the originals corrupts the request.
-HOP_BY_HOP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
-              "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"}
+# Two different filters, and conflating them is a real bug rather than untidiness. On the way IN,
+# Host and Content-Length describe the hop we are replacing and urllib recomputes both. On the way
+# OUT, Content-Length is the only thing telling the client where the body ends: stripping it leaves a
+# keep-alive HTTP/1.1 response with no length and no chunked framing, so the client reads until the
+# connection closes — which never happens. curl tolerated it, Next's fetch (undici) hung for thirty
+# seconds and reported the Spark as unreachable. Date and Server are dropped because send_response
+# writes its own and duplicates are the kind of thing a strict client is entitled to reject.
+REQ_STRIP = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+             "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"}
+RESP_STRIP = {"connection", "keep-alive", "proxy-authenticate", "te", "trailers",
+              "transfer-encoding", "upgrade", "date", "server"}
 
 try:
     TOKEN = open(TOKEN_FILE).read().strip()
@@ -84,7 +92,7 @@ class Gate(BaseHTTPRequestHandler):
 
         req = urllib.request.Request(UPSTREAM + self.path, data=body, method=self.command)
         for k, v in self.headers.items():
-            if k.lower() not in HOP_BY_HOP and k.lower() != "authorization":
+            if k.lower() not in REQ_STRIP and k.lower() != "authorization":
                 req.add_header(k, v)
 
         try:
@@ -102,7 +110,7 @@ class Gate(BaseHTTPRequestHandler):
 
         self.send_response(up.status)
         for k, v in up.headers.items():
-            if k.lower() not in HOP_BY_HOP:
+            if k.lower() not in RESP_STRIP:
                 self.send_header(k, v)
         # Streamed chat arrives as NDJSON with no content-length, so the response has to be chunked
         # back out; buffering it whole would turn a live stream into a four-minute silence.

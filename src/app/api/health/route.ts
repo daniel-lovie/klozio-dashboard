@@ -18,14 +18,19 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  if (!url.searchParams.has("engine")) return Response.json({ ok: true });
+  // Which commit is actually serving. Twice on 2026-08-19 a fix was diagnosed as not working when it
+  // had simply not shipped yet: the build log's "Healthcheck succeeded" belongs to whichever build
+  // wrote it last, so tailing it says nothing about the build you just pushed. Comparing this against
+  // `git rev-parse HEAD` is a fact.
+  const build = (process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || null;
+  if (!url.searchParams.has("engine")) return Response.json({ ok: true, build });
 
   const want = (process.env.AGENT_ENGINE || "cloud").trim();
   // The same 3s budget the agent uses; a slower answer than that is a fallback in practice, so
   // reporting it as reachable would be reporting something the agent does not believe.
   const reachable = want === "local" ? await ollamaReady() : false;
   return Response.json({
-    ok: true,
+    ok: true, build,
     chat: { requested: want, reachable, effective: want === "local" && reachable ? "local" : "cloud",
             model: process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b" },
   });

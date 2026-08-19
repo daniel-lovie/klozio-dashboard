@@ -25,6 +25,7 @@ import {
   activateListing,
   setReturnPolicy,
   getListing,
+  apiGet,
 } from "./etsy";
 
 const PERSONALIZATION_INSTRUCTIONS =
@@ -153,24 +154,34 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
         }
       }
 
-      await updateInventory(listingId, {
-        colorways: p.colorways ?? [],
-        sizes: p.sizes ?? ["S", "M", "L", "XL", "2X", "3X"],
-        priceCents: p.price_cents,
-        quantity: p.quantity,
-        readinessStateId: shopCtx().readinessStateId,
-        skuPrefix: (p.slug || "SKU").slice(0, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
-      });
     } else {
-      // ---- B) draft exists: make sure it has an image before activating ----
+      // ---- B) draft exists: bring its images up to date before activating ----
       const live = await getListing(listingId).catch(() => null);
       if (!live) throw new Error(`Etsy listing ${listingId} not found — was it deleted?`);
-      const imgCount = await one<{ n: string }>(
-        `SELECT count(*)::text AS n FROM product_images WHERE product_id=$1`,
+
+      // This check used to count rows in OUR table and call that "make sure it has an image", which
+      // verifies the wrong side of the transfer: attempt 1 can create the draft, upload two of eight
+      // photos and die, and attempt 2 then reads eight rows locally, concludes all is well and
+      // activates a listing showing one photo. `cryptid-m1-v1` went live on 2026-08-18 with 1 of 8.
+      // Ask ETSY what it actually holds, and upload whatever is missing by rank.
+      const ours = await q<any>(
+        `SELECT rank, filename, mime, bytes FROM product_images
+          WHERE product_id=$1 AND role <> 'cover_unstamped' ORDER BY rank`,
         [product_id]
       );
-      if (Number(imgCount?.n ?? 0) === 0) {
+      if (ours.length === 0) {
         throw new Error("no images stored for this product; refusing to activate a listing we cannot verify");
+      }
+      const onEtsy = await apiGet(`/listings/${listingId}/images`).catch(() => null);
+      const haveRanks = new Set<number>(
+        ((onEtsy as any)?.results ?? []).map((x: any) => Number(x.rank))
+      );
+      const missing = ours.filter((img: any) => !haveRanks.has(Number(img.rank)));
+      if (missing.length) {
+        console.log(`listing ${listingId}: ${missing.length}/${ours.length} gorsel eksik, yukleniyor`);
+        for (const img of missing) {
+          await uploadListingImage(listingId, img.rank, img.filename, img.mime, img.bytes as Buffer);
+        }
       }
       // Drafts created before return_policy_id was wired in (or created by hand in Shop Manager)
       // have it null, and Etsy refuses to activate them. Repair it rather than failing the launch.
@@ -186,7 +197,37 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
       }
     }
 
+    // Inventory is written on EVERY path, not just when the draft is created here.
+    //
+    // It used to live inside the "no draft yet" branch. That is fine on a first attempt and silently
+    // wrong on a retry: attempt 1 creates the draft and stores etsy_listing_id, then fails somewhere
+    // after; attempt 2 sees the id, takes the "draft exists" branch, skips this call entirely and
+    // activates a listing carrying nothing but the single default offering Etsy creates with a draft.
+    // Fifteen live listings went out that way on 2026-08-17 with no sizes, no colours and no Digital
+    // PNG — every one of them a row with attempts = 2, every attempts = 1 row correct.
+    //
+    // The call is a PUT and is idempotent, so running it on the retry path costs one request and
+    // removes the whole class of failure.
+    await updateInventory(listingId, {
+      colorways: p.colorways ?? [],
+      sizes: p.sizes ?? ["S", "M", "L", "XL", "2X", "3X"],
+      priceCents: p.price_cents,
+      quantity: p.quantity,
+      readinessStateId: shopCtx().readinessStateId,
+      skuPrefix: (p.slug || "SKU").slice(0, 12).toUpperCase().replace(/[^A-Z0-9]/g, ""),
+    });
+
     await activateListing(listingId);
+
+    // A listing with one offering and no properties is the untouched draft shape, which is exactly what
+    // the bug above produced. Refuse to call it published: better a failed row the operator can see
+    // than a live listing a buyer cannot pick a size on.
+    const inv = await apiGet(`/listings/${listingId}/inventory`).catch(() => null);
+    const offerings = (inv as any)?.products?.length ?? 0;
+    const wanted = (p.colorways?.length || 1) * (p.sizes?.length || 1);
+    if (wanted > 1 && offerings < 2) {
+      throw new Error(`inventory not applied: Etsy shows ${offerings} offering(s), expected ${wanted}`);
+    }
 
     const verify = await getListing(listingId).catch(() => null);
     const state = verify?.state ?? "unknown";

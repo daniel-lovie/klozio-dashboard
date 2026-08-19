@@ -8,6 +8,7 @@ import { produceDue } from "./producer";
 import { pollOrders } from "./orders";
 import { snapshotAllShops } from "./analytics";
 import { adInsights } from "./meta";
+import { guardInventory } from "./inventory-guard";
 import { q } from "./db";
 
 declare global {
@@ -20,6 +21,8 @@ declare global {
   // eslint-disable-next-line no-var
   var __klozioMetaTicker: NodeJS.Timeout | undefined;
   var __klozioProducerTicker: NodeJS.Timeout | undefined;
+  // eslint-disable-next-line no-var
+  var __klozioInventoryTicker: NodeJS.Timeout | undefined;
 }
 
 export function startScheduler() {
@@ -85,6 +88,28 @@ export function startScheduler() {
   global.__klozioOrderTicker = setInterval(orderTick, orderInterval);
   global.__klozioOrderTicker.unref?.();
   console.log(`[orders] polling every ${orderInterval}ms`);
+
+  // Inventory guard: a listing can go live with no sizes, no colours and no Digital PNG, and nothing
+  // in the database says so — the schedule row reads `published` and the product row reads correct.
+  // The publisher now verifies its own write, but it can only vouch for listings IT published; this
+  // sweep is what covers anything already live, edited by hand, or published by an older build.
+  //
+  // Hourly on purpose. It reads every active listing before it writes anything, so a fast cadence buys
+  // nothing but Etsy rate limit pressure — the failure it looks for does not appear between sweeps on
+  // its own, only at publish time.
+  const invInterval = Number(process.env.INVENTORY_GUARD_INTERVAL_MS || 3600 * 1000);
+  const invTick = async () => {
+    try {
+      const out = await guardInventory(process.env.INVENTORY_GUARD_REPAIR !== "false");
+      if (out.broken > 0 || out.failed > 0 || out.imgBroken > 0) console.log("[inventory]", JSON.stringify(out));
+    } catch (e) {
+      console.error("[inventory] guard failed:", e);
+    }
+  };
+  setTimeout(invTick, 120_000).unref?.();   // first sweep once the app has settled after boot
+  global.__klozioInventoryTicker = setInterval(invTick, invInterval);
+  global.__klozioInventoryTicker.unref?.();
+  console.log(`[inventory] guard every ${invInterval}ms`);
 
   // Listing views/favourites: one snapshot per day is the useful resolution (Etsy updates
   // view counts lazily), so a 6h cadence just keeps today's row fresh — the unique index

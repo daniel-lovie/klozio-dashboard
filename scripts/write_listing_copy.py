@@ -64,10 +64,19 @@ Questions? Message me — I reply the same day."""
 DISCLOSURE = ("ABOUT THE DESIGN — This design was created by me using AI image-generation tools as part "
               "of my design process, then refined and prepared for print by hand. Original illustration.")
 
+# Two briefs, because the shop sells two shapes of product and describing one as the other is how a
+# listing promises something the shirt does not have. A wordless chest icon and a printed one-liner need
+# opposite instructions about quoting text.
+WORDLESS_BRIEF = """The shirt carries a SMALL WORDLESS ILLUSTRATION on the left chest, about 3.5 inches.
+There is no text on the garment. Never promise words, quotes or slogans."""
+
+TEXT_BRIEF = """The shirt carries a PRINTED LINE OF TEXT together with a small pixel-art mascot. Quote the
+exact printed line once in the title so a buyer knows what they are getting, and never invent a different
+wording. Do not name or imply any company, product or brand."""
+
 SPEC = f"""You write Etsy listing copy for a US print-on-demand t-shirt shop.
 
-The shirt carries a SMALL WORDLESS ILLUSTRATION on the left chest, about 3.5 inches. There is no text on
-the garment. Never promise words, quotes or slogans.
+{{brief}}
 
 Return STRICT JSON with exactly these keys and nothing else:
   "title"   — {LOW} to {HIGH} characters. Four or five phrases separated by commas. The primary keyword
@@ -76,8 +85,7 @@ Return STRICT JSON with exactly these keys and nothing else:
               or question marks. US English, no emoji, no ALL CAPS words.
   "tags"    — exactly {TAGS_N} strings. Each at most {TAG_MAX} characters INCLUDING spaces, and each must
               be TWO OR MORE words. No duplicates. No punctuation. Lowercase.
-  "hook"    — one sentence, at most 140 characters, describing the illustration for the top of the
-              listing. It must not quote or promise any printed words.
+  "hook"    — one sentence, at most 140 characters, describing the design for the top of the listing.
 
 Do not invent a brand, franchise, character, team or celebrity."""
 
@@ -94,7 +102,7 @@ def check(d: dict) -> str:
         return "baslikta virgul yok"
     if len(t.split(",")[0].strip()) > KEYWORD_HEAD:
         return f"ilk segment {len(t.split(',')[0].strip())} karakter (>{KEYWORD_HEAD})"
-    if QUOTED.search(t):
+    if QUOTED.search(t) and not d.get("_has_text"):
         return "baslik hala yazi vaat ediyor"
     if any(seg.strip() and seg.strip()[0].islower() for seg in t.split(",")[1:]):
         return "baslikta kucuk harfle baslayan segment"
@@ -118,7 +126,7 @@ def check(d: dict) -> str:
     hook = str(d.get("hook", "")).strip()
     if not (20 <= len(hook) <= 140):
         return f"hook {len(hook)} karakter"
-    if QUOTED.search(hook):
+    if QUOTED.search(hook) and not d.get("_has_text"):
         return "hook yazi vaat ediyor"
     return ""
 
@@ -131,17 +139,21 @@ def build_description(hook: str) -> str:
 
 
 def one(row) -> tuple:
-    pid, slug, niche, concept = row
-    msgs = [{"role": "user", "content":
-             f"Niche: {niche}\nIllustration printed on the shirt: {concept}\n\nWrite the JSON."}]
+    pid, slug, niche, concept, printed = row
+    printed = (printed or "").strip()
+    spec = SPEC.format(brief=TEXT_BRIEF if printed else WORDLESS_BRIEF)
+    what = (f'The exact line printed on the shirt: "{printed}"\nThe mascot beside it: {concept}'
+            if printed else f"Illustration printed on the shirt: {concept}")
+    msgs = [{"role": "user", "content": f"Niche: {niche}\n{what}\n\nWrite the JSON."}]
     for attempt in (1, 2):
-        raw = call(msgs, SPEC)
+        raw = call(msgs, spec)
         try:
             d = json.loads(re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.M).strip())
         except ValueError:
             why = "JSON ayristirilamadi"
             d = {}
         else:
+            d["_has_text"] = bool(printed)
             why = check(d)
         if not why:
             return pid, slug, d, ""
@@ -157,14 +169,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--pattern", help="sadece bu slug kalibi")
     a = ap.parse_args()
 
     c = conn()
     k = c.cursor()
     # Only products whose design EXISTS. Copy written before the artwork describes a brief, not a shirt.
-    k.execute("""SELECT id, slug, niche, design_prompt FROM products
-                  WHERE (title = '' OR title IS NULL) AND print_file IS NOT NULL
-                  ORDER BY id""")
+    k.execute(f"""SELECT id, slug, niche, design_prompt, hook FROM products
+                   WHERE (title = '' OR title IS NULL) AND print_file IS NOT NULL
+                     {"AND slug LIKE %s" if a.pattern else ""}
+                   ORDER BY id""", (a.pattern,) if a.pattern else None)
     rows = k.fetchall()
     c.close()
     if a.limit:

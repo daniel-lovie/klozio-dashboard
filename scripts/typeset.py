@@ -52,17 +52,43 @@ FONT_ROLES: dict[str, list[str]] = {
         "/usr/share/fonts/dejavu/DejaVuSansCondensed-Bold.ttf",
         "/System/Library/Fonts/Supplemental/Impact.ttf",
     ],
+    # Monospace, for the AI/coding line. A terminal face is not decoration there — the joke in
+    # "Hallucinating..." is that it reads like machine output, and a condensed poster face kills it.
+    # JetBrains Mono, SIL OFL 1.1, vendored with its licence.
+    "mono": [
+        str(FONTS / "JetBrainsMono-Variable.ttf"),
+        "/usr/share/fonts/liberation/LiberationMono-Bold.ttf",
+        "/System/Library/Fonts/Menlo.ttc",
+    ],
     "sans": [
         str(FONTS / "LiberationSans-Bold.ttf"),
         "/usr/share/fonts/liberation/LiberationSans-Bold.ttf",
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
     ],
+    # Heavy slab, for the retro/western pieces — vintage tackle-box and national-park-print work. Oswald
+    # is condensed and modern and cannot do this job; a Times clone certainly cannot. Alfa Slab One,
+    # SIL OFL 1.1. Its thinnest strokes are far above the DTF minimum, which is why a slab was chosen
+    # over an authentic hairline-serif western face.
+    "slab": [
+        str(FONTS / "AlfaSlabOne-Regular.ttf"),
+        "/usr/share/fonts/dejavu/DejaVuSerif-Bold.ttf",
+    ],
+    # High-contrast display serif for the celestial / dark-academia pieces. Set at Bold, never lighter:
+    # Playfair's thin strokes are the whole point of the face and also the thing DTF drops, so weight is
+    # a print requirement here, not a taste call. SIL OFL 1.1.
+    "display": [
+        str(FONTS / "PlayfairDisplay-Bold.ttf"),
+        str(FONTS / "LiberationSerif-Bold.ttf"),
+    ],
 }
+# Faces that are already the weight they should be — asking freetype to re-instantiate them at "Bold"
+# either fails or, on a static face, silently does nothing.
+_STATIC = {"slab", "display"}
 # The licence line the provenance archive should carry. 16 PROVENANCE.md files said type was set in
 # "Arial Bold / Futura" — typeset.py has never referenced Futura, and Arial is not a font this project can
 # prove a licence for. An archive that names the wrong tool is worse than one that names none.
-FONT_CREDIT = ("Liberation Serif Bold / Liberation Sans Bold (SIL OFL 1.1) and Oswald (SIL OFL 1.1), "
-               "vendored in dashboard/assets/fonts with their licences")
+FONT_CREDIT = ("Liberation Serif Bold / Liberation Sans Bold, Oswald, JetBrains Mono, Alfa Slab One and "
+               "Playfair Display (all SIL OFL 1.1), vendored in dashboard/assets/fonts with their licences")
 
 _warned: set[str] = set()
 
@@ -76,9 +102,15 @@ def font(role: str, size: int) -> ImageFont.FreeTypeFont:
         # Oswald ships as a variable font and instantiates at Regular; poster type is the design, so it
         # has to be set at Bold or the whole layout reads thin.
         try:
-            f.set_variation_by_name("Bold")
+            if role in _STATIC:
+                raise ValueError("static face, ships at its designed weight")
+            # JetBrains Mono at Bold is too heavy for a long line; the coding faces read best at Medium.
+            f.set_variation_by_name("Medium" if role == "mono" else "Bold")
         except (OSError, ValueError, AttributeError):
-            pass
+            try:
+                f.set_variation_by_name("Bold")
+            except (OSError, ValueError, AttributeError):
+                pass
         if i and path not in _warned:
             _warned.add(path)
             print(f"UYARI typeset: '{role}' icin depodaki font bulunamadi, {path} kullaniliyor — "

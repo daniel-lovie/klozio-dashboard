@@ -703,8 +703,18 @@ def main() -> None:
     try:
         print(json.dumps(produce(int(args[0]), redo=redo, stage=stage), ensure_ascii=False))
     except Exception as e:
-        # The caller is a loop or a chat tool; both need the reason as data, not a traceback.
-        print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"[:300]}, ensure_ascii=False))
+        # The caller is a loop or a chat tool; both need the reason as data, not a traceback — but the
+        # message alone is not enough to act on. `ModuleNotFoundError: No module named 'rembg'` was
+        # reported four times on 2026-08-19 while a fix aimed at the only import anyone could find was
+        # deployed and changed nothing, because nothing in the record said WHERE it was raised. The
+        # last frames cost a line and end that guessing.
+        import traceback                                           # noqa: PLC0415
+        frames = [ln.strip() for ln in traceback.format_exc().splitlines()
+                  if ln.strip().startswith("File ")][-3:]
+        print(json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"[:300],
+                          "where": " <- ".join(f.replace('File "', "").replace('", line ', ":")
+                                               for f in reversed(frames))[:400]},
+                         ensure_ascii=False))
         sys.exit(1)
 
 

@@ -1,0 +1,3868 @@
+{
+  "votes": 669,
+  "raters": [
+    "Burcin",
+    "Gasol",
+    "Halide",
+    "Omer"
+  ],
+  "designs": 313,
+  "mean_kappa": 0.25532501093427556,
+  "agreement": [
+    {
+      "a": "Burcin",
+      "b": "Gasol",
+      "n": 66,
+      "agreement": 0.6666666666666666,
+      "chance": 0.6170798898071626,
+      "kappa": 0.1294964028776977
+    },
+    {
+      "a": "Burcin",
+      "b": "Halide",
+      "n": 167,
+      "agreement": 0.6227544910179641,
+      "chance": 0.48413352934848863,
+      "kappa": 0.2687148119830403
+    },
+    {
+      "a": "Burcin",
+      "b": "Omer",
+      "n": 110,
+      "agreement": 0.6,
+      "chance": 0.508595041322314,
+      "kappa": 0.18600739993272786
+    },
+    {
+      "a": "Gasol",
+      "b": "Halide",
+      "n": 61,
+      "agreement": 0.6229508196721312,
+      "chance": 0.5100779360386993,
+      "kappa": 0.23038946791003836
+    },
+    {
+      "a": "Gasol",
+      "b": "Omer",
+      "n": 40,
+      "agreement": 0.675,
+      "chance": 0.5375,
+      "kappa": 0.2972972972972974
+    },
+    {
+      "a": "Halide",
+      "b": "Omer",
+      "n": 79,
+      "agreement": 0.7088607594936709,
+      "chance": 0.4979971158468194,
+      "kappa": 0.42004468560485164
+    }
+  ],
+  "thresholds": {
+    "Burcin": -0.6237756410896764,
+    "Gasol": -0.49498954936660133,
+    "Halide": 0.7449490929029798,
+    "Omer": 0.3738160975532981
+  },
+  "ranking": [
+    {
+      "product_id": 36,
+      "slug": "a3-c3-v1",
+      "title": "Support Your Local Night Shift Shirt, Animal Meme Shirt Comfort Colors® Tee, Humor Animal Tee",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 43,
+      "slug": "a1-c5-v1",
+      "title": "Not a Pet. A Partner Shirt, Fantasy Novel Tee Comfort Colors® Tee, Dungeon Crawler Carl",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 60,
+      "slug": "a4-c2-v1",
+      "title": "Cryptid Shirt, Retro National Park Badge Tee, Comfort Colors Bigfoot Pine Ridge Graphic, Camping Gift for Hikers, Birthday Gift for Him",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 63,
+      "slug": "a1-c2-v2",
+      "title": "LitRPG Graphic Tee, Retro Trading Card Halftone Illustration, Comfort Colors Shirt, Dungeon Crawler Fan Gift for Him and Her, Birthday Gift",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 126,
+      "slug": "a4-c5-v2",
+      "title": "Cryptid Crossing Sign Tee, Weathered Yellow Road Sign Illustration, Comfort Colors Hiking Shirt, Trail Lover Gift for Campers and Hikers",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 154,
+      "slug": "c5-c1-v1",
+      "title": "French Bulldog Coffee Shirt, Frenchie With Iced Latte Illustration, Comfort Colors Dog Mom Gift, Retro Grunge Dog Art Coffee Lover Tee",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 172,
+      "slug": "c13-c3-v1",
+      "title": "Rooster Wanted Poster Tee, Vintage Western Chicken Illustration, Comfort Colors Farm Life Gift, Backyard Chicken Keeper Birthday Shirt",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 191,
+      "slug": "c4-c1-v2",
+      "title": "Plant Lover Gift Tee, Vintage Seed Packet Illustration, Comfort Colors Gardening Shirt, Gift for Plant Mom, Botanical Birthday Gift Idea",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2048,
+      "slug": "h-a3-c1-v1",
+      "title": "Funny Raccoon Tee Comfort Colors® Tee, I Found it Like This Shirt, Trash Panda Tee",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2072,
+      "slug": "h-a1-c7-v1",
+      "title": "D20 Crest Tee, Comfort Colors® Roleplaying Shirt, Dice Laurel Tee, Game Night Shirt, Gamer Gift",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2081,
+      "slug": "h-a1-c16-v1",
+      "title": "Gamer Emblem Tee, Arrow Loop Hourglass Graphic Shirt, Comfort Colors Gaming Tee, Nerdy Gift for Him, Esports Birthday Gift Idea",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2091,
+      "slug": "h-a1-c20-v1",
+      "title": "Custom Guild Banner Tee, Comfort Colors MMORPG Tee, Personalized MMO Gamer Shirt, Gaming Gift",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2111,
+      "slug": "stoicanime-c1-v1",
+      "title": "Stoic Philosopher Shirt, Roman Marble Bust Engraving Tee, Comfort Colors Philosophy Gift for Him, Classics Teacher Present, Ancient Rome Art",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2138,
+      "slug": "animesouls-c3-v1",
+      "title": "Origami Crane Shirt, Comfort Colors® Small Ink Line Illustration Shirt, Simple Otaku Tee",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2140,
+      "slug": "mysticsigns-c2-v1",
+      "title": "Crescent Moon Eye Shirt, Comfort Colors® Small Ink Line Illustration Shirt, Simple Occult Tee",
+      "quality": 1.910588770468984,
+      "raters": 4,
+      "likes": 4,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 96,
+      "slug": "b3-c1-v1",
+      "title": "Fair Isle Reindeer Christmas Shirt, Nordic Snowflake Knit Print Tee, Comfort Colors Holiday Party Top, Cozy Christmas Eve Box Gift",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 187,
+      "slug": "c10-c1-v2",
+      "title": "Vintage Rodeo Tee, Retro Western Comfort Colors Shirt, Bucking Bronco Silhouette Illustration, Cowgirl Lover Gift, Country Fair Outfit",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 202,
+      "slug": "c6-c2-v2",
+      "title": "Film Noir Cat Shirt, Comfort Colors Vintage Cat Portrait Tee, Moody Detective Cat Graphic, Gift for Cat Lovers, Cat Mom Birthday Tee",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2112,
+      "slug": "stoicanime-c2-v1",
+      "title": "Samurai Ronin Warrior Shirt, Comfort Colors Ink Engraving Tee, Japanese Katana Art Gift for Him, Stoic Martial Arts Birthday Gift",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2122,
+      "slug": "duckhobby-c2-v1",
+      "title": "Anime Duck Shirt, Comfort Colors Kawaii Duck Grid Tee, Cute Otaku Illustration Shirt, Anime Lover Gift for Weeb Friends, Cozy Binge Night",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2123,
+      "slug": "duckhobby-c3-v1",
+      "title": "Anime Duck Shirt, Comfort Colors Kawaii Duck Grid Tee, Cozy Ramen and Popcorn Illustration, Cute Gift for Anime Lovers, Otaku Birthday Gift",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2145,
+      "slug": "duckhobby-c7-v1",
+      "title": "Baking Duck Shirt, Comfort Colors Cute Duck Grid Tee, Nine Ducks Baking Illustration Shirt, Baker Gift Idea, Cute Kitchen Lover Tee",
+      "quality": 1.8014926167239147,
+      "raters": 3,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 40,
+      "slug": "a3-c4-v1",
+      "title": "No. I Don't Know Whose This is Shirt, Animal Meme Shirt Comfort Colors® Tee, Humor Animal Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 44,
+      "slug": "a3-c5-v1",
+      "title": "Duck in Hard Hat Shirt, Retro Safety Poster Parody Graphic, Comfort Colors Funny Duck Tee, Gift for Construction Worker, Jobsite Humor Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 57,
+      "slug": "a1-c1-v2",
+      "title": "Donut and Carl Tee, New Achievement Unlocked Comfort Colors® Shirt, Litrpg Graphic Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 58,
+      "slug": "a2-c2-v1",
+      "title": "Alien Handshake Tee, Minimal Line Art Comfort Colors Shirt, Retro Space Sci Fi Gift for Book Lovers, Astronomy Birthday Gift Idea",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 81,
+      "slug": "a1-c5-v2",
+      "title": "Sci Fi Book Lover Shirt, Two Silhouettes on Rubble Hill Sunset Graphic, Comfort Colors Tee, Fantasy Reader Gift, Bookish Reader Merch",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 83,
+      "slug": "a4-c5-v1",
+      "title": "Crossing Sign Shirt, Comfort Colors Tee, Rusted Yellow Road Sign Illustration, Cryptid Hiker Gift, Retro Trail Sign Art for Hikers",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 97,
+      "slug": "c1-c1-v2",
+      "title": "Minimalist Bookish Tee, Understated One Ink Print Design, Comfort Colors Shirt, Dry Humor Gift for Her, Sarcastic Reader Birthday Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 128,
+      "slug": "b3-c3-v2",
+      "title": "Custom Pet Xmas Tee, Custom Pet Name Christmas Tee Comfort Colors® Shirt, Holiday Party Outfit",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 149,
+      "slug": "c10-c1-v1",
+      "title": "Rodeo Shirt, Western Shirt Comfort Colors® Tee, Cowgirl Shirt, Vintage Western",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 155,
+      "slug": "c6-c1-v1",
+      "title": "Cat Lover Shirt, Three Cats in Doorway Illustration, Comfort Colors Cat Mom Tee, Retro Noir Graphic Gift for Cat Owner, Birthday Gift Idea",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 164,
+      "slug": "c5-c2-v1",
+      "title": "Film Noir Dachshund Shirt, Comfort Colors Detective Dog Tee, Retro Streetlamp Illustration, Doxie Mom Gift, Dog Lover Birthday Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 165,
+      "slug": "c6-c2-v1",
+      "title": "I Know What You Did Shirt, Cat Lover Gift Comfort Colors® Tee, Cat Mom Shirt, Funny Cat Shirt",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 169,
+      "slug": "c10-c3-v1",
+      "title": "Retro Desert Sunset Shirt, Banded Sky and Cactus Silhouette Art, Comfort Colors Western Cowgirl Gift, Southwest Bachelorette Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 181,
+      "slug": "c13-c4-v1",
+      "title": "I Am the Alarm. There is no Snooze Shirt, Farm Animal Shirt Comfort Colors® Tee, Chicken Shirt",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 200,
+      "slug": "c4-c2-v2",
+      "title": "Plant Lover Fan Gift Tee, Helianthus Annuus Comfort Colors® Shirt, Botanical Joke Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 205,
+      "slug": "c10-c3-v2",
+      "title": "Cowgirl Graphic Tee, Desert Hours Comfort Colors® Shirt, Cute Cowgirl Tshirt, Cowgirl Fan Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 219,
+      "slug": "c5-c4-v2",
+      "title": "Dog Mama Shirt, Retro Union Poster Raised Paw Art, Comfort Colors Tee, Rescue Dog Owner Gift, Dog Park Regular Birthday Present",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2076,
+      "slug": "h-a1-c9-v1",
+      "title": "D20 Dice Emblem Shirt, Comfort Colors Tabletop RPG Tee, Crossed Swords Rosette Illustration, Game Night Gift for Roleplayers and Dice Fans",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2085,
+      "slug": "h-a1-c19-v1",
+      "title": "Loot Crate Gamer Shirt, Glowing Treasure Chest Emblem Tee, Comfort Colors MMO Guild Gaming Gift for Him, Nerdy Birthday Present",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2086,
+      "slug": "h-a1-c11-v1",
+      "title": "Custom Character Shield Tee, Comfort Colors D20 Tee, Personalized Tabletop RPG Shirt",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2090,
+      "slug": "h-a1-c10-v1",
+      "title": "Potion Bottle Badge Tee, Comfort Colors Tabletop RPG Shirt, Polyhedral Dice Illustration, Game Night Gift for Him, Fantasy Gamer Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2095,
+      "slug": "spa-c3-v1",
+      "title": "Tarot Cat Shirt, Chibi Cat Holding Moon Illustration, Comfort Colors Witchy Tee, Cat Lover Gift, Mystical Gift for Her and Anime Fans",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2100,
+      "slug": "spa-c7-v1",
+      "title": "Fortune Teller Anime Shirt, Crystal Ball Tarot Card Illustration, Comfort Colors Mystical Tee, Divination Gift for Witchy Anime Fans",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2101,
+      "slug": "sto-c1-v1",
+      "title": "Memento Mori Skull Tee, Anime Hourglass Laurel Emblem Illustration, Comfort Colors Stoic Philosophy Shirt, Gift for Him and Anime Fans",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2103,
+      "slug": "sto-c3-v1",
+      "title": "Anime Hands Yin Yang Shirt, Comfort Colors Zen Balance Emblem Tee, Open Palm and Fist Illustration, Gift for Him, Anime Fan Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2114,
+      "slug": "stoicanime-c4-v1",
+      "title": "Meditating Monk Shirt, Comfort Colors Vintage Engraving Tee, Seated Lotus Illustration, Mindfulness Gift for Yoga Lover, Birthday Idea",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2128,
+      "slug": "otakulife-c5-v1",
+      "title": "Caffeinated Protagonist Shirt, Comfort Colors® Otaku Illustration Shirt, Weeb Coffee Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2135,
+      "slug": "animesouls-c2-v1",
+      "title": "Japanese Umbrella Rain Tee, Comfort Colors Sakura Koi Illustration Shirt, Ukiyo-e Woodblock Ink Art, Rainy Day Anime Fan Birthday Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2136,
+      "slug": "mysticsigns-c1-v1",
+      "title": "Crystal Ball Shirt, Comfort Colors® Vintage Mystic Illustration Shirt, Witchy Astrology Gift",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2142,
+      "slug": "duckhobby-c4-v1",
+      "title": "Knitting Duck Shirt, Comfort Colors® Cozy Duck Grid Tee, Cute Crochet Duck Illustration Shirt, Funny Knitter Gift Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2143,
+      "slug": "duckhobby-c5-v1",
+      "title": "Gardening Duck Shirt, Comfort Colors® Cute Duck Grid Tee, Funny Garden Duck Illustration Shirt, Plant Lover Gift Tee",
+      "quality": 1.4990254908301153,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 38,
+      "slug": "b2-c5-v1",
+      "title": "Teacher Supply List Shirt, Back to School Tee Comfort Colors® Tee, Teacher Appreciation",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 65,
+      "slug": "a3-c3-v2",
+      "title": "Retro Possum Shirt, Raccoon and Skunk Vintage Poster Illustration, Comfort Colors Tee, Trash Animal Lover Gift, Wildlife Tee for Her",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 71,
+      "slug": "a3-c4-v2",
+      "title": "Cat Lover Shirt, Deadpan Cat Illustration Tee, Retro Comfort Colors Cat Art Shirt, Cute Gift for Cat Mom and Cat Dad, Birthday Gift",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 76,
+      "slug": "a2-c5-v1",
+      "title": "Retro Space Shirt, Star Field Illustration Comfort Colors Tee, Sci Fi Book Lover Gift, Astronomy Birthday Present, Unisex Cosmic Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 77,
+      "slug": "a3-c5-v2",
+      "title": "Animal Meme Fan Gift Tee, Safety is Everyone's Problem Comfort Colors® Shirt, Safety Poster Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 118,
+      "slug": "a4-c4-v2",
+      "title": "Cryptid Graphic Tee, Winged Silhouette Bridge Art Deco Transit Poster Print, Comfort Colors Shirt, Folklore Fan Gift, Birthday Idea",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 147,
+      "slug": "c3-c4-v2",
+      "title": "Retro Frog Shirt, Hopping Frog with Satchel Illustration, Comfort Colors Cottagecore Tee, Frog Lover Gift for Her, Vintage Nature Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 182,
+      "slug": "c4-c4-v1",
+      "title": "Compost Worm Graphic Tee, Constructivist Pitchfork Poster Art, Comfort Colors Gardening Gift, Birthday Present for Plant Lovers",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 186,
+      "slug": "c9-c4-v1",
+      "title": "Book Dragon Shirt, Heraldic Crest Comfort Colors Tee, Dragon and Book Stack Art, Fantasy Book Lover Gift, Book Club Birthday Gift for Her",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 192,
+      "slug": "c5-c1-v2",
+      "title": "Cute Dog Shirt, Six Shots. No Notes Comfort Colors® Shirt, Iced Coffee Shirt, Silly Dog Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2047,
+      "slug": "h-a1-c1-v1",
+      "title": "Litrpg Dungeon Crawler Tee, Comfort Colors® Gamer Tee, New Achievement Unlocked Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2089,
+      "slug": "h-a1-c12-v1",
+      "title": "Treasure Chest Gamer Shirt, Comfort Colors RPG Loot Emblem Tee, Fantasy Dungeon Crawler Gift for Him, Tabletop Gaming Birthday Gift",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2105,
+      "slug": "sto-c5-v1",
+      "title": "The Obstacle Is the Way Shirt, Stoic Anime Comfort Colors® Tee, Anime Boulder Path Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2144,
+      "slug": "duckhobby-c6-v1",
+      "title": "Coffee Duck Shirt, Comfort Colors Cute Duck Grid Tee, Nine Cafe Ducks Illustration Tee, Coffee Lover Gift, Barista Birthday Tee",
+      "quality": 1.3820893574330477,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2070,
+      "slug": "h-emb-c8-v1",
+      "title": "Embroidered D20 Crest Tee, Comfort Colors® Roleplaying Tee, Gift For Game Night",
+      "quality": 1.3129337946552,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2083,
+      "slug": "h-emb-c17-v1",
+      "title": "Embroidered Tank Healer DPS Tee, Comfort Colors MMORPG Tee, MMO Gamer Gift, Nerdy Gift",
+      "quality": 1.1685242485355116,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2088,
+      "slug": "h-emb-c13-v1",
+      "title": "Embroidered Potion Tee, Comfort Colors Video Game Tee, Nerdy Gift For Him, RPG Gamer Gift",
+      "quality": 1.1685242485355116,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 31,
+      "slug": "a1-c2-v1",
+      "title": "Achievement: Did not Die (barely) Shirt, New Achievement Tee Comfort Colors® Tee, Litrpg",
+      "quality": 1.1535868845596662,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 37,
+      "slug": "b1-c5-v1",
+      "title": "Funny Personalized Headstone Tee, Halloween Shirt Comfort Colors® Tee, Halloween Costume",
+      "quality": 1.1535868845596662,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 82,
+      "slug": "a3-c6-v2",
+      "title": "Cute Gift for Friend Tee, I Think Therefore I Ribbit Shirt Comfort Colors® Shirt",
+      "quality": 1.1535868845596662,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 175,
+      "slug": "c6-c3-v1",
+      "title": "Cat Lover Shirt, Painted Office Window Sign Art with Gold Look Label and Cat Silhouette, Comfort Colors Tee, Cat Mom Gift for Cat Owners",
+      "quality": 1.1535868845596662,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 2097,
+      "slug": "spa-c5-v1",
+      "title": "Sakura Mandala Tee, Cherry Blossom Comfort Colors Shirt, Zen Floral Illustration Top, Gift for Yoga and Japanese Flower Lovers",
+      "quality": 1.1535868845596662,
+      "raters": 2,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 59,
+      "slug": "a3-c2-v2",
+      "title": "Retro Goose Illustration Tee, Cut Paper Collage Bird Art, Comfort Colors Goose Lover Gift, Wordless Animal Graphic Shirt, Gift for Bird Fans",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 69,
+      "slug": "a1-c3-v2",
+      "title": "Sci Fi Book Lover Tee, Heraldic Crest Crossed Weapons Illustration, Comfort Colors LitRPG Reader Gift, Dungeon Crawler Book Merch",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 123,
+      "slug": "c3-c1-v2",
+      "title": "Frog Knight Shirt, Medieval Woodcut Frog in Armor with Sword Illustration, Comfort Colors Cottagecore Tee, Birthday Gift for Frog Lovers",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 131,
+      "slug": "c3-c2-v2",
+      "title": "Frog and Toad Shirt, The Pond is a Construct Comfort Colors® Shirt, Frog Coffee, Frog Fan Gift",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 138,
+      "slug": "c2-c2-v2",
+      "title": "Duck Garden Tee, Folk Art Ducks Trampling a Flowerbed, Sage and Butter Cottagecore Comfort Colors Shirt, Gift for Gardeners and Duck Lovers",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 141,
+      "slug": "a4-c6-v2",
+      "title": "Library Card Tee, Vintage Date Stamp Grid Illustration, Comfort Colors Book Lover Shirt, Librarian Gift for Her, Reader Birthday Gift",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 163,
+      "slug": "c4-c2-v1",
+      "title": "Helianthus Annuus Shirt, Plant Lover Gift Comfort Colors® Tee, Botanical Tshirt",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 168,
+      "slug": "c9-c2-v1",
+      "title": "Due Back: Never Shirt, Bookworm Shirt Comfort Colors® Tee, Bookish Shirt, Fantasy Book Shirt",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 208,
+      "slug": "c13-c3-v2",
+      "title": "Rooster Shirt, Funny Rooster Wanted Poster Shirt Comfort Colors® Shirt, Chicken Graphic Tee",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2029,
+      "slug": "ob-c7-v1",
+      "title": "Wish Granted Shirt, Obsession Movie Inspired Comfort Colors® Tee, Horror Rom Com Shirt",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2049,
+      "slug": "h-b1-c1-v1",
+      "title": "Custom Family Name Halloween Tee, Comfort Colors® Halloween 2026 Tee, Group Costume Tee",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2096,
+      "slug": "spa-c4-v1",
+      "title": "Torii Gate Shirt, Spiritual Anime Comfort Colors® Tee, Japanese Shrine Energy Burst Shirt",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2113,
+      "slug": "stoicanime-c3-v1",
+      "title": "Go With The Flow Shirt, Comfort Colors® Vintage Engraving Shirt, Japanese Art Tee",
+      "quality": 0.8939110365957098,
+      "raters": 4,
+      "likes": 3,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2156,
+      "slug": "animal-meme-m1-v1",
+      "title": "Cat Loaf Shirt, Funny Cat Meme Tee, Comfort Colors Cat Lover Gift, Minimalist Left Chest Cat Graphic, Smug Kitty Owner Gift Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2157,
+      "slug": "anime-coffee-m1-v1",
+      "title": "Anime Coffee Shirt, Kawaii Chibi Coffee Cup Tee, Comfort Colors Left Chest Anime Gift, Cute Manga Cafe Shirt for Coffee Lovers",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2158,
+      "slug": "anime-insider-m1-v1",
+      "title": "Anime Ramen Cup Shirt, Instant Noodle Tee, Comfort Colors Otaku Gift, Small Left Chest Pocket Print, Manga Lover Anime Merch Gift",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2159,
+      "slug": "anime-m1-v1",
+      "title": "Anime Rice Ball Shirt, Minimal Onigiri Icon Tee, Comfort Colors Anime Lover Gift, Kawaii Japanese Food Left Chest Design, Cute Foodie Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2160,
+      "slug": "anime-otaku-energy-m1-v1",
+      "title": "Ramen Bowl Shirt, Anime Lover Gift, Comfort Colors Tee, Minimal Noodle Bowl Left Chest Graphic, Japanese Food Lover Gift Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2161,
+      "slug": "anime-rain-melancholy-ae-m1-v1",
+      "title": "Rainy Day Umbrella Shirt, Anime Aesthetic Tee, Comfort Colors Melancholy Shirt, Minimalist Rain Lover Gift, Soft Grunge Clothing",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2163,
+      "slug": "anime-retro-crt-katana-b-m1-v1",
+      "title": "Retro Katana Shirt, Anime Sword Graphic Tee, Comfort Colors Left Chest Print, Vintage Scanline Design, Gift for Anime Fans and Gamers",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2164,
+      "slug": "anime-retro-vhs-cassette-m1-v1",
+      "title": "Retro VHS Tape Shirt, Anime Vibes Cassette Badge Tee, Comfort Colors Vintage 80s Graphic Shirt, Nostalgic Gift for Movie Lovers",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2166,
+      "slug": "anime-subtitles-m1-v1",
+      "title": "Anime Rice Ball Shirt, Comfort Colors Onigiri Graphic Tee, Kawaii Sweat Drop Illustration, Funny Otaku Gift, Left Chest Anime Art",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2167,
+      "slug": "anime-tears-m1-v1",
+      "title": "Anime Tear Shirt, Funny Crying Teardrop Tee, Comfort Colors Left Chest Anime Gift, Kawaii Sad Drop Shirt, Manga Fan Birthday Present",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2168,
+      "slug": "anime-zen-m1-v1",
+      "title": "Origami Crane Shirt, Anime Zen Tee, Comfort Colors Minimalist Paper Crane Graphic, Japanese Aesthetic Gift, Calm Left Chest Design",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2169,
+      "slug": "barista-m1-v1",
+      "title": "Barista Espresso Shirt, Minimal Portafilter Tee, Comfort Colors Coffee Lover Gift, Small Chest Print, Espresso Machine Lover Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2170,
+      "slug": "beekeeping-m1-v1",
+      "title": "Beekeeper Smoker Shirt, Minimalist Beekeeping Tee, Comfort Colors Apiary Gift, Small Chest Icon Design, Honey Harvest Farmer Present",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2171,
+      "slug": "birdwatching-m1-v1",
+      "title": "Birdwatching Shirt, Minimal Binoculars Icon Tee, Comfort Colors Bird Watcher Gift, Nature Lover Shirt, Birding Gift for Bird Lovers",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2174,
+      "slug": "camping-campfire-m1-v1",
+      "title": "Campfire Shirt, Minimalist Camping Tee, Comfort Colors Campfire Pocket Icon Shirt, Outdoor Adventure Gift, Camping Lover Nature Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2177,
+      "slug": "chicken-farm-absurdist-m1-v1",
+      "title": "Chicken Shirt, Funny Hen in Boots Tee, Comfort Colors Farm Life Shirt, Homestead Gift for Chicken Lover, Small Left Chest Design",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2178,
+      "slug": "cottagecore-m1-v1",
+      "title": "Butter Churn Shirt, Cottagecore Comfort Colors Tee, Farmhouse Kitchen Pocket Art, Homestead Farm Gift, Vintage Dairy Illustration",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2180,
+      "slug": "duck-hobby-baking-m1-v1",
+      "title": "Baking Duck Shirt, Comfort Colors Baker Tee, Cute Duck Chef Pocket Print, Funny Gift for Home Bakers, Sourdough Baking Lover Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2181,
+      "slug": "duck-hobby-coffee-m1-v1",
+      "title": "Duck Coffee Shirt, Comfort Colors Coffee Lover Tee, Cute Duck Latte Graphic Shirt, Funny Barista Gift, Left Chest Duck Design",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2183,
+      "slug": "duck-hobby-knitting-m1-v1",
+      "title": "Knitting Duck Shirt, Comfort Colors Knitter Tee, Cute Yarn Lover Gift, Funny Crochet Hobby Shirt, Small Left Chest Duck Design",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2184,
+      "slug": "duck-hobby-m1-v1",
+      "title": "Birding Duck Shirt, Funny Rubber Duck Birdwatching Tee, Comfort Colors Bird Watcher Gift, Left Chest Duck Lover Shirt, Duck Hobby Humor Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2185,
+      "slug": "dungeon-crawler-carl-m1-v1",
+      "title": "Dungeon Crawler Shirt, Comfort Colors Dungeon Door Tee, Tabletop RPG Gift, Fantasy Gamer Pocket Print, Retro Dungeon Adventure Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2186,
+      "slug": "fly-fishing-m1-v1",
+      "title": "Fly Fishing Shirt, Minimalist Dry Fly Icon Tee, Comfort Colors Angler Gift, Left Chest Fishing Graphic, Trout Fisherman Present",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2188,
+      "slug": "frog-m1-v1",
+      "title": "Frog Shirt, Cute Tree Frog Left Chest Tee, Comfort Colors Cottagecore Shirt, Frog Lover Gift for Her, Amphibian Lover Graphic Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2189,
+      "slug": "funny-cat-m1-v1",
+      "title": "Cat Loaf Shirt, Funny Cat Lover Tee, Comfort Colors Left Chest Cat Graphic, Cute Kitty Gift for Her, Minimalist Cat Owner Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2190,
+      "slug": "funny-dog-m1-v1",
+      "title": "Funny Dachshund Shirt, Cone of Shame Tee, Comfort Colors Dog Lover Gift, Wiener Dog Left Chest Graphic, Vet Tech Appreciation Gift",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2192,
+      "slug": "garden-m1-v1",
+      "title": "Garden Snail Shirt, Comfort Colors Gardening Tee, Cute Plant Lover Gift, Flower Pot Snail Graphic, Funny Gardener Present for Her",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2193,
+      "slug": "gardening-plant-m1-v1",
+      "title": "Cactus Shirt for Plant Lovers, Comfort Colors Garden Tee, Funny Succulent Left Chest Graphic, Gift for Gardeners and Plant Moms",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2196,
+      "slug": "guitar-gear-m1-v1",
+      "title": "Guitar Pedal Shirt, Minimal Stompbox Icon Tee, Comfort Colors Guitarist Gift, Left Chest Music Gear Design, Minimalist Pedalboard Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2200,
+      "slug": "mmorpg-m1-v1",
+      "title": "Healing Potion Shirt, Comfort Colors Gamer Tee, Online Role Play Graphic Tee, Small Left Chest Art, Gift for Video Game Lovers",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2201,
+      "slug": "mushroom-foraging-m1-v1",
+      "title": "Mushroom Foraging Shirt, Comfort Colors Tee, Minimal Wild Mushroom Icon, Cottagecore Nature Lover Gift, Forager Left Chest Design",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2203,
+      "slug": "pickleball-m1-v1",
+      "title": "Pickleball Shirt, Minimalist Paddle Icon Tee, Comfort Colors Pickleball Gift, Left Chest Design, Pickleball Player Tee for Him and Her",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2204,
+      "slug": "pickleball-retro-m1-v1",
+      "title": "Retro Pickleball Shirt, Comfort Colors Pickleball Tee, Vintage Paddle Left Chest Art, Gift for Pickleball Player, Unisex Retro Top",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2208,
+      "slug": "rpg-m1-v1",
+      "title": "D20 Dice Shirt, Comfort Colors Tabletop RPG Tee, Minimalist Pocket Print Gamer Gift, Dungeon Master Game Night Shirt, Dice Lover Gift",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2210,
+      "slug": "sarcastic-dark-m1-v1",
+      "title": "Burnt Out Matchstick Shirt, Dark Humor Tee, Comfort Colors Sarcastic Gift, Minimalist Left Chest Design, Funny Burnout Shirt for Coworker",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2211,
+      "slug": "sci-fi-book-murderbot-m1-v1",
+      "title": "Sci Fi Robot Helmet Shirt, Comfort Colors Tee, Bookish Gift for Sci Fi Readers, Minimalist Space Armor Design, Left Chest Print",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2215,
+      "slug": "spiritual-anime-koi-yin-m1-v1",
+      "title": "Koi Fish Yin Yang Shirt, Comfort Colors Anime Tee, Zen Balance Left Chest Graphic, Spiritual Gift for Him, Minimalist Fish Top",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2216,
+      "slug": "spiritual-anime-lunar-fo-m1-v1",
+      "title": "Fox Mask Shirt, Kitsune Moon Tee, Comfort Colors Anime Spiritual Shirt, Celestial Crescent Graphic Tee, Lunar Mystic Aesthetic Gift",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2218,
+      "slug": "spiritual-anime-tarot-ch-m1-v1",
+      "title": "Tarot Cat Shirt, Chibi Cat Meditation Tee, Comfort Colors Spiritual Anime Shirt, Moon Tarot Card Gift, Kawaii Cat Lover Gift Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2220,
+      "slug": "spiritual-anime-torii-sh-m1-v1",
+      "title": "Torii Gate Shirt, Anime Inspired Comfort Colors Tee, Japanese Shrine Graphic, Spiritual Left Chest Design, Shonen Manga Fan Gift",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2223,
+      "slug": "stargazing-astronomy-m1-v1",
+      "title": "Telescope Shirt, Stargazing Tee, Astronomy Lover Gift, Comfort Colors Left Chest Design, Minimalist Night Sky Shirt for Stargazers",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2227,
+      "slug": "stoic-anime-inner-citade-m1-v1",
+      "title": "Stoic Watchtower Shirt, Comfort Colors Inner Citadel Tee, Anime Philosophy Shirt, Minimalist Tower Line Art, Stoicism Gift for Him",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2229,
+      "slug": "stoic-anime-obstacle-is-m1-v1",
+      "title": "Stoic Anime Shirt, Comfort Colors Boulder Tee, Obstacle Is The Way Gift, Minimalist Left Chest Art, Stoic Philosophy Graphic Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2232,
+      "slug": "stoic-philosophy-m1-v1",
+      "title": "Stoic Philosophy Shirt, Broken Column Pocket Print, Comfort Colors Tee, Minimalist Greek Column Art, Philosophy Lover Gift Shirt",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2233,
+      "slug": "surfing-m1-v1",
+      "title": "Surfboard Shirt, Minimal Surf Icon Tee, Comfort Colors Beach Shirt, Surfer Gift for Him, Left Chest Surfboard Icon Surfing Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2234,
+      "slug": "trail-running-m1-v1",
+      "title": "Trail Running Shirt, Minimalist Trail Shoe Icon Tee, Comfort Colors Left Chest Design, Gift for Runners, Ultra Running Apparel Tee",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 2235,
+      "slug": "woodworking-hand-tools-m1-v1",
+      "title": "Woodworking Hand Tool Shirt, Hand Plane Icon Tee, Comfort Colors Carpenter Tee, Minimal Tool Icon Shirt, Woodworker Gift for Dad",
+      "quality": 0.8235417634990712,
+      "raters": 1,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1
+      }
+    },
+    {
+      "product_id": 64,
+      "slug": "a2-c3-v1",
+      "title": "Vintage Microbiology Shirt, Antique Petri Dish Specimen Illustration, Comfort Colors Science Tee, Lab Scientist Gift, Biology Grad Gift",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 66,
+      "slug": "a4-c3-v1",
+      "title": "Sighting Report Shirt, Funny Sasquatch Comfort Colors® Tee, Cryptid Creatures, Bigfoot Shirt",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 70,
+      "slug": "a2-c4-v1",
+      "title": "Retro Sci Fi Book Cover Shirt, Vintage Paperback Illustration Comfort Colors Tee, Space Art Gift for Readers, Bookish Birthday Gift",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 80,
+      "slug": "c1-c2-v1",
+      "title": "Mountain Sunrise Shirt, Tiny Sock at the Summit Illustration, Comfort Colors Hiking Humor Tee, Funny Gift for Hikers and Campers",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 136,
+      "slug": "b3-c5-v2",
+      "title": "Family Matching Tee, Custom Matching Family Crew Shirt Comfort Colors® Shirt",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 153,
+      "slug": "c4-c1-v1",
+      "title": "Seed Packet Plant Shirt, Comfort Colors Gardening Tee, Retro Kraft and Green Illustration, Plant Lover Gift, Gardener and Plant Mom Gift",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 162,
+      "slug": "c13-c2-v1",
+      "title": "Chicken Lover Shirt, Laurel Crown Chicken Bust Engraving, Comfort Colors Tee, Backyard Chicken Keeper Gift, Farm Animal Lover Birthday Gift",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2093,
+      "slug": "spa-c1-v1",
+      "title": "Moon Phase Fox Mask Shirt, Spiritual Anime Comfort Colors® Tee, Celestial Fox Spirit Shirt",
+      "quality": 0.6934841501827835,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 39,
+      "slug": "a1-c4-v1",
+      "title": "Floor Six Survivor Shirt, Dungeon Crawler Carl Comfort Colors® Tee, Princess Posse, Litrpg",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 46,
+      "slug": "b2-c1-v2",
+      "title": "First Grade Shirt, Custom Grade And Room Number Tee Comfort Colors® Shirt, Retired Teacher",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 48,
+      "slug": "a3-c6-v1",
+      "title": "Philosopher Frog Shirt, Vintage Etched Frog Illustration, Comfort Colors Cotton Tee, Funny Animal Lover Birthday Gift, Retro Frog Art Gift",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 52,
+      "slug": "a3-c1-v2",
+      "title": "Animal Lover Gift Tee, I Found it Like This Comfort Colors® Shirt, Racoon Meme Shirt",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 84,
+      "slug": "a5-c5-v1",
+      "title": "Custom Family Name Dad Shirt, Custom Dad Gift Comfort Colors® Tee, Best Dad Ever Shirt",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 99,
+      "slug": "c3-c1-v1",
+      "title": "Frog Knight Shirt, Medieval Woodcut Frog in Armor Illustration, Comfort Colors Fantasy Tee, Renaissance Fair Gift for Frog Lovers",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2077,
+      "slug": "h-a1-c13-v1",
+      "title": "Gamer Emblem Shirt, Hexagon Arrow Badge Graphic Tee, Comfort Colors RPG Gaming Shirt, Nerdy Gift for Him, Geek Birthday Gift Idea",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2080,
+      "slug": "h-a1-c15-v1",
+      "title": "Loadout Tee, FPS Gamer Shirt, Gaming Gear Emblem Tee, Comfort Colors Shooter Shirt, Gamer Gift",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2115,
+      "slug": "stoicanime-c5-v1",
+      "title": "Lone Wolf Shirt, Comfort Colors Wolf Engraving Tee, Rocky Ridge Wildlife Illustration, Stoic Nature Lover Birthday Gift, Outdoors Tee",
+      "quality": 0.4989750877536877,
+      "raters": 3,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2079,
+      "slug": "h-emb-c15-v1",
+      "title": "Embroidered Crosshair Tee, Comfort Colors Shooter Tee, Nerdy Gift For Him, FPS Gamer Gift",
+      "quality": 0.44347944037394493,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2059,
+      "slug": "h-emb-c6-v1",
+      "title": "Retro FPS Skin Comfort Colors® Tee, Orange Rifle Embroidery Tee, Embroidered Gamer Rifle Tee",
+      "quality": 0.19218332277832112,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 32,
+      "slug": "a3-c2-v1",
+      "title": "I Will Ruin Your Day Shirt, Animal Meme Shirt Comfort Colors® Tee, Humor Animal Tee, Meme Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 41,
+      "slug": "b1-c6-v1",
+      "title": "Custom Monster Roster Shirt, Custom Halloween Tee Comfort Colors® Tee, Halloween Costume",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 50,
+      "slug": "b2-c2-v2",
+      "title": "Matching Teacher Tee, Custom Team Teacher Shirt Comfort Colors® Shirt, Retired School",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 56,
+      "slug": "b2-c3-v2",
+      "title": "Teacher Shirt, Chalkboard Plate Illustration, Comfort Colors Cream on Slate Graphic Tee, Retired Teacher Gift, End of School Year",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 67,
+      "slug": "a5-c3-v1",
+      "title": "Custom Name Dad Shirt, Custom Dad Shirt Comfort Colors® Tee, Best Dad Ever Shirt, Gift for Dad",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 75,
+      "slug": "a1-c4-v2",
+      "title": "LitRPG Shirt, Retro Arcade Level Select Floor Number Illustration, Comfort Colors Dungeon Crawler Gift, Gamer Birthday Gift for Her",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 85,
+      "slug": "b1-c5-v2",
+      "title": "Halloween Trip Shirt, Funny Personalized Headstone Tee Comfort Colors® Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 86,
+      "slug": "c1-c3-v1",
+      "title": "Flight Was Never an Option Shirt, Sarcastic Shirt Comfort Colors® Tee, Adult Humor Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 90,
+      "slug": "a5-c6-v1",
+      "title": "Custom Kids Names Dad Tee, Custom Dad Shirt Comfort Colors® Tee, Best Dad Ever Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 91,
+      "slug": "b1-c6-v2",
+      "title": "Halloween Trip Shirt, Custom Monster Roster Shirt Comfort Colors® Shirt, Retro Halloween Tee",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 121,
+      "slug": "b3-c6-v1",
+      "title": "Custom Name Cocoa Bar Shirt, Christmas Gift Comfort Colors® Tee, Xmas Eve Box Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 137,
+      "slug": "c1-c3-v2",
+      "title": "Funny Penguin Tee, Deadpan Flat Vector Penguin Illustration, Comfort Colors Shirt, Dark Humor Animal Lover Gift, Birthday Gift Idea",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 143,
+      "slug": "b3-c6-v2",
+      "title": "Cute Gift for Friend Tee, Custom Name Cocoa Bar Shirt Comfort Colors® Shirt, Cocoa Bar Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 179,
+      "slug": "c11-c4-v1",
+      "title": "Custom Name Announcement Shirt, Big Sister Shirt Comfort Colors® Tee, Little Brother",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 183,
+      "slug": "c5-c4-v1",
+      "title": "Treats for All. Naps for All Shirt, Dog Lover Gift Comfort Colors® Tee, Hot Dog Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 188,
+      "slug": "c11-c1-v2",
+      "title": "Big Sis Tee, Promoted To Big Brother Shirt Comfort Colors® Shirt, Big Sister Reveal",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 190,
+      "slug": "c13-c1-v2",
+      "title": "Animal Graphic Tee, Chicken Evolution Shirt Comfort Colors® Shirt, Cute Chicken Tshirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 197,
+      "slug": "c11-c2-v2",
+      "title": "Big Sis Tee, Custom Sibling Names Shirt Comfort Colors® Shirt, Big Sister Reveal",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 210,
+      "slug": "c5-c3-v2",
+      "title": "Gym Membership Card Shirt, Faux Fitness Card Graphic Tee, Comfort Colors Gym Lover Gift, Weightlifting Gym Rat Birthday Gift Idea",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2025,
+      "slug": "ob-c3-v1",
+      "title": "Love Me Forever Shirt, Obsession Movie Inspired Comfort Colors® Tee, Horror Rom Com Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2051,
+      "slug": "h-b1-c3-v1",
+      "title": "Custom Pet Name Halloween Tee, Halloween Tee Comfort Colors® Tee, Halloween Costume",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2099,
+      "slug": "spa-c6-v1",
+      "title": "Koi Fish Yin Yang Shirt, Anime Koi Lotus Illustration Comfort Colors Tee, Japanese Zen Balance Art, Gift for Anime and Meditation Fans",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2104,
+      "slug": "sto-c4-v1",
+      "title": "Inner Citadel Shirt, Stoic Anime Comfort Colors® Tee, Anime Fortress Waves Shirt",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 2129,
+      "slug": "otakulife-c6-v1",
+      "title": "Plot Armor Shirt, Comfort Colors® Otaku Illustration Shirt, Anime Fan Shield Minimalist Tee",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2133,
+      "slug": "animeretro-c4-v1",
+      "title": "Retro Anime Shirt, Comfort Colors® Vintage Otaku Emblem Shirt, 90s VHS Cassette Badge Tee",
+      "quality": 0.15690192937591968,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 33,
+      "slug": "b1-c4-v1",
+      "title": "Custom Name Horror Poster Shirt, Halloween Shirt Comfort Colors® Tee, Halloween Costume",
+      "quality": 0.07542697215717145,
+      "raters": 4,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 134,
+      "slug": "a5-c5-v2",
+      "title": "Dad Joke Enthusiast Tee, Custom Family Name Dad Shirt Comfort Colors® Shirt, Dad of Girls Tee",
+      "quality": 0.07542697215717145,
+      "raters": 4,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 170,
+      "slug": "c11-c3-v1",
+      "title": "Custom Sibling Est Year Tee, Big Sister Shirt Comfort Colors® Tee, Little Brother",
+      "quality": 0.07542697215717145,
+      "raters": 4,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 180,
+      "slug": "c12-c4-v1",
+      "title": "Grandpa Est Year Shirt, Gift for Grandpa Comfort Colors® Tee, Gift for Papa, New Grandpa Gift",
+      "quality": 0.07542697215717145,
+      "raters": 4,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2119,
+      "slug": "gardenwit-c2-v1",
+      "title": "Garden Tools Crest Shirt, Vintage Engraving Trowel and Rake Tee, Comfort Colors Gardening Gift, Plant Lover Gardener Birthday Present",
+      "quality": 0.07542697215717145,
+      "raters": 4,
+      "likes": 2,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 88,
+      "slug": "a2-c6-v1",
+      "title": "Spacecraft Blueprint Tee, Retro Space Schematic Comfort Colors Shirt, Aerospace Engineer Gift, Rocket Science Lover Illustration",
+      "quality": 0.04783510382501133,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 199,
+      "slug": "c13-c2-v2",
+      "title": "Animal Graphic Tee, Chicken Caesar Comfort Colors® Shirt, Chicken Pun Fan Gift",
+      "quality": 0.04783510382501133,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 2102,
+      "slug": "sto-c2-v1",
+      "title": "Stoic Anime Storm Tee, Cloaked Figure in Lightning and Rain Illustration, Comfort Colors Philosophy Gift for Him, Anime Fan Birthday Shirt",
+      "quality": 0.04783510382501133,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 42,
+      "slug": "b2-c6-v1",
+      "title": "Custom First Day Of School Tee, Teacher Shirt Comfort Colors® Tee, Back to School Shirt",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 49,
+      "slug": "b1-c2-v2",
+      "title": "Toy Story Halloween Tee, Personalized Trick Or Treat Crew Comfort Colors® Shirt, Halloween Bach",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 68,
+      "slug": "b2-c5-v2",
+      "title": "Matching Teacher Tee, Teacher Supply List Shirt Comfort Colors® Shirt, Retired School",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 105,
+      "slug": "b3-c3-v1",
+      "title": "Custom Pet Name Christmas Tee, Christmas Gift Comfort Colors® Tee, Xmas Eve Box Shirt",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 111,
+      "slug": "a5-c3-v2",
+      "title": "Dad Joke Enthusiast Tee, Custom Name Dad Shirt Comfort Colors® Shirt, Fathers Day From Son",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 127,
+      "slug": "b3-c2-v2",
+      "title": "Personalized Xmas Tee, Personalized Nice List Shirt Comfort Colors® Shirt, Holiday Party Outfit",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 171,
+      "slug": "c12-c3-v1",
+      "title": "Promoted To Grandpa Shirt, New Grandpa Shirt Comfort Colors® Tee, Gift for Papa",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 189,
+      "slug": "c12-c1-v2",
+      "title": "Funny Grandpa Shirt, Custom Grandkids Names Papa Shirt Comfort Colors® Shirt",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2028,
+      "slug": "ob-c6-v1",
+      "title": "Obsessed Is Such a Strong Word Shirt, Obsession Movie Inspired Comfort Colors® Tee",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2052,
+      "slug": "h-b2-c1-v1",
+      "title": "Custom Teacher Grade Room Number Tee, Comfort Colors® Back to School Tee 2026",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2073,
+      "slug": "h-a1-c8-v1",
+      "title": "Custom Character Crest Tee, Comfort Colors® D20 Tee, Personalized Tabletop RPG Shirt",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2078,
+      "slug": "h-a1-c14-v1",
+      "title": "Custom Adventurer Name Tee, Comfort Colors Gaming Tee, Your Name Printed, Gamer Gift",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2094,
+      "slug": "spa-c2-v1",
+      "title": "Chakra Mecha Shirt, Spiritual Anime Comfort Colors® Tee, Robot Chakra Alignment Shirt",
+      "quality": 0.047835103825011244,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 23,
+      "slug": "a1-c1-v1",
+      "title": "Retro Terminal Gamer Shirt, Comfort Colors Tee, Amber Scanline Computer Art, LitRPG Reader Gift, Gamer Gift for Him and Book Lovers",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 55,
+      "slug": "b1-c3-v2",
+      "title": "Halloween Bach Tee, Custom Pet Name Halloween Tee Comfort Colors® Shirt, Retro Spooky Pet Tee",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0
+      }
+    },
+    {
+      "product_id": 79,
+      "slug": "b1-c4-v2",
+      "title": "Halloween Bach Tee, Custom Name Horror Poster Shirt Comfort Colors® Shirt, Halloween Trip Shirt",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 120,
+      "slug": "b3-c1-v2",
+      "title": "Family Christmas Tee, Custom Family Name Christmas Shirt Comfort Colors® Shirt",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1
+      }
+    },
+    {
+      "product_id": 129,
+      "slug": "c1-c2-v2",
+      "title": "Retro Dark Humor Tee, Sunrise Mountain Sock Illustration, Comfort Colors Sarcastic Gift for Him and Her, Funny Motivational Birthday Shirt",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0
+      }
+    },
+    {
+      "product_id": 211,
+      "slug": "c6-c3-v2",
+      "title": "Black Cat Shirt, The Doctor is In. The Doctor is Asleep Comfort Colors® Shirt, Cat Shirt Women",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0
+      }
+    },
+    {
+      "product_id": 2050,
+      "slug": "h-b1-c2-v1",
+      "title": "Personalized Trick Or Treat Crew Tee, Halloween Tee Comfort Colors® Tee, Halloween Costume",
+      "quality": -0.2117217265715884,
+      "raters": 2,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0
+      }
+    },
+    {
+      "product_id": 2037,
+      "slug": "emb-c5-v1",
+      "title": "Custom Embroidered Grandma Shirt With Grandkids Names, Personalized Nana Comfort Colors® Tee",
+      "quality": -0.24458085294854537,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Gasol": 0,
+        "Halide": 1,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2045,
+      "slug": "embh-c6-v1",
+      "title": "Embroidered Gamer Rifle Dad Hat, Retro FPS Skin Baseball Cap, Orange Rifle Embroidery Hat",
+      "quality": -0.24458085294854537,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Gasol": 0,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 100,
+      "slug": "c3-c2-v1",
+      "title": "The Pond is a Construct Shirt, Funny Frog Shirt Comfort Colors® Tee, Frog Meme, Frog Lover Gift",
+      "quality": -0.27553269625760735,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 106,
+      "slug": "c2-c2-v1",
+      "title": "Cottagecore Duck Shirt, Folk Art Ducks in Trampled Flowerbed Illustration, Comfort Colors Tee, Gift for Gardeners and Duck Lovers",
+      "quality": -0.27553269625760735,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 174,
+      "slug": "c5-c3-v1",
+      "title": "Member Since Puppyhood Shirt, Funny Dog Shirt Comfort Colors® Tee, Hot Dog Shirt, Dog Mom Gift",
+      "quality": -0.27553269625760735,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 1
+      }
+    },
+    {
+      "product_id": 30,
+      "slug": "b2-c3-v1",
+      "title": "Funny Subject Teacher Shirt, Teacher Shirt Comfort Colors® Tee, Back to School Shirt",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 34,
+      "slug": "b2-c4-v1",
+      "title": "Custom Class Crest Shirt, Teacher Shirt Comfort Colors® Tee, Back to School Shirt",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 62,
+      "slug": "b2-c4-v2",
+      "title": "School Crest Teacher Shirt, Comfort Colors Tee, Pencil and Apple Heraldic Emblem Art, New Teacher Gift, Back to School Staff Top",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 73,
+      "slug": "b2-c6-v2",
+      "title": "First Grade Teacher Shirt, Milestone Sign Illustration Tee, Comfort Colors Back to School Top, New Teacher Gift, First Day of School Outfit",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 222,
+      "slug": "c9-c4-v2",
+      "title": "Cute Bookish Tshirt, Hoard Acquired Comfort Colors® Shirt, Book Lover Fan Gift",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2027,
+      "slug": "ob-c5-v1",
+      "title": "My Crush Likes Me Back Shirt, Obsession Movie Inspired Comfort Colors® Tee, Creepy Cute Shirt",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2053,
+      "slug": "h-b2-c2-v1",
+      "title": "Custom Team Teacher Tee, Comfort Colors® Teacher Team Matching Tee, Back to School 2026",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2082,
+      "slug": "h-a1-c17-v1",
+      "title": "Custom Squad Patch Tee, Comfort Colors Shooter Tee, Your Callsign Printed, Gaming Gift",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2118,
+      "slug": "gardenwit-c1-v1",
+      "title": "Vintage Tomato Plant Shirt, Botanical Engraving Tee, Comfort Colors Garden Illustration, Gardener Gift for Plant Lovers, Seed Catalog Art",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2125,
+      "slug": "otakulife-c2-v1",
+      "title": "Subs Over Dubs Shirt, Comfort Colors® Otaku Illustration Shirt, Anime Subtitle Minimalist Tee",
+      "quality": -0.27553269625760746,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2030,
+      "slug": "emb-c1-v1",
+      "title": "Custom Embroidered Text Shirt, Personalized Embroidery Comfort Colors® Tee, Custom Saying Gift",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2032,
+      "slug": "emb-c2-v1",
+      "title": "Custom Embroidered Name Shirt, Personalized Script Name Comfort Colors® Tee, Stitched Tee",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2035,
+      "slug": "emb-c3-v1",
+      "title": "Custom Embroidered Mama Shirt With Kids Names, Personalized Mama Comfort Colors® Tee, Name Tee",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2036,
+      "slug": "emb-c4-v1",
+      "title": "Custom Embroidered Dad Shirt With Kids Names, Personalized Papa Comfort Colors® Tee",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2038,
+      "slug": "emb-c6-v1",
+      "title": "Embroidered Gamer Rifle Shirt, Retro FPS Skin Comfort Colors® Tee, Orange Rifle Embroidery Tee",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2039,
+      "slug": "emb-c7-v1",
+      "title": "Custom Terminal Status Shirt, Embroidered Coding Comfort Colors® Tee, AI Dev Shirt",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2040,
+      "slug": "embh-c1-v1",
+      "title": "Custom Embroidered Text Dad Hat, Custom Saying Cap, Personalized Embroidery Baseball Cap",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2044,
+      "slug": "embh-c5-v1",
+      "title": "Custom Embroidered Grandma Dad Hat With Grandkids Names, Personalized Nana Baseball Cap",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2046,
+      "slug": "embh-c7-v1",
+      "title": "Custom Terminal Status Dad Hat, AI Dev Hat, Embroidered Coding Baseball Cap",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2054,
+      "slug": "h-emb-c1-v1",
+      "title": "Custom Embroidered Text Tee, Personalized Embroidery Comfort Colors® Tee, Custom Saying Gift",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2057,
+      "slug": "h-emb-c4-v1",
+      "title": "Custom Embroidered Dad Tee With Kids Names, Personalized Papa Comfort Colors® Tee",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2071,
+      "slug": "h-emb-c9-v1",
+      "title": "Custom Embroidered Character Crest Tee, Comfort Colors® D20 Shirt, Character Name Stitched",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2075,
+      "slug": "h-emb-c11-v1",
+      "title": "Embroidered Dice Tower Tee, Comfort Colors Roleplaying Tee, Game Night Gift, Tabletop RPG Gift",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2087,
+      "slug": "h-emb-c12-v1",
+      "title": "Custom Embroidered Save Point Tee, Comfort Colors Gaming Shirt, Your Name Stitched",
+      "quality": -0.4067340746402961,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 104,
+      "slug": "b3-c2-v1",
+      "title": "Personalized Nice List Shirt, Christmas Gift Comfort Colors® Tee, Xmas Eve Box Shirt",
+      "quality": -0.48085069452721996,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 115,
+      "slug": "c3-c4-v1",
+      "title": "Retro Frog Shirt, Hopping Frog with Satchel Illustration, Comfort Colors Tee, Cottagecore Frog Lover Gift, Whimsical Birthday Tee",
+      "quality": -0.48085069452721996,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 0,
+        "Halide": 1
+      }
+    },
+    {
+      "product_id": 152,
+      "slug": "c13-c1-v1",
+      "title": "Chicken Evolution Shirt, Vintage Museum Plate Poultry Illustration, Comfort Colors Farm Life Tee, Backyard Chicken Keeper Gift Idea",
+      "quality": -0.48085069452721996,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 160,
+      "slug": "c11-c2-v1",
+      "title": "Custom Sibling Names Shirt, Big Sister Shirt Comfort Colors® Tee, Little Brother",
+      "quality": -0.48085069452721996,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 218,
+      "slug": "c4-c4-v2",
+      "title": "Cute Compost Tshirt, Compost is a Lifestyle Comfort Colors® Shirt, Gardening Fan Gift",
+      "quality": -0.48085069452721996,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2026,
+      "slug": "ob-c4-v1",
+      "title": "One Wish Zero Refunds Shirt, Obsession Movie Inspired Comfort Colors® Tee, Horror Rom Com Shirt",
+      "quality": -0.48085069452721996,
+      "raters": 3,
+      "likes": 1,
+      "voters": {
+        "Burcin": 1,
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2055,
+      "slug": "h-emb-c2-v1",
+      "title": "Custom Embroidered Name Tee, Personalized Script Name Comfort Colors® Tee, Stitched Tee",
+      "quality": -0.5389081306389439,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2092,
+      "slug": "h-emb-c16-v1",
+      "title": "Custom Embroidered Guild Tee, Comfort Colors Gaming Shirt, Personalized MMO Gamer Gift",
+      "quality": -0.5389081306389439,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 35,
+      "slug": "a1-c3-v1",
+      "title": "Crawler Guild Shirt, Fantasy Book Shirt Comfort Colors® Tee, Fantasy Novel Tee",
+      "quality": -0.7273642686815914,
+      "raters": 4,
+      "likes": 1,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 1,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2043,
+      "slug": "embh-c4-v1",
+      "title": "Custom Embroidered Dad Hat With Kids Names, Personalized Papa Baseball Cap",
+      "quality": -0.8509454838575116,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2041,
+      "slug": "embh-c2-v1",
+      "title": "Custom Embroidered Name Dad Hat, Personalized Script Name Baseball Cap, Custom Name Cap",
+      "quality": -0.8784672521010933,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Gasol": 0
+      }
+    },
+    {
+      "product_id": 2042,
+      "slug": "embh-c3-v1",
+      "title": "Custom Embroidered Mama Dad Hat With Kids Names, Mothers Day Gift Hat, Embroidered Mom Cap",
+      "quality": -0.8784672521010933,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Gasol": 0
+      }
+    },
+    {
+      "product_id": 2162,
+      "slug": "anime-ramen-foodie-m1-v1",
+      "title": "Anime Ramen Shirt, Kawaii Noodle Bowl Tee, Comfort Colors Foodie Gift Shirt, Left Chest Ramen Art, Japanese Noodle Lover Gift Tee",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2165,
+      "slug": "anime-samurai-m1-v1",
+      "title": "Samurai Helmet Shirt, Anime Warrior Tee, Comfort Colors Left Chest Graphic, Japanese Kabuto Art, Gift for Martial Arts and Anime Fans",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2172,
+      "slug": "bookish-no-ip-m1-v1",
+      "title": "Book Lover Shirt, Comfort Colors Bookish Tee, Minimalist Hardcover Book Pocket Print, Gift for Readers, Librarian Book Club Shirt",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2175,
+      "slug": "cat-lover-m1-v1",
+      "title": "Cat Lover Shirt, Minimalist Cat Icon Tee, Comfort Colors Left Chest Cat Silhouette, Gift for Cat Mom, Cozy Everyday Cat Shirt",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2176,
+      "slug": "chess-m1-v1",
+      "title": "Chess Knight Shirt, Minimalist Chess Icon Tee, Comfort Colors Chess Club Gift, Chess Player Gift, Small Left Chest Graphic Design",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2179,
+      "slug": "cryptid-m1-v1",
+      "title": "Bigfoot Track Shirt, Cryptid Tee, Comfort Colors Sasquatch Footprint Pocket Print, Cryptozoology Gift, Forest Hiking Camping Shirt",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2191,
+      "slug": "gacha-capsule-culture-m1-v1",
+      "title": "Gacha Capsule Shirt, Comfort Colors Tee, Minimalist Toy Collector Gift, Small Left Chest Print, Kawaii Vending Machine Graphic",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2197,
+      "slug": "matcha-tea-ceremony-m1-v1",
+      "title": "Matcha Whisk Shirt, Tea Ceremony Tee, Comfort Colors Bamboo Chasen Tee, Minimalist Left Chest Icon, Matcha Green Tea Lover Gift",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2198,
+      "slug": "mechanical-keyboard-m1-v1",
+      "title": "Mechanical Keyboard Shirt, Minimal Keycap Icon Tee, Comfort Colors Left Chest Design, Gift for Keyboard Enthusiasts, Typing Tee",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2202,
+      "slug": "obsession-movie-topical-m1-v1",
+      "title": "Film Reel Shirt, Movie Lover Gift Tee, Comfort Colors Cinephile Shirt, Retro Cinema Left Chest Graphic, Film Student Gift Idea",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2205,
+      "slug": "pottery-ceramics-m1-v1",
+      "title": "Pottery Shirt, Minimal Bud Vase Icon Tee, Comfort Colors Ceramics Gift, Handmade Wheel Throwing Art, Gift for Potter and Artist",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2206,
+      "slug": "project-hail-mary-m1-v1",
+      "title": "Space Probe Shirt, Deep Space Explorer Tee, Comfort Colors Astronomy Gift, Minimalist Sci Fi Pocket Print, Space Lover Gift Shirt",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2213,
+      "slug": "sourdough-baking-m1-v1",
+      "title": "Sourdough Baking Shirt, Minimal Bread Loaf Icon Tee, Comfort Colors Baker Gift, Left Chest Boule Design, Artisan Bread Lover Top",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2214,
+      "slug": "spiritual-anime-chakra-m-m1-v1",
+      "title": "Chakra Mecha Shirt, Anime Robot Core Comfort Colors Tee, Spiritual Meditation Gift, Left Chest Mecha Art, Yoga and Anime Lover Top",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2219,
+      "slug": "spiritual-anime-tarot-or-m1-v1",
+      "title": "Tarot Eye Shirt, Anime Mystic Tee, Comfort Colors Spiritual Shirt, Celestial Moon Eye Pocket Print, Witchy Oracle Gift for Her",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2221,
+      "slug": "spiritual-m1-v1",
+      "title": "Palm Eye Icon Shirt, Comfort Colors Spiritual Tee, Minimal Mystic Left Chest Graphic Tee, Boho Amulet Top, Meditation Yoga Gift",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2222,
+      "slug": "spiritual-witchy-occult-m1-v1",
+      "title": "Crystal Ball Shirt, Witchy Comfort Colors Tee, Sleeping Oracle Chest Print, Funny Occult Gift for Her, Mystic Fortune Teller Tee",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2224,
+      "slug": "stoic-animal-m1-v1",
+      "title": "Bison Shirt, Stoic Animal Graphic Tee, Comfort Colors Left Chest Print, Minimalist Buffalo Silhouette, Nature Lover Gift Idea",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2230,
+      "slug": "stoic-m1-v1",
+      "title": "Stoic Column Shirt, Minimalist Greek Pillar Tee, Comfort Colors Philosophy Gift, Ancient Architecture Icon, Small Left Chest Graphic",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2231,
+      "slug": "stoic-philosophy-ancient-m1-v1",
+      "title": "Stoic Philosophy Shirt, Ancient Greek Column Tee, Comfort Colors Minimalist Pocket Print, Philosophy Gift for Him and Her, Stoicism Apparel",
+      "quality": -0.9311978020523916,
+      "raters": 1,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0
+      }
+    },
+    {
+      "product_id": 2056,
+      "slug": "h-emb-c3-v1",
+      "title": "Custom Embroidered Mama Tee With Kids Names, Personalized Mama Comfort Colors® Tee, Name Tee",
+      "quality": -1.1098346298516342,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2060,
+      "slug": "h-emb-c7-v1",
+      "title": "Custom Terminal Status Tee, Embroidered Coding Comfort Colors® Tee, AI Dev Tee",
+      "quality": -1.1098346298516342,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 47,
+      "slug": "a1-c6-v1",
+      "title": "Retro Newspaper Ad Shirt, Vintage 1970s Classified Illustration, Comfort Colors Bookish Tee, Halftone Graphic Gift for Readers",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 54,
+      "slug": "a5-c1-v1",
+      "title": "Custom Dad Shirt With Kids Names Shirt, Custom Dad Shirt Comfort Colors® Tee, Gift for Dad",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 61,
+      "slug": "a5-c2-v1",
+      "title": "Dad Est Year Shirt, Personalized Dad Comfort Colors® Tee, Best Dad Ever Shirt, Custom Dad Shirt",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 72,
+      "slug": "a4-c4-v1",
+      "title": "The 5:40 is Always Late Shirt, Mothman Shirt Comfort Colors® Tee, Cryptid Creatures",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 74,
+      "slug": "c1-c1-v1",
+      "title": "I Could Be Meaner Shirt, Sarcastic Shirt Comfort Colors® Tee, Snarky Shirt, Dark Humor Shirt",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 110,
+      "slug": "a4-c3-v2",
+      "title": "Cryptid Report Form Tee, Retro Carbon Copy Illustration, Comfort Colors Sasquatch Shirt, Cryptid Gift for Her, Folklore Lover Gift",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 113,
+      "slug": "b3-c5-v1",
+      "title": "Custom Matching Family Crew Shirt, Christmas Gift Comfort Colors® Tee, Xmas Eve Box Shirt",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 142,
+      "slug": "a5-c6-v2",
+      "title": "Dad Joke Enthusiast Tee, Custom Kids Names Dad Tee Comfort Colors® Shirt, Fathers Day From Son",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 151,
+      "slug": "c12-c1-v1",
+      "title": "Custom Grandkids Names Papa Shirt, Gift for Grandpa Comfort Colors® Tee, New Grandpa Gift",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 193,
+      "slug": "c6-c1-v2",
+      "title": "Black Cat Shirt, Cat Mafia Family Shirt Comfort Colors® Shirt, Cat Behaviour Expert",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 201,
+      "slug": "c5-c2-v2",
+      "title": "Dog Mama Shirt, The Snack Dealer Comfort Colors® Shirt, Rescue Dog Owner Tee, Silly Dog Tee",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 206,
+      "slug": "c11-c3-v2",
+      "title": "Big Sis Tee, Custom Sibling Est Year Tee Comfort Colors® Shirt, Big Sister Reveal",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 207,
+      "slug": "c12-c3-v2",
+      "title": "Funny Grandpa Shirt, Promoted To Grandpa Shirt Comfort Colors® Shirt, New Grandpa Fan Gift",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 215,
+      "slug": "c11-c4-v2",
+      "title": "Big Sis Tee, Custom Name Announcement Shirt Comfort Colors® Shirt, Big Sister Reveal",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 216,
+      "slug": "c12-c4-v2",
+      "title": "Funny Grandpa Shirt, Grandpa Est Year Shirt Comfort Colors® Shirt, Grandpa Graphic Tee",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2120,
+      "slug": "gardenwit-c3-v1",
+      "title": "Garden Snail Shirt, Vintage Botanical Engraving Tee, Comfort Colors Nature Lover Gift, Cottagecore Gardener Present, Snail Art Tee",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2126,
+      "slug": "otakulife-c3-v1",
+      "title": "One More Pull Shirt, Comfort Colors® Otaku Illustration Shirt, Gacha Capsule Minimalist Tee",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2132,
+      "slug": "animeretro-c3-v1",
+      "title": "Retro Anime Shirt, Comfort Colors® Vintage Otaku Emblem Shirt, 90s CRT TV Katana Badge Tee",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2137,
+      "slug": "stoicanime-c6-v1",
+      "title": "Stoic Philosophy Shirt, Comfort Colors® Vintage Illustration Shirt, Marcus Aurelius Gift",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2139,
+      "slug": "animesouls-c4-v1",
+      "title": "Koi Fish Shirt, Comfort Colors® Small Ink Line Illustration Shirt, Anime Aesthetic Gift",
+      "quality": -1.1525173180890471,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 51,
+      "slug": "a2-c1-v1",
+      "title": "Solo Mission Shirt, Sci Fi Shirt Comfort Colors® Tee, Rocky Project Hail, Project Hail Mary",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 53,
+      "slug": "a4-c1-v1",
+      "title": "Field Guide to Things That Aren't There Shirt, Cryptid Shirt Comfort Colors® Tee, Bigfoot Shirt",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 89,
+      "slug": "a4-c6-v1",
+      "title": "Cryptid Book Club Shirt, Bigfoot Shirt Comfort Colors® Tee, Cryptid Creatures, Sasquatch Shirt",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 150,
+      "slug": "c11-c1-v1",
+      "title": "Promoted To Big Brother Shirt, Big Sister Shirt Comfort Colors® Tee, Sibling Shirts",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 217,
+      "slug": "c13-c4-v2",
+      "title": "Chicken Butt Tee, I Am the Alarm. There is no Snooze Comfort Colors® Shirt, Rooster Shirt",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2124,
+      "slug": "otakulife-c1-v1",
+      "title": "Anime Tears Shirt, Comfort Colors® Otaku Illustration Shirt, Kawaii Anime Tee",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2131,
+      "slug": "animeretro-c1-v1",
+      "title": "Certified Anime Addict Shirt, Comfort Colors® Vintage Anime Fan Shirt, Retro Anime Club Tee",
+      "quality": -1.2189308589753507,
+      "raters": 2,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2058,
+      "slug": "h-emb-c5-v1",
+      "title": "Custom Embroidered Grandma Tee With Grandkids Names, Personalized Nana Comfort Colors® Tee",
+      "quality": -1.3360596217279181,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Gasol": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2074,
+      "slug": "h-emb-c10-v1",
+      "title": "Custom Embroidered Initiative Crest Tee, Comfort Colors D20 Shirt, Character Name Stitched",
+      "quality": -1.3360596217279181,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Gasol": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 78,
+      "slug": "a5-c4-v1",
+      "title": "Funny Dad Tour Poster Shirt, Custom Dad Shirt Comfort Colors® Tee, Best Dad Ever Shirt",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 87,
+      "slug": "a1-c6-v2",
+      "title": "Retro Newspaper Ad Tee, Vintage 1970s Classified Advert Illustration, Comfort Colors Bookish Gift, Reader Shirt for Him and Her",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 92,
+      "slug": "c1-c4-v1",
+      "title": "Cut Paper Collage Tee, Blank Paper Rectangles Art Print, Comfort Colors, Minimalist Gift for Artists, Birthday Gift for Art Lovers",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 95,
+      "slug": "a5-c1-v2",
+      "title": "Dad Joke Enthusiast Tee, Custom Dad Shirt With Kids Names Comfort Colors® Shirt",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 103,
+      "slug": "a5-c2-v2",
+      "title": "Dad Joke Enthusiast Tee, Dad Est Year Shirt Comfort Colors® Shirt, Fathers Day From Son",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 204,
+      "slug": "c9-c2-v2",
+      "title": "Library Due Date Card Tee, Retro Stamped Date Grid Illustration, Comfort Colors Bookish Graphic Tee, Librarian Gift for Book Lovers",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2068,
+      "slug": "h-ob-c1-v1",
+      "title": "Horror Rom Com Movie Inspired Tee, Comfort Colors® Creepy Cute Cartoon Tee, Snap Carefully Tee",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2084,
+      "slug": "h-a1-c18-v1",
+      "title": "Portal Tee, MMO Gamer Shirt, Raid Night Emblem Tee, Comfort Colors MMORPG Shirt, Gamer Gift",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2134,
+      "slug": "animesouls-c1-v1",
+      "title": "Anime Ramen Shirt, Comfort Colors® Otaku Illustration Shirt, Funny Anime Foodie Gift",
+      "quality": -1.3710127359065942,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 45,
+      "slug": "b1-c1-v2",
+      "title": "Halloween Trip Shirt, Custom Family Name Halloween Shirt Comfort Colors® Shirt",
+      "quality": -1.5417640610002112,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 94,
+      "slug": "a4-c1-v2",
+      "title": "Cryptid Botanical Plate Tee, Vintage Field Guide Style Illustration, Comfort Colors Cryptozoology Gift, Folklore Lover Birthday Gift",
+      "quality": -1.5417640610002112,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 2127,
+      "slug": "otakulife-c4-v1",
+      "title": "Main Character Energy Shirt, Comfort Colors® Otaku Illustration Shirt, Big Sparkle Eye Gift",
+      "quality": -1.5417640610002112,
+      "raters": 3,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 0,
+        "Halide": 0
+      }
+    },
+    {
+      "product_id": 119,
+      "slug": "a5-c4-v2",
+      "title": "Dad Joke Enthusiast Tee, Funny Dad Tour Poster Shirt Comfort Colors® Shirt, Dad of Girls Tee",
+      "quality": -1.6814693965841125,
+      "raters": 4,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    },
+    {
+      "product_id": 2024,
+      "slug": "ob-c2-v1",
+      "title": "Be Careful What You Wish For Shirt, Obsession Movie Inspired Comfort Colors® Tee",
+      "quality": -1.6814693965841125,
+      "raters": 4,
+      "likes": 0,
+      "voters": {
+        "Burcin": 0,
+        "Gasol": 0,
+        "Halide": 0,
+        "Omer": 0
+      }
+    }
+  ]
+}

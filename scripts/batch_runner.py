@@ -1032,6 +1032,30 @@ def matte_cutout(raw: Path, out: Path) -> tuple[Path, dict]:
 
     im = Image.open(raw).convert("RGBA")
     cut = remove(im)
+    return _finish_matte(cut, out)
+
+
+def alpha_cutout(raw: Path, out: Path) -> tuple[Path, dict]:
+    """Finish an image that arrives already matted, without importing rembg.
+
+    The Spark cuts its own output now: it has the GPU, it has rembg installed, and the alternative was
+    installing a 176MB ONNX model into the web container so a machine with no GPU could redo work the
+    machine with one had already done. The app never needed rembg for the hosted path — Higgsfield
+    paints a key colour — so enabling the local engine broke production with
+    `ModuleNotFoundError: No module named 'rembg'` on every design (2026-08-19, product 2264).
+
+    Thresholding and measurement stay HERE rather than moving to the worker, because they are what the
+    DTF gates read and a gate that runs on the machine being gated is not a gate.
+    """
+    from PIL import Image                                          # noqa: PLC0415
+    return _finish_matte(Image.open(raw).convert("RGBA"), out)
+
+
+def _finish_matte(cut, out: Path) -> tuple[Path, dict]:
+    """Drive alpha to two values, crop, measure. Shared by both matte paths."""
+    import numpy as _np                                            # noqa: PLC0415
+
+    # DTF cannot lay down a 40%-opaque pixel, so a narrow ramp is kept only at the very edge.
     a = cut.getchannel("A").point(lambda v: 0 if v < 96 else (255 if v > 168 else v))
     cut.putalpha(a)
     bb = cut.getbbox()

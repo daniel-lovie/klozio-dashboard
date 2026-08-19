@@ -377,6 +377,8 @@ export async function* runAgentTurn(
   // read them — the whole point of that line is that it prints even when the loop ended badly.
   const startedAt = Date.now();
   let steps = 0, toolCalls = 0;
+  /** Tool calls that came back ERROR this turn, so the closing answer can be checked against them. */
+  const failed: string[] = [];
 
   try {
     // The engine is announced once, on the first attempt that actually reaches a model. Announcing it
@@ -518,6 +520,24 @@ export async function* runAgentTurn(
         // intention has to be turned back into work here rather than reported as done.
         const said = assistant.content.filter((b: any) => b.type === "text")
           .map((b: any) => b.text).join(" ");
+        // Three of four draft_product calls failed and the answer said "5 urun olusturuldu ve
+        // onaylandi", naming five slugs, with a schedule that did not exist. One row had been written.
+        // The failures were in the model's own context, as ERROR strings it had just read — it summed
+        // up what it had MEANT to do. Everything downstream depends on that closing paragraph, so a
+        // turn that had failures is made to reconcile them before it is allowed to end. Costs one round
+        // trip, and only in the case where the answer is most likely to be wrong.
+        if (failed.length && nudges < 2) {
+          nudges++;
+          yield { t: "log", d: { k: "warn", s: `${failed.length} basarisiz cagri — cevap dogrulatiliyor` } };
+          messages.push({ role: "user", content:
+            `DOGRULAMA. Bu turda ${failed.length} arac cagrisi BASARISIZ oldu:\n`
+            + failed.map((f) => `- ${f}`).join("\n")
+            + "\n\nCevabin bunlari yok sayiyor olabilir. Once SELECT ile GERCEKTEN yazilanlari oku, "
+            + "sonra cevabini yalnizca o satirlara gore yaz: kac tanesi oldu, hangileri olmadi, neden. "
+            + "Yapilmamis bir isi yapilmis gibi anlatma." });
+          failed.length = 0;   // reconciled once; a second pass would loop on the same list
+          continue;
+        }
         if (!wrote && nudges < 2 && promisedWork(said)) {
           nudges++;
           yield { t: "tool", d: "soz verildi ama yazilmadi — simdi yaptiriliyor" };
@@ -577,8 +597,9 @@ export async function* runAgentTurn(
         // A tool that answers "ERROR: …" succeeded as a call and failed as a step; the log has to show
         // the difference, because a refusal the model then works around is normal and a refusal it keeps
         // repeating is the thing worth watching.
-        const failed = /^ERROR/i.test(String(result).trim());
-        yield { t: "log", d: { k: failed ? "warn" : "ok", s: summary, ms: Date.now() - toolStart } };
+        const errored = /^ERROR/i.test(String(result).trim());
+        if (errored) failed.push(`${block.name}: ${String(result).replace(/^ERROR:?\s*/i, "").slice(0, 120)}`);
+        yield { t: "log", d: { k: errored ? "warn" : "ok", s: summary, ms: Date.now() - toolStart } };
         // Remember whether this turn changed anything, so the promise check below can tell an answer
         // that did the work from one that only talked about it.
         //

@@ -255,9 +255,32 @@ def image_local(payload: dict) -> dict:
             import image_engine as _ie                             # noqa: PLC0415
             out_png = Path("/tmp") / f"job-{seed}.png"
             _ie._upscale_for_print(src, out_png)
+            # Matte HERE, on the machine that has rembg and a GPU. The web container never had rembg
+            # and never needed it while Higgsfield painted a key colour; the moment the local engine
+            # went default_on it became a hard dependency there and every design died with
+            # ModuleNotFoundError (2026-08-19, product 2264). The alternative was installing a 176MB
+            # ONNX model into the web container so a machine with no GPU could redo work this one has
+            # already done.
+            #
+            # Cut AFTER the upscale, not before: LANCZOS on a hard-alpha edge reintroduces exactly the
+            # partly-transparent pixels DTF cannot lay down. Thresholding and the gates stay on the app
+            # side — a gate that runs on the machine being gated is not a gate.
+            cut_s = time.time()
+            try:
+                from rembg import remove                           # noqa: PLC0415
+                from PIL import Image                              # noqa: PLC0415
+                cut = remove(Image.open(out_png).convert("RGBA"))
+                cut.save(out_png)
+                cut_ms = int((time.time() - cut_s) * 1000)
+            except Exception as e:
+                # A failed matte is not a failed job: the app still has the full rembg path and will
+                # take it when the image arrives opaque. Say so rather than dying here.
+                jlog(event="cutout_failed", error=f"{type(e).__name__}: {e}"[:160])
+                cut_ms = None
             return {"images": imgs, "seed": seed, "steps": steps, "workflow_sha": sha,
                     "model": cfg.get("model") or payload.get("model", wf_name),
                     "licence": cfg.get("licence") or payload.get("licence"),
+                    "cutout": "matte-spark" if cut_ms is not None else None, "cutout_ms": cut_ms,
                     "bytes": out_png.read_bytes(), "name": imgs[0]["filename"]}
         time.sleep(3)
     raise TimeoutError(f"ComfyUI {IMAGE_TIMEOUT_S}s icinde bitirmedi")

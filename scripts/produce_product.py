@@ -255,6 +255,23 @@ def _record_engine(p: dict, info: dict) -> None:
 TOL_WIDE, TOL_TIGHT = 60, 30
 
 
+def _already_matted(raw: Path) -> bool:
+    """Did this image arrive with its background already removed?
+
+    Measured, not assumed: an older worker, a resumed run from before the change, or the Higgsfield
+    fallback all produce a fully opaque file, and calling the no-rembg path on one of those would
+    hand the gates an uncut image with a spotless report. Three percent fully-transparent is far below
+    anything a real cutout leaves and far above the stray transparent pixel of an opaque render.
+    """
+    from PIL import Image                                          # noqa: PLC0415
+    import numpy as _np                                            # noqa: PLC0415
+    im = Image.open(raw)
+    if im.mode not in ("RGBA", "LA"):
+        return False
+    a = _np.asarray(im.convert("RGBA"))[:, :, 3]
+    return float((a == 0).sum()) / (a.size or 1) > 0.03
+
+
 def _drawn_locally(p: dict) -> bool:
     """Did the local engine draw this one? Read from the row the process is already carrying.
 
@@ -280,9 +297,17 @@ def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1
     if _drawn_locally(p):
         # rembg, not the key colour. The local model will not paint the flat #E6007E field the key
         # cutout keys on, so keying it produces either "no background found" or a punched-through
-        # emblem. rembg is already in the postprocess path and measured at 0.60% partly-transparent
-        # after thresholding, which is inside the DTF gate.
-        cut, rep = br.matte_cutout(raw, cut_to)
+        # emblem.
+        #
+        # WHERE it runs moved on 2026-08-19. The worker on the Spark now mattes its own output before
+        # putting it on the queue, so what arrives here already carries alpha and only needs
+        # thresholding and measuring — both pure PIL. The web container never had rembg and did not
+        # need it while Higgsfield painted a key colour; turning the local engine on made it a hard
+        # dependency overnight and every design died with ModuleNotFoundError. Installing a 176MB ONNX
+        # model into the web container so a machine with no GPU could redo work the machine with one
+        # had already done was the wrong half of the problem to solve.
+        cut, rep = (br.alpha_cutout(raw, cut_to) if _already_matted(raw)
+                    else br.matte_cutout(raw, cut_to))
     else:
         cut, rep = br.key_cutout(raw, cut_to, tol=tol)
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "

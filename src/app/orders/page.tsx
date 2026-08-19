@@ -14,7 +14,11 @@ export default async function OrdersPage() {
     `SELECT f.*, p.slug, p.title, p.personalised, p.hero_colorway, p.slot, p.technique
        FROM fulfillment_orders f LEFT JOIN products p ON p.id=f.product_id
       WHERE f.shop_id=${shopId}
-      ORDER BY CASE WHEN f.status IN ('done','shipped') THEN 1 ELSE 0 END, f.ordered_at DESC NULLS LAST`);
+      ORDER BY CASE WHEN f.status IN ('done','shipped') THEN 1 ELSE 0 END,
+               -- A buyer who paid for rush is the one order in the queue with a clock on it, so it
+               -- sorts above everything still open. Finished orders keep plain date order.
+               CASE WHEN f.rush AND f.status NOT IN ('done','shipped') THEN 0 ELSE 1 END,
+               f.ordered_at DESC NULLS LAST`);
 
   const active = rows.filter((r) => !["done", "shipped"].includes(r.status));
 

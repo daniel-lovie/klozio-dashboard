@@ -69,6 +69,14 @@ export function OrderRow({ row, at }: { row: any; at: string }) {
     <div className="rounded-lg border border-line bg-raised p-4">
       <div className="flex flex-wrap items-center gap-3">
         <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${PILL[row.status]}`}>{row.status}</span>
+        {row.rush && (
+          // The buyer paid for 2nd Day Air. Loud on purpose: this is the only order in the queue with a
+          // deadline attached, and it is indistinguishable from the rest without a marker.
+          <span className="rounded bg-danger px-2 py-0.5 text-[11px] font-semibold text-white"
+            title="Alici 'Rush service + UPS shipping' aldi — bugun gonder, etiketi UPS 2nd Day Air olarak al">
+            ⚡ RUSH · UPS 2nd Day
+          </span>
+        )}
         <span className="text-xs text-muted">#{row.id} · {at}</span>
         <span className="rounded bg-sunken px-1.5 py-0.5 text-[11px]">{row.slot ?? "?"} · {row.slug ?? row.etsy_listing_id}</span>
         <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.title ?? "(unknown listing)"}</span>

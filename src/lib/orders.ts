@@ -44,6 +44,16 @@ async function pollShopOrders(shopId: number) {
       `${r.city ?? ""} ${r.state ?? ""} ${r.zip ?? ""}`.trim(), r.country_iso]
       .filter(Boolean).join("\n");
 
+    // Standard US shipping is $0 on both shops' profiles, so anything the buyer was charged for
+    // shipping is the "Rush service + UPS shipping" upgrade. Etsy does not hand the upgrade back on
+    // the receipt in a form worth parsing; the amount is the signal, and it only reads correctly
+    // BECAUSE standard is zero. If a paid standard rate is ever reintroduced, this stops being true.
+    const shipMoney = r.total_shipping_cost;
+    const shippingPaidCents = shipMoney
+      ? Math.round((Number(shipMoney.amount) / Number(shipMoney.divisor || 100)) * 100)
+      : null;
+    const rush = (shippingPaidCents ?? 0) > 0;
+
     for (const t of r.transactions ?? []) {
       const p = await one<{ id: number; technique: string | null }>(
         `SELECT id, technique FROM products WHERE etsy_listing_id=$1 AND shop_id=$2`, [t.listing_id, shopId]);
@@ -66,11 +76,12 @@ async function pollShopOrders(shopId: number) {
            (receipt_id, transaction_id, etsy_listing_id, product_id, quantity, sku,
             size, colorway, personalization, buyer_name, ship_to, ordered_at,
             ship_name, ship_address1, ship_address2, ship_city, ship_state, ship_zip, ship_country, shop_id,
-            etsy_status, is_paid)
+            etsy_status, is_paid, rush, shipping_paid_cents)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, to_timestamp($12),
-                 $13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+                 $13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
          ON CONFLICT (transaction_id) DO UPDATE
            SET etsy_status = EXCLUDED.etsy_status, is_paid = EXCLUDED.is_paid,
+               rush = EXCLUDED.rush, shipping_paid_cents = EXCLUDED.shipping_paid_cents,
                -- Etsy can void an order (risk checks, refund): stop the line, don't produce
                status = CASE
                  WHEN EXCLUDED.etsy_status IN ('Canceled','Cancelled','Refunded')
@@ -84,7 +95,7 @@ async function pollShopOrders(shopId: number) {
          t.paid_timestamp ?? t.created_timestamp ?? r.created_timestamp,
          r.name ?? null, r.first_line ?? null, r.second_line ?? null,
          r.city ?? null, r.state ?? null, r.zip ?? null, r.country_iso ?? null, shopId,
-         r.status ?? null, r.is_paid !== false]);
+         r.status ?? null, r.is_paid !== false, rush, shippingPaidCents]);
       const row: any = res[0];
       if (row?.inserted) {
         inserted++;

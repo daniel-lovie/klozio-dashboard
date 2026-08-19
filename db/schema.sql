@@ -197,6 +197,12 @@ CREATE TABLE IF NOT EXISTS fulfillment_orders (
   producer_order_id TEXT,
   tracking_code   TEXT,
   carrier         TEXT,
+  -- The buyer paid for the "Rush service + UPS shipping" upgrade. Standard shipping is $0 shop-wide,
+  -- so any shipping the buyer was charged IS the upgrade — no extra Etsy field is needed to detect it.
+  -- Without this the order looks identical to every other one in the queue, and an upgrade nobody can
+  -- see is a promise sold and not kept.
+  rush            BOOLEAN NOT NULL DEFAULT false,
+  shipping_paid_cents INTEGER,
   note            TEXT,
   ordered_at      TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

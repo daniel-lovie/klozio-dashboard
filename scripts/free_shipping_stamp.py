@@ -6,7 +6,8 @@ sitting over the top-right of the photo and running partly off the edge so it re
 picture rather than composed into it. That last detail is what makes it look like a stamp and not a
 badge, so it is reproduced deliberately: the mark is drawn oversized and cropped by the canvas.
 
-Scope is Klozio only (shop_id 1), by operator decision on 2026-08-16. HillsByElgin is not touched.
+Scope is per shop. Klozio (1) on 2026-08-16, HillsByElgin (2) the same day once its shipping was
+also set to $0 — the stamp is only honest where the shipping actually is free.
 
 Two rules this follows because the thumbnail is the product's only advertisement:
 
@@ -34,7 +35,9 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-SHOP_ID = 1                       # Klozio only. This is the whole scope of the tactic.
+# The shop is an argument, not a constant. This started as a Klozio-only tactic and was extended to
+# HillsByElgin the same day; a hardcoded 1 would have quietly stamped the wrong shop's covers.
+DEFAULT_SHOP = 1
 STAMP_RED = (206, 32, 28)
 TEXT = "FREE SHIPPING"
 ANGLE = 8                         # degrees, counter-clockwise — a stamp is never applied square
@@ -117,16 +120,23 @@ def conn():
     return psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=30)
 
 
-def covers(cur):
-    """The first image of every live Klozio listing — that is the one Etsy shows in search."""
-    cur.execute("""
+def covers(cur, shop_id: int, pattern: str | None):
+    """The first image of every listing in the shop — that is the one Etsy shows in search.
+
+    Live listings only by default, because that is what the tactic was retrofitted onto. Pass a slug
+    pattern to reach products that have NOT been published yet: stamping before the first push means
+    the listing carries the stamp from its first minute instead of needing a second image resync.
+    """
+    cur.execute(f"""
         SELECT DISTINCT ON (p.id) p.id, p.slug, g.id, g.bytes
           FROM products p
           JOIN product_images g ON g.product_id = p.id
-         WHERE p.shop_id = %s AND p.etsy_listing_id IS NOT NULL
+         WHERE p.shop_id = %s
+           {"AND p.slug LIKE %s" if pattern else "AND p.etsy_listing_id IS NOT NULL"}
            AND NOT EXISTS (SELECT 1 FROM product_images u
                             WHERE u.product_id = p.id AND u.role = 'cover_unstamped')
-         ORDER BY p.id, g.rank NULLS LAST, g.id""", (SHOP_ID,))
+         ORDER BY p.id, g.rank NULLS LAST, g.id""",
+                (shop_id, pattern) if pattern else (shop_id,))
     return cur.fetchall()
 
 
@@ -135,12 +145,14 @@ def main() -> int:
     ap.add_argument("--preview", action="store_true")
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--out", default="/tmp/stamp-preview.jpg")
+    ap.add_argument("--shop", type=int, default=DEFAULT_SHOP)
+    ap.add_argument("--pattern", help="slug kalibi; yayinlanmamis urunlere de damga basar")
     a = ap.parse_args()
 
     c = conn()
     k = c.cursor()
-    rows = covers(k)
-    print(f"Klozio'da damgalanacak kapak: {len(rows)}")
+    rows = covers(k, a.shop, a.pattern)
+    print(f"shop {a.shop} — damgalanacak kapak: {len(rows)}")
 
     if a.preview:
         if not rows:
@@ -174,9 +186,25 @@ def main() -> int:
         done += 1
         print(f"  {slug}")
     c.commit()
+
+    # Count what LANDED, not what was attempted. The loop reported 16 stamps on a run that produced 15:
+    # one product came out with neither a stamped cover nor a backup row, and nothing said so, because
+    # the number printed was the number of iterations. A write is not done until the database agrees.
+    k.execute("""SELECT p.slug FROM products p
+                  WHERE p.id = ANY(%s)
+                    AND NOT EXISTS (SELECT 1 FROM product_images u
+                                     WHERE u.product_id = p.id AND u.role = 'cover_unstamped')""",
+              ([r[0] for r in rows],))
+    missing = [r[0] for r in k.fetchall()]
     c.close()
-    print(f"\n{done} kapak damgalandi (orijinaller role='cover_unstamped' olarak saklandi). "
+
+    landed = done - len(missing)
+    print(f"\n{landed}/{done} kapak damgalandi (orijinaller role='cover_unstamped' olarak saklandi). "
           f"Etsy'ye gitmesi icin resync gerekir.")
+    if missing:
+        print(f"YAZILAMADI: {missing} — tekrar calistir, damgasiz olduklari icin cift damga riski yok",
+              file=sys.stderr)
+        return 1
     return 0
 
 

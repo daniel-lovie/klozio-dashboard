@@ -43,6 +43,10 @@ DAYS = 8
 # 15:00 UTC is late morning in the US, which is when this shop's traffic is awake. The hour matters more
 # than the date: a listing published at 04:00 UTC spends its first and most visible hours asleep.
 PUBLISH_HOUR_UTC = 15
+# Within a day the batch is spread rather than fired at one instant. Ten listings appearing in the same
+# second read as a dump — to Etsy's rate limiting, and to anyone looking at the shop's new-arrivals feed.
+# Twenty minutes puts the day's batch across the whole US late morning instead of one minute of it.
+STAGGER_MINUTES = 20
 DISCLOSURE_HEAD = 600
 LOW, HIGH = 125, 140
 
@@ -78,6 +82,9 @@ def main() -> int:
     # Re-running should MOVE the calendar, not add a second copy of it. Without this a reschedule leaves
     # the old rows in place and the product publishes twice.
     ap.add_argument("--replace", action="store_true", help="bu partinin mevcut kuyrugunu sil, yeniden kur")
+    # 'approved' publishes itself when the time comes. 'pending' sits in /plan until a human approves it,
+    # which is what the operator asks for on anything they want to look at first.
+    ap.add_argument("--status", default="approved", choices=["approved", "pending"])
     a = ap.parse_args()
 
     c = psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=30)
@@ -132,23 +139,26 @@ def main() -> int:
                       WHERE p.id = s.product_id AND p.slug LIKE %s AND s.published_at IS NULL""",
                   (a.pattern,))
         print(f"eski kuyruk silindi ({k.rowcount} satir)")
-    print(f"\ntakvim ({PER_DAY}/gun, {DAYS} gun, {PUBLISH_HOUR_UTC}:00 UTC):")
+    print(f"\ntakvim ({PER_DAY}/gun, {DAYS} gun, {PUBLISH_HOUR_UTC}:00 UTC'den {STAGGER_MINUTES} dk arayla):")
     queued = 0
     for day in range(DAYS):
         chunk = good[day * PER_DAY:(day + 1) * PER_DAY]
         if not chunk:
             break
-        when = start + timedelta(days=day)
-        print(f"  {when:%Y-%m-%d %H:%M} UTC  {len(chunk)} urun  "
+        day_start = start + timedelta(days=day)
+        last = day_start + timedelta(minutes=STAGGER_MINUTES * (len(chunk) - 1))
+        print(f"  {day_start:%Y-%m-%d %H:%M}–{last:%H:%M} UTC  {len(chunk)} urun  "
               f"{', '.join(s for _i, s, _w in chunk[:3])}…")
-        for pid, _slug, _w in chunk:
+        for slot, (pid, _slug, _w) in enumerate(chunk):
+            when = day_start + timedelta(minutes=STAGGER_MINUTES * slot)
             queued += 1
             if a.apply:
                 # approved_by names the decision, not the machine that carried it out.
                 k.execute("""INSERT INTO schedule (product_id, scheduled_at, status, approved_at,
                                                    approved_by, attempts, created_at, updated_at)
-                             VALUES (%s, %s, 'approved', now(), 'operator: 8 gunluk minimal parti',
-                                     0, now(), now())""", (pid, when))
+                             VALUES (%s, %s, %s, CASE WHEN %s = 'approved' THEN now() END,
+                                     CASE WHEN %s = 'approved' THEN 'operator batch' END,
+                                     0, now(), now())""", (pid, when, a.status, a.status, a.status))
     if a.apply:
         c.commit()
         print(f"\n{queued} urun kuyruga alindi")

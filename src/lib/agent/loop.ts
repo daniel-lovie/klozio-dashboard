@@ -130,6 +130,22 @@ export type AgentEvent =
   | { t: "error"; d: string }
   | { t: "done" };
 
+/** The model name to record when the Spark answers. Matches what the worker actually loads. */
+const LOCAL_MODEL = (process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b").trim();
+
+/**
+ * Told to the local model, and only to it.
+ *
+ * Asked which model it was, Qwen answered "Claude" — not from malice but from the obvious inference
+ * that an agent inside this product is the one the product was built around. The operator has no way
+ * to check that from the chat window, so the answer has to come from somewhere that knows. Appended
+ * only on the local path, so the cloud prompt stays byte-identical and its cache is not invalidated.
+ */
+const LOCAL_ENGINE_NOTE =
+  `MOTOR: Bu turu Anthropic degil, ev agindaki DGX Spark uzerinde kosan yerel ${LOCAL_MODEL} yanitliyor. ` +
+  `Hangi model/LLM oldugun sorulursa BUNU soyle — "Claude" deme. Web arama araclarin bu yolda yoktur; ` +
+  `arama gerekiyorsa bunu soyle, uydurma.`;
+
 /**
  * Is the chat agent running on the Spark this turn?
  *
@@ -346,6 +362,10 @@ export async function* runAgentTurn(
       // backoff turn a transient hiccup into a pause nobody has to act on.
       let assistant: any = null;
       let lastErr: any = null;
+      // Which engine actually answered, decided per attempt and remembered for the accounting below.
+      // It cannot be inferred from AGENT_ENGINE afterwards: the variable says what we asked for, and a
+      // fallback to the cloud mid-retry is exactly the case the usage row has to be honest about.
+      let servedLocal = false;
       for (let attempt = 1; attempt <= 3; attempt++) {
         assistant = null;
         try {
@@ -353,8 +373,9 @@ export async function* runAgentTurn(
           // AGENT_ENGINE is anything but "local", when the Spark is unreachable, or when the model is
           // not loaded — a chat agent that goes silent because a machine at home is off is worse than
           // one that costs pennies.
-          const stream = (await useLocalAgent())
-            ? streamOllama(messages, AGENT_SYSTEM, TOOL_DEFS)
+          servedLocal = await useLocalAgent();
+          const stream = servedLocal
+            ? streamOllama(messages, `${AGENT_SYSTEM}\n\n${LOCAL_ENGINE_NOTE}`, TOOL_DEFS)
             : streamOnce(messages, apiKey);
           for await (const ev of stream) {
             if (ev.kind === "text") yield { t: "text", d: ev.text };
@@ -403,11 +424,16 @@ export async function* runAgentTurn(
       // Rates are per model, not a constant. They were hardcoded to Opus, so changing MODEL to a cheaper
       // one would have kept billing customers Opus prices — the usage page is the billing base, and a
       // number that silently describes a different model is worse than no number.
-      const cost = byo ? 0 : stepCost(MODEL, u);
+      // A turn served by the Spark is free and was not answered by Anthropic. Writing it as
+      // `anthropic / claude-opus-5` — which this line did until 2026-08-19 — makes the usage page bill
+      // for tokens nobody paid for and, worse, makes the one record that could prove where the work ran
+      // say the opposite of the Spark's own log. The engine is recorded, not assumed.
+      const cost = byo || servedLocal ? 0 : stepCost(MODEL, u);
       q(`INSERT INTO usage_events (shop_id, provider, kind, model, input_tokens, output_tokens, cache_read, cache_write, cost_usd, meta)
-         VALUES ($1,'anthropic','chat',$2,$3,$4,$5,$6,$7,$8)`,
-        [shopId, MODEL, u.input_tokens, u.output_tokens, u.cache_read, u.cache_write,
-         cost.toFixed(5), JSON.stringify({ byo })]).catch(() => {});
+         VALUES ($1,$2,'chat',$3,$4,$5,$6,$7,$8,$9)`,
+        [shopId, servedLocal ? "local" : "anthropic", servedLocal ? LOCAL_MODEL : MODEL,
+         u.input_tokens, u.output_tokens, u.cache_read, u.cache_write,
+         cost.toFixed(5), JSON.stringify({ byo, engine: servedLocal ? "local-qwen" : "cloud" })]).catch(() => {});
       // Hitting the token ceiling is not the end of the turn. It used to break here, so a long answer
       // stopped mid-sentence and looked like the agent had finished.
       if (assistant.stopReason === "max_tokens") {

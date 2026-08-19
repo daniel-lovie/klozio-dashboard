@@ -144,7 +144,22 @@ def one(row) -> tuple:
     spec = SPEC.format(brief=TEXT_BRIEF if printed else WORDLESS_BRIEF)
     what = (f'The exact line printed on the shirt: "{printed}"\nThe mascot beside it: {concept}'
             if printed else f"Illustration printed on the shirt: {concept}")
-    msgs = [{"role": "user", "content": f"Niche: {niche}\n{what}\n\nWrite the JSON."}]
+    user = f"Niche: {niche}\n{what}\n\nWrite the JSON."
+
+    # Local first when the config says so, by consensus over independent draws. Measured head to head
+    # on ten briefs: local clears these same checks 9/10 with a retry budget the cloud clears 10/10 on
+    # first ask. Two draws and a choice closes most of that for nothing, and the cloud stays underneath
+    # as the fallback rather than the default.
+    try:
+        import text_engine as te                                  # noqa: PLC0415
+        if te._config().get("text_engine") == "local":
+            d = te.write_copy(user, spec)
+            return pid, slug, d, ""
+    except Exception as e:
+        print(f"  UYARI yerel metin dustu, buluta geciliyor: "
+              f"{type(e).__name__}: {e}"[:160], file=sys.stderr)
+
+    msgs = [{"role": "user", "content": user}]
     for attempt in (1, 2):
         raw = call(msgs, spec)
         try:

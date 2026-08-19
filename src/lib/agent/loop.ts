@@ -2,6 +2,7 @@
 import { q, one } from "../db";
 import { AGENT_SYSTEM } from "./prompt";
 import { TOOL_DEFS, execTool, SERVER_TOOLS } from "./tools";
+import { streamOllama, ollamaReady } from "./ollama";
 import { sanitiseHistory, stripImages } from "./history";
 import { keepWindow, startAtUserTurn } from "./window";
 
@@ -128,6 +129,17 @@ export type AgentEvent =
   | { t: "ask"; d: { question: string; options: string[]; multi?: boolean; allow_other?: boolean } }
   | { t: "error"; d: string }
   | { t: "done" };
+
+/**
+ * Is the chat agent running on the Spark this turn?
+ *
+ * Checked per turn rather than at boot: the Spark is a machine in a flat, and the honest answer
+ * changes when someone unplugs it. Falling back costs a few cents and keeps the agent answering.
+ */
+async function useLocalAgent(): Promise<boolean> {
+  if ((process.env.AGENT_ENGINE || "cloud").trim() !== "local") return false;
+  return ollamaReady();
+}
 
 async function* streamOnce(messages: any[], apiKey: string): AsyncGenerator<
   { kind: "text"; text: string } | { kind: "assistant"; content: any[]; stopReason: string; usage: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number; searches: number } }
@@ -337,7 +349,14 @@ export async function* runAgentTurn(
       for (let attempt = 1; attempt <= 3; attempt++) {
         assistant = null;
         try {
-          for await (const ev of streamOnce(messages, apiKey)) {
+          // Which brain answers this turn. The Anthropic path is unchanged and is what runs when
+          // AGENT_ENGINE is anything but "local", when the Spark is unreachable, or when the model is
+          // not loaded — a chat agent that goes silent because a machine at home is off is worse than
+          // one that costs pennies.
+          const stream = (await useLocalAgent())
+            ? streamOllama(messages, AGENT_SYSTEM, TOOL_DEFS)
+            : streamOnce(messages, apiKey);
+          for await (const ev of stream) {
             if (ev.kind === "text") yield { t: "text", d: ev.text };
             else assistant = ev;
           }

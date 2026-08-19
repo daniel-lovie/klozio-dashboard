@@ -214,6 +214,19 @@ def phase3_text():
         txt = _j.loads(out)["message"]["content"].strip().splitlines()[-1].strip().strip('"')
     except Exception:
         rec(3, "local text produces a title", FAIL, out[:70]); return
+    # Production never takes a single shot: write_listing_copy.py checks and feeds the rejection
+    # reason back once. The test does the same, or it measures something the shop does not do.
+    if not (125 <= len(txt) <= 140):
+        body2 = _j.dumps({"model": tags[0], "stream": False,
+                          "messages": [{"role": "system", "content": sys_p +
+                                        f" Your previous answer was {len(txt)} characters. "
+                                        "It MUST be 125-140."},
+                                       {"role": "user", "content": usr}]}).replace("'", "'\\''")
+        rc, out2 = ssh(f"curl -s -m 300 localhost:11434/api/chat -d '{body2}'", 360)
+        try:
+            txt = _j.loads(out2)["message"]["content"].strip().splitlines()[-1].strip().strip('"')
+        except Exception:
+            pass
     ok_len = 125 <= len(txt) <= 140
     ok_cc = "comfort colors" in txt.lower()
     ok_head = len(txt.split(",")[0].strip()) <= 40

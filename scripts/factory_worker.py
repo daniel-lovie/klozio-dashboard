@@ -128,6 +128,41 @@ def finish(job_id: int, **cols):
     c.commit(); c.close()
 
 
+# ── one tenant at a time ─────────────────────────────────────────────────────────────────────────
+# The spec says diffusion and the LLM run sequentially, never concurrently. Running both as always-on
+# services quietly broke that rule: Qwen holds ~45 GB resident and ComfyUI holds its checkpoints, and
+# together they took a 128 GB box to 110 GB used with 0 free. The symptom was not an out-of-memory
+# error — it was the text stage timing out while the machine thrashed.
+#
+# So the worker evicts the other tenant before each stage. It costs a model load (~115 s cold for
+# Qwen, ~10 s for a checkpoint) and buys a machine that is not at its memory ceiling.
+
+def free_image_models() -> None:
+    """Ask ComfyUI to unload checkpoints before the LLM needs the memory."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(f"{COMFY}/free",
+                                     data=json.dumps({"unload_models": True, "free_memory": True}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=60).read()
+        jlog(event="freed", who="comfyui")
+    except Exception as e:
+        jlog(event="free_failed", who="comfyui", error=str(e)[:120])
+
+
+def free_text_model() -> None:
+    """Unload the LLM before diffusion needs the memory. keep_alive=0 evicts immediately."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(f"{OLLAMA}/api/generate",
+                                     data=json.dumps({"model": LOCAL_TEXT_MODEL, "keep_alive": 0}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=60).read()
+        jlog(event="freed", who="ollama")
+    except Exception as e:
+        jlog(event="free_failed", who="ollama", error=str(e)[:120])
+
+
 # ── text stage ───────────────────────────────────────────────────────────────────────────────────
 def text_local(prompt: str, system: str) -> str:
     import urllib.request
@@ -241,6 +276,7 @@ def run_job(job: dict) -> None:
 
     try:
         if job["kind"] in ("text", "both"):
+            free_image_models()
             ts = time.time()
             txt, eng, reason = fallback_text(p.get("prompt", ""), p.get("system", ""), want_local)
             timings["text_s"] = round(time.time() - ts, 1)
@@ -250,6 +286,7 @@ def run_job(job: dict) -> None:
             p["text_result"] = txt
 
         if job["kind"] in ("image", "both"):
+            free_text_model()
             ts = time.time()
             out, eng, reason = fallback_image(p, want_local)
             timings["image_s"] = round(time.time() - ts, 1)

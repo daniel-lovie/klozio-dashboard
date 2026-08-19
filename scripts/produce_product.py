@@ -185,12 +185,55 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
     ratio = as_params(params).get("aspect_ratio")
     if reinforce and REINFORCE:
         full = f"{full}{REINFORCE}"
+    # ---- which engine draws ----
+    #
+    # One call site, two possible engines. The local path is a feature behind LOCAL_ENGINE, which
+    # defaults to `off` and restores byte-identical behaviour when it is; the hosted path below is
+    # never deleted and is also where a local failure lands.
+    #
+    # Falling back is deliberately quiet for the product — a design still gets drawn — and loud in the
+    # record, because "how much work is local actually carrying" is unanswerable afterwards otherwise.
+    import image_engine as ie                                     # noqa: PLC0415
+    local, why = ie.use_local(p.get("id"))
+    if local:
+        try:
+            info = ie.generate_local(full, raw, aspect=ratio or "1:1")
+            print(f"  yerel uretim: {info['model']} · seed {info['seed']} · {info['seconds']}s")
+            _record_engine(p, info)
+            return raw
+        except Exception as e:
+            why = f"{type(e).__name__}: {e}"[:200]
+            print(f"  UYARI yerel uretim dustu, Higgsfield'a geciliyor — {why}")
+
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
                 shop_id=p["shop_id"])
     if not out.get("ok"):
         raise RuntimeError(f"higgsfield: {out.get('error')}")
+    _record_engine(p, {"engine": "higgsfield", "model": br.DEFAULT_MODEL,
+                       "licence": "hosted", "fallback_reason": why or None})
     return raw
+
+
+def _record_engine(p: dict, info: dict) -> None:
+    """Write which engine drew, into the same table the design gates already use.
+
+    Provenance is a publish gate here, not a log line: a design cannot go live without being able to
+    name what drew it. A local model is the first setup that can state the checkpoint, licence and
+    seed exactly rather than approximately, and that is worth capturing at the moment it happens.
+    """
+    try:
+        import psycopg2, json as _j, os as _os                    # noqa: PLC0415
+        c = psycopg2.connect(_os.environ["DATABASE_URL"], connect_timeout=20)
+        k = c.cursor()
+        k.execute("""INSERT INTO design_feedback (product_id, shop_id, source, verdict, reason,
+                                                  metrics, design_model)
+                     VALUES (%s,%s,'engine','info',%s,%s,%s)""",
+                  (p.get("id"), p.get("shop_id"), info.get("fallback_reason"),
+                   _j.dumps(info), info.get("model")))
+        c.commit(); c.close()
+    except Exception as e:
+        print(f"  UYARI motor kaydi yazilamadi: {e}")
 
 
 # How far from the key colour still counts as background. 60 is generous, which is right when the artwork

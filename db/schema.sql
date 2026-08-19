@@ -507,3 +507,20 @@ CREATE TABLE IF NOT EXISTS worker_heartbeat (
   beat_at TIMESTAMPTZ NOT NULL,
   detail  JSONB
 );
+
+
+-- Which checkpoint the local engine draws with. A ROW, not a constant in code: the choice belongs to
+-- the team's votes on the output and has not been made yet. A constant would need a deploy to revisit,
+-- and the people who decide this do not deploy.
+CREATE TABLE IF NOT EXISTS local_engine_config (
+  id             INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  image_workflow TEXT NOT NULL DEFAULT 'wf_graphic.json',
+  image_model    TEXT NOT NULL DEFAULT 'sd_xl_base_1.0.safetensors',
+  image_licence  TEXT NOT NULL DEFAULT 'CreativeML OpenRAIL++-M',
+  steps          INT  NOT NULL DEFAULT 28,
+  batch_size     INT  NOT NULL DEFAULT 1,
+  decided_by     TEXT,
+  decided_at     TIMESTAMPTZ,
+  note           TEXT,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);

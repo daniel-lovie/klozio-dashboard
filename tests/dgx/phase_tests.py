@@ -244,7 +244,43 @@ def phase3_text():
     rec(3, "primary keyword inside first 40", PASS if ok_head else FAIL)
 
 
-PHASES = {0: phase0, 1: phase1, 2: phase2, 3: phase3, 4: phase4, 5: phase5, 31: phase3_text}
+def phase3_wiring():
+    """Is the local engine actually reachable from the product path, or just compiled?
+
+    engines.ts passed every test it had while being called by nothing. This checks the seam that
+    matters: produce_product.py's single generation call must go through the selector, the selector
+    must refuse to route when the flag is off, and the checkpoint must come from a config row rather
+    than a constant — the model choice belongs to the team's votes and has not been made.
+    """
+    import subprocess as sp
+    root = os.path.join(os.path.dirname(__file__), "../..")
+    prod = open(os.path.join(root, "scripts/produce_product.py")).read()
+    rec(3, "produce_product routes through the selector",
+        PASS if "image_engine" in prod and "use_local" in prod else FAIL)
+    rec(3, "hosted path still present",
+        PASS if "br.hf({" in prod else FAIL, "bulut yolu silinmemis")
+    rec(3, "engine recorded per design",
+        PASS if "_record_engine" in prod else FAIL)
+
+    env = dict(os.environ, LOCAL_ENGINE="off")
+    r = sp.run([sys.executable, "-c",
+                "import sys;sys.path.insert(0,'scripts');import image_engine as ie;print(ie.use_local(1)[0])"],
+               cwd=root, capture_output=True, text=True, env=env)
+    rec(3, "flag off refuses to route local",
+        PASS if r.stdout.strip() == "False" else FAIL, r.stdout.strip() or r.stderr[:50])
+
+    try:
+        c = db(); k = c.cursor()
+        k.execute("SELECT image_workflow, image_model FROM local_engine_config WHERE id=1")
+        row = k.fetchone(); c.close()
+        rec(3, "checkpoint comes from config, not code", PASS if row else FAIL,
+            f"{row[1]}" if row else "satir yok")
+    except Exception as e:
+        rec(3, "checkpoint comes from config, not code", FAIL, str(e)[:60])
+
+
+PHASES = {0: phase0, 1: phase1, 2: phase2, 3: phase3, 4: phase4, 5: phase5,
+          31: phase3_text, 32: phase3_wiring}
 
 
 def main() -> int:

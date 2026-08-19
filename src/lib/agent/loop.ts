@@ -121,6 +121,24 @@ function promisedWork(said: string): boolean {
   return PROMISE.test(said) && PROMISED_SQL.test(said);
 }
 
+/** One short, readable clue about what a tool call is actually doing. A log line reading `sql` twelve
+ *  times tells the operator nothing; `sql ▸ select id, slug from products where…` tells them plenty. */
+function argHint(name: string, input: any): string {
+  const s = (v: any, n = 46) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
+  switch (name) {
+    case "sql":            return s(input?.query, 60);
+    case "draft_product":  return s(input?.slug);
+    case "update_product": return s(`#${input?.product_id}`);
+    case "produce":        return s(`#${input?.product_id} ${input?.stage ?? "all"}`);
+    case "look":           return s(`#${input?.product_id} ${input?.what ?? ""}`);
+    case "read_file":      return s(input?.path);
+    case "run_script":     return s(input?.script);
+    case "etsy":           return s(`${input?.method ?? ""} ${input?.path ?? ""}`);
+    case "shopify":        return s(input?.query, 40);
+    default:               return "";
+  }
+}
+
 export type AgentEvent =
   | { t: "text"; d: string }
   | { t: "tool"; d: string }
@@ -128,7 +146,19 @@ export type AgentEvent =
    *  instead of parsing choices out of prose. */
   | { t: "ask"; d: { question: string; options: string[]; multi?: boolean; allow_other?: boolean } }
   | { t: "error"; d: string }
+  /**
+   * A line for the live activity log.
+   *
+   * The chat used to show a single "…" for the whole turn. A turn that writes five products runs for
+   * minutes across a dozen model calls and as many tool calls, and from outside it was indistinguishable
+   * from a hang — which is exactly how a genuinely hung turn went unnoticed for fourteen minutes on
+   * 2026-08-19. These lines are progress, not transcript: they are streamed, never persisted, and
+   * carry timings so a slow step reads as slow rather than as broken.
+   */
+  | { t: "log"; d: { k: LogKind; s: string; ms?: number } }
   | { t: "done" };
+
+export type LogKind = "engine" | "think" | "tool" | "ok" | "warn" | "end";
 
 /** The model name to record when the Spark answers. Matches what the worker actually loads. */
 const LOCAL_MODEL = (process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b").trim();
@@ -343,9 +373,15 @@ export async function* runAgentTurn(
   let nudges = 0;                     // how many times we have pushed it to keep its word
   let produceCalls = 0;               // image generations run inline this turn (see the cap below)
   let finished = false;               // did the model answer, or did we run out of steps?
+  // Function-scoped so the closing log line, which runs after the transcript is persisted, can still
+  // read them — the whole point of that line is that it prints even when the loop ended badly.
+  const startedAt = Date.now();
+  let steps = 0, toolCalls = 0;
 
   try {
-    const startedAt = Date.now();
+    // The engine is announced once, on the first attempt that actually reaches a model. Announcing it
+    // from AGENT_ENGINE before the call would print a claim rather than an observation.
+    let announcedEngine = false;
     for (let step = 0; step < MAX_STEPS; step++) {
       // The request itself dies at 800s and takes the transcript persist with it. Stop short, say so, and
       // let the finally block record what actually happened.
@@ -374,12 +410,36 @@ export async function* runAgentTurn(
           // not loaded — a chat agent that goes silent because a machine at home is off is worse than
           // one that costs pennies.
           servedLocal = await useLocalAgent();
+          if (!announcedEngine) {
+            announcedEngine = true;
+            yield { t: "log", d: { k: "engine", s: servedLocal
+              ? `yerel ${LOCAL_MODEL} · DGX Spark` : `bulut ${MODEL}` } };
+          }
+          const stepStart = Date.now();
+          steps = step + 1;
+          yield { t: "log", d: { k: "think", s: `adim ${step + 1} · dusunuyor` } };
           const stream = servedLocal
             ? streamOllama(messages, `${AGENT_SYSTEM}\n\n${LOCAL_ENGINE_NOTE}`, TOOL_DEFS)
             : streamOnce(messages, apiKey);
+          let firstToken = 0;
           for await (const ev of stream) {
-            if (ev.kind === "text") yield { t: "text", d: ev.text };
-            else assistant = ev;
+            if (ev.kind === "text") {
+              // Time to first token is the number that separates a cold model from a dead one: a Qwen
+              // load off disk is ~115s of silence, and without this line that silence looks like a hang.
+              if (!firstToken) {
+                firstToken = Date.now();
+                yield { t: "log", d: { k: "ok", s: "ilk token", ms: firstToken - stepStart } };
+              }
+              yield { t: "text", d: ev.text };
+            } else assistant = ev;
+          }
+          if (assistant) {
+            const calls = assistant.content.filter((b: any) => b.type === "tool_use").map((b: any) => b.name);
+            yield { t: "log", d: {
+              k: "ok",
+              s: `adim ${step + 1} bitti · ${assistant.usage?.output_tokens ?? 0} token`
+                 + (calls.length ? ` · ${calls.length} arac: ${calls.join(", ")}` : ""),
+              ms: Date.now() - stepStart } };
           }
         } catch (e: any) {
           lastErr = e;
@@ -509,7 +569,16 @@ export async function* runAgentTurn(
             } };
           }
         }
+        const hint = argHint(block.name, block.input);
+        yield { t: "log", d: { k: "tool", s: `${block.name}${hint ? ` ▸ ${hint}` : ""}` } };
+        const toolStart = Date.now();
+        toolCalls++;
         const { result, summary, blocks } = await execTool(block.name, block.input);
+        // A tool that answers "ERROR: …" succeeded as a call and failed as a step; the log has to show
+        // the difference, because a refusal the model then works around is normal and a refusal it keeps
+        // repeating is the thing worth watching.
+        const failed = /^ERROR/i.test(String(result).trim());
+        yield { t: "log", d: { k: failed ? "warn" : "ok", s: summary, ms: Date.now() - toolStart } };
         // Remember whether this turn changed anything, so the promise check below can tell an answer
         // that did the work from one that only talked about it.
         //
@@ -569,5 +638,8 @@ export async function* runAgentTurn(
     const clean = startAtUserTurn(stripImages(sanitiseHistory(window)));
     await q(`UPDATE agent_chats SET messages=$1, updated_at=now() WHERE id=$2`, [JSON.stringify(clean), chatId]);
   }
+  // The closing line. Without it the log's last entry is whatever happened to be last, and the operator
+  // has to work out from silence whether the turn ended or died.
+  yield { t: "log", d: { k: "end", s: `bitti · ${steps} adim · ${toolCalls} arac`, ms: Date.now() - startedAt } };
   yield { t: "done" };
 }

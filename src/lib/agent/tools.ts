@@ -626,7 +626,12 @@ export async function execTool(name: string, input: any):
     return { result: `unknown tool ${name}`, summary: `? ${name}` };
   } catch (e: any) {
     const msg = String(e?.message ?? e).slice(0, 1200);
-    return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ HATA` };
+    // The summary is what the operator sees. `draft_product ▸ HATA` told them a tool failed and nothing
+    // about why, and the catch logged nothing either — so the reason existed only inside the model's
+    // context, where nobody can read it afterwards. Both halves are fixed here: carry the reason into
+    // the chip, and write the failure down.
+    await logEvent("agent_tool", { detail: `HATA ${name}: ${msg.slice(0, 220)}` }).catch(() => {});
+    return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ HATA: ${msg.slice(0, 90)}` };
   }
 }
 

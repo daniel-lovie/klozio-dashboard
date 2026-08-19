@@ -203,7 +203,7 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
     local, why = ie.use_local(p.get("id"))
     if local:
         try:
-            info = ie.generate_local(full, raw, aspect=ratio or "1:1")
+            info = ie.generate_local(full, raw, aspect=ratio or "1:1", product_id=p.get("id"))
             p["_engine"] = "local-comfyui"
             stamp.write_text("local-comfyui")
             print(f"  yerel uretim: {info['model']} · seed {info['seed']} · {info['seconds']}s")

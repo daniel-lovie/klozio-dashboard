@@ -107,8 +107,73 @@ def _upscale_for_print(src: Path, dst: Path) -> None:
     im.resize((round(im.width * f), round(im.height * f)), Image.LANCZOS).save(dst)
 
 
-def generate_local(prompt: str, out: Path, aspect: str = "1:1", seed: int | None = None) -> dict:
-    """Draw on the Spark through ComfyUI. Raises on any failure so the caller can fall back."""
+def comfy_reachable(timeout: float = 3.0) -> bool:
+    """Is ComfyUI on this machine? That decides HOW the Spark draws, not whether it does.
+
+    Running on the Spark, ComfyUI is a loopback call away and there is no reason to involve a queue.
+    Running on Railway, the Spark is behind a home network with no inbound route, so the only way to
+    reach it is the way the spec designed: leave a job and let it poll.
+    """
+    try:
+        urllib.request.urlopen(f"{COMFY}/system_stats", timeout=timeout).read()
+        return True
+    except Exception:
+        return False
+
+
+QUEUE_TIMEOUT_S = 900
+
+
+def generate_via_queue(prompt: str, out: Path, aspect: str, seed: int | None,
+                       product_id: int | None) -> dict:
+    """Leave a job for the Spark and wait for the drawn image to come back in the row.
+
+    The result travels as BYTES in the job row, not as a path. A filename on a machine with no inbound
+    route is useless to the caller, and that mistake would only show up in production.
+    """
+    import psycopg2
+    w, h = _dims(aspect)
+    payload = {"prompt": prompt, "aspect": aspect, "width": w, "height": h,
+               "negative": NEGATIVE, "seed": seed}
+    c = _db(); k = c.cursor()
+    k.execute("""INSERT INTO generation_jobs (product_id, kind, payload, engine_pref)
+                 VALUES (%s,'image',%s,'local') RETURNING id""",
+              (product_id, json.dumps(payload)))
+    jid = k.fetchone()[0]
+    c.commit(); c.close()
+    print(f"  is {jid} kuyruga birakildi, Spark bekleniyor")
+
+    deadline = time.time() + QUEUE_TIMEOUT_S
+    while time.time() < deadline:
+        time.sleep(5)
+        c = _db(); k = c.cursor()
+        k.execute("""SELECT status, engine_image, model, model_licence, seed, steps,
+                            last_error, result_image
+                       FROM generation_jobs WHERE id=%s""", (jid,))
+        st, eng, model, lic, sd, steps, err, img = k.fetchone()
+        c.close()
+        if st == "done" and img:
+            out.write_bytes(bytes(img))
+            return {"engine": eng or "local-comfyui", "model": model, "licence": lic,
+                    "seed": sd, "steps": steps, "seconds": 0, "job": jid}
+        if st in ("failed", "cancelled"):
+            raise RuntimeError(f"is {jid} {st}: {err}")
+    raise TimeoutError(f"is {jid} {QUEUE_TIMEOUT_S}s icinde bitmedi")
+
+
+NEGATIVE = ("text, words, letters, typography, watermark, signature, gradient, photo, 3d render, "
+            "drop shadow")
+
+
+def _dims(aspect: str) -> tuple[int, int]:
+    return {"4:5": (896, 1152), "3:4": (896, 1216), "16:9": (1344, 768)}.get(aspect, (1024, 1024))
+
+
+def generate_local(prompt: str, out: Path, aspect: str = "1:1", seed: int | None = None,
+                   product_id: int | None = None) -> dict:
+    """Draw on the Spark. Directly if this IS the Spark, through the queue if it is not."""
+    if not comfy_reachable():
+        return generate_via_queue(prompt, out, aspect, seed, product_id)
     cfg = config()
     wf = Path.home() / "ComfyUI" / "workflows" / cfg["workflow"]
     if not wf.exists():
@@ -116,13 +181,7 @@ def generate_local(prompt: str, out: Path, aspect: str = "1:1", seed: int | None
     g = json.loads(wf.read_text())
     seed = seed if seed is not None else time.time_ns() % (2 ** 31)
 
-    w, h = (1024, 1024)
-    if aspect == "4:5":
-        w, h = 896, 1152
-    elif aspect == "3:4":
-        w, h = 896, 1216
-    elif aspect == "16:9":
-        w, h = 1344, 768
+    w, h = _dims(aspect)
 
     for node in g.values():
         ins = node.get("inputs", {})

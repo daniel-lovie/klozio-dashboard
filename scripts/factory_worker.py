@@ -205,13 +205,15 @@ def image_local(payload: dict) -> dict:
     code so a change is a diff rather than someone's browser session.
     """
     import urllib.request
-    wf_name = payload.get("workflow", "wf_graphic.json")
+    import image_engine as _cfg_ie                                 # noqa: PLC0415
+    cfg = _cfg_ie.config()
+    wf_name = payload.get("workflow") or cfg.get("workflow", "wf_graphic.json")
     wf_path = Path.home() / "ComfyUI" / "workflows" / wf_name
     graph = json.loads(wf_path.read_text())
     sha = __import__("hashlib").sha256(wf_path.read_bytes()).hexdigest()[:12]
 
     seed = int(payload.get("seed") or time.time_ns() % (2**31))
-    steps = int(payload.get("steps", 28))
+    steps = int(payload.get("steps") or cfg.get("steps", 28))
     for node in graph.values():
         ins = node.get("inputs", {})
         if "seed" in ins:
@@ -220,6 +222,12 @@ def image_local(payload: dict) -> dict:
             ins["noise_seed"] = seed
         if "steps" in ins:
             ins["steps"] = steps
+        if node.get("_meta", {}).get("title") == "CHECKPOINT" and "ckpt_name" in ins and cfg.get("model"):
+            ins["ckpt_name"] = cfg["model"]
+        if node.get("_meta", {}).get("title") == "LATENT":
+            for k, v in (("width", payload.get("width", 1024)), ("height", payload.get("height", 1024))):
+                if k in ins:
+                    ins[k] = v
         if node.get("_meta", {}).get("title") == "POSITIVE" and "text" in ins:
             ins["text"] = payload["prompt"]
         if node.get("_meta", {}).get("title") == "NEGATIVE" and "text" in ins:
@@ -240,8 +248,17 @@ def image_local(payload: dict) -> dict:
             imgs = [i for o in outs.values() for i in o.get("images", [])]
             if not imgs:
                 raise RuntimeError("ComfyUI bitirdi ama gorsel dondurmedi")
+            # Read the drawn file and hand back the BYTES, not a filename. The caller is on another
+            # machine that cannot see this filesystem — that is the whole reason the queue exists.
+            src = (Path.home() / "ComfyUI" / "output" / imgs[0].get("subfolder", "")
+                   / imgs[0]["filename"])
+            import image_engine as _ie                             # noqa: PLC0415
+            out_png = Path("/tmp") / f"job-{seed}.png"
+            _ie._upscale_for_print(src, out_png)
             return {"images": imgs, "seed": seed, "steps": steps, "workflow_sha": sha,
-                    "model": payload.get("model", wf_name), "licence": payload.get("licence")}
+                    "model": cfg.get("model") or payload.get("model", wf_name),
+                    "licence": cfg.get("licence") or payload.get("licence"),
+                    "bytes": out_png.read_bytes(), "name": imgs[0]["filename"]}
         time.sleep(3)
     raise TimeoutError(f"ComfyUI {IMAGE_TIMEOUT_S}s icinde bitirmedi")
 
@@ -293,6 +310,9 @@ def run_job(job: dict) -> None:
             cols.update(engine_image=eng, seed=out["seed"], steps=out["steps"],
                         workflow_sha=out["workflow_sha"], model=out["model"],
                         model_licence=out.get("licence"))
+            if out.get("bytes"):
+                cols["result_image"] = psycopg2.Binary(out["bytes"])
+                cols["result_name"] = out.get("name")
             p["images"] = out["images"]
 
         timings["total_s"] = round(time.time() - t0, 1)

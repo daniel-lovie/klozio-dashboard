@@ -244,6 +244,40 @@ def phase3_text():
     rec(3, "primary keyword inside first 40", PASS if ok_head else FAIL)
 
 
+def phase3_queue():
+    """The path production actually uses: a caller that cannot see ComfyUI.
+
+    The direct call works only when produce_product runs ON the Spark. Railway cannot reach a home
+    network with no inbound route, so the queue is not an alternative there — it is the only route,
+    and it is the one this test exercises by pointing COMFY_URL at a dead port.
+    """
+    import subprocess as sp
+    root = os.path.join(os.path.dirname(__file__), "../..")
+    env = dict(os.environ, LOCAL_ENGINE="default_on", COMFY_URL="http://127.0.0.1:9")
+    r = sp.run([sys.executable, "-c",
+                "import sys;sys.path.insert(0,'scripts');import image_engine as ie;"
+                "print(ie.comfy_reachable())"], cwd=root, capture_output=True, text=True, env=env)
+    rec(3, "detects ComfyUI is unreachable", PASS if r.stdout.strip() == "False" else FAIL)
+
+    src = open(os.path.join(root, "scripts/image_engine.py")).read()
+    rec(3, "falls back to the queue, not an error",
+        PASS if "generate_via_queue" in src and "if not comfy_reachable():" in src else FAIL)
+    w = open(os.path.join(root, "scripts/factory_worker.py")).read()
+    rec(3, "worker returns bytes, not a path",
+        PASS if "result_image" in w and "read_bytes()" in w else FAIL)
+    try:
+        c = db(); k = c.cursor()
+        k.execute("""SELECT id, engine_image, octet_length(result_image), model
+                       FROM generation_jobs
+                      WHERE kind='image' AND status='done' AND result_image IS NOT NULL
+                      ORDER BY id DESC LIMIT 1""")
+        row = k.fetchone(); c.close()
+        rec(3, "an image really came back through the queue",
+            PASS if row else FAIL, f"is {row[0]} · {row[2]//1024} KB · {row[3][:28]}" if row else "yok")
+    except Exception as e:
+        rec(3, "an image really came back through the queue", FAIL, str(e)[:60])
+
+
 def phase3_wiring():
     """Is the local engine actually reachable from the product path, or just compiled?
 
@@ -280,7 +314,7 @@ def phase3_wiring():
 
 
 PHASES = {0: phase0, 1: phase1, 2: phase2, 3: phase3, 4: phase4, 5: phase5,
-          31: phase3_text, 32: phase3_wiring}
+          31: phase3_text, 32: phase3_wiring, 33: phase3_queue}
 
 
 def main() -> int:

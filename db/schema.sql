@@ -494,6 +494,12 @@ CREATE TABLE IF NOT EXISTS generation_jobs (
   last_error    TEXT,
   timings       JSONB,
   result_url    TEXT,
+  -- The drawn image itself, not a path to it. The Spark writes into a home network with no inbound
+  -- route, so a filename on that machine is useless to the cloud app that asked for the design. At ten
+  -- designs a day a few megabytes a row is cheaper than an object-storage dependency; at a thousand it
+  -- would not be, and that is the point at which this column moves to S3.
+  result_image  BYTEA,
+  result_name   TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

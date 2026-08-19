@@ -1,0 +1,18 @@
+[Unit]
+Description=Cloudflare Tunnel (Spark -> Cloudflare, outbound only)
+After=network-online.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+# The connector dials OUT to Cloudflare. No port is opened on this machine and the router is untouched;
+# what reaches Ollama is only what Cloudflare's Access policy has already let through.
+#
+# The token lives in a 0600 file rather than in this unit: unit files are world-readable, and a token
+# that can run the tunnel is worth as much as the tunnel.
+ExecStart=/bin/bash -lc '%h/.local/bin/cloudflared --no-autoupdate tunnel run --token "$(cat %h/.cloudflared/token)"'
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

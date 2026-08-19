@@ -1,0 +1,17 @@
+[Unit]
+Description=Bearer-token gate in front of Ollama (the tunnel's only entry point)
+After=network-online.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/klozio
+ExecStart=/usr/bin/python3 %h/klozio/ops/ollama_auth_proxy.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=PROXY_PORT=11434
+Environment=PROXY_UPSTREAM=http://127.0.0.1:11435
+
+[Install]
+WantedBy=default.target

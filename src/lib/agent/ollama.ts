@@ -16,6 +16,18 @@
  */
 
 const OLLAMA = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
+
+/**
+ * Ollama itself has no authentication, so the Spark publishes it through a bearer-token gate
+ * (`ops/ollama_auth_proxy.py`) and the public hostname answers 401 without this header. Locally the
+ * variable is unset and we talk to the loopback port directly, which is why it is optional rather
+ * than required — an empty token must not turn a working local setup into a 401.
+ */
+const OLLAMA_TOKEN = (process.env.OLLAMA_TOKEN || "").trim();
+
+function ollamaHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return OLLAMA_TOKEN ? { ...extra, authorization: `Bearer ${OLLAMA_TOKEN}` } : { ...extra };
+}
 const MODEL = process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b";
 
 type Block = { type: string; [k: string]: any };
@@ -86,7 +98,7 @@ export async function* streamOllama(messages: any[], system: string, tools: read
 > {
   const res = await fetch(`${OLLAMA}/api/chat`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: ollamaHeaders({ "content-type": "application/json" }),
     body: JSON.stringify({
       model: MODEL, stream: true, keep_alive: "10m",
       tools: toolsForOllama(tools),
@@ -154,7 +166,7 @@ export async function ollamaReady(timeout = 3000): Promise<boolean> {
   try {
     const c = new AbortController();
     const t = setTimeout(() => c.abort(), timeout);
-    const r = await fetch(`${OLLAMA}/api/tags`, { signal: c.signal });
+    const r = await fetch(`${OLLAMA}/api/tags`, { signal: c.signal, headers: ollamaHeaders() });
     clearTimeout(t);
     if (!r.ok) return false;
     const d: any = await r.json();

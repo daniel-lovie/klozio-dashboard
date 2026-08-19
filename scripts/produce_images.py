@@ -291,6 +291,19 @@ def main() -> None:
               f"(scripts/make_emb_render.py {slug})", file=sys.stderr)
     design = Image.open(io.BytesIO(bytes(src))).convert("RGBA")
     design = design.crop(design.getbbox() or (0, 0, design.width, design.height))
+    # The print file is sized for the PRINTER; these are photographs of a shirt. Every template lands
+    # the design in a print box about 1216 px across (10 inches at 121.6 px/inch), so a 3000 px source
+    # is two and a half times more detail than any pixel of the output can hold — and the distance
+    # transform below is superlinear in area. Raising the print file from 2048 to 3000 px pushed a
+    # normal two-attempt run past the worker's fifteen-minute budget: the child was killed after the
+    # images were written and the product landed in 'error' with nothing to show for it (2026-08-19,
+    # product 2264). 1800 px keeps a 1.5x supersample over the destination, which is the part that
+    # affects how it looks.
+    MOCKUP_SRC_PX = 1800
+    if max(design.size) > MOCKUP_SRC_PX:
+        f = MOCKUP_SRC_PX / max(design.size)
+        design = design.resize((max(1, round(design.width * f)), max(1, round(design.height * f))),
+                               Image.LANCZOS)
     # Once, here: every composite below reuses this decoded design, and the distance transform
     # is far too expensive to repeat nine times per product.
     design = decontaminate(design)

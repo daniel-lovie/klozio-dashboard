@@ -28,6 +28,23 @@ five — irrelevant. It would matter at a hundred.
 permit commercial use but carry behavioural restrictions that have to be honoured and, more
 practically, explained if anyone ever asks what made a design we sell.
 
+## Correction — the criterion this table missed
+
+Everything above measures printability. **It does not measure the rule this shop treats as absolute:
+no letterform may come out of a model** (CLAUDE.md #5). That was caught by eye afterwards, not by the
+harness — a fishing badge came back reading "EESTOR DUTDER", a camping one "WIRILS · BOGAE".
+
+All three candidates do it, and the cause is largely the brief: "retro badge" and "vintage label"
+invite a banner with words in it. Two OCR engines disagree badly on the rate (tesseract 60/40/20%,
+easyocr 7/7/33%) and both miss text visible to the eye, so no single number is quoted. What is certain
+is that all three produce it far too often to publish unattended.
+
+`ops/text_gate.py` is the backstop: either detector seeing a letterform rejects the image. The prompt
+guidance — stop asking for badges and labels — belongs upstream and is the real fix.
+
+This does not change the choice of klein, which is still the flattest, most palette-disciplined and
+only unrestricted-licence candidate. It changes what "passes" means.
+
 ## What is still the operator's call
 
 **Prompt adherence, which is the primary criterion and is not in this table.** No script should

@@ -171,9 +171,13 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    sunucudaki producer döngüsü kendisi alır (90 sn'de bir, tek ürün): tasarımı çizer,
    arka planı keser, print_file'ı yazar, 7-9 ilan görselini kurar, design_state='ready' yapar.
    Claim atomiktir (design_state='generating'), aynı ürünü iki süreç alamaz.
-   TOPLU İSTEK KUYRUK İŞİDİR — 'produce' İLE ÜRETMEYE KALKMA. "50 tasarım üret" gibi bir istekte senin işin
-   satırları yazmaktır: content_status='approved' + design_prompt + **design_model** dolu olarak INSERT et,
-   eklenen id'leri SELECT ile doğrula, 'production_status' ile kuyruğu ve tahmini süreyi bildir, TURU BİTİR.
+   TOPLU İSTEK KUYRUK İŞİDİR — 'produce' İLE ÜRETMEYE KALKMA. "5 tasarım üret" gibi bir istekte senin işin
+   satırları yazmaktır ve bunu **draft_product** ile, HER ÜRÜN İÇİN AYRI BİR ÇAĞRIYLA yaparsın. Ham SQL ile
+   products'a INSERT REDDEDİLİR: elle yazılan çok kolonlu INSERT kısmen başarılı olur — 2026-08-19'da beş
+   satır title/tags/price dolu, design_prompt/hook/design_model BOŞ olarak yazıldı, 'approved' göründü ve
+   üretim kuyruğu hiçbirini almadı. draft_product eksik alanı söyler ve satırı hiç yazmaz.
+   Tarih verilmişse scheduled_at'i de ver; schedule satırı 'pending' açılır, onayı operatör verir.
+   Hepsi bittikten sonra 'production_status' ile kuyruğu ve tahmini süreyi bildir, TURU BİTİR.
    ÇİZİMİ KİM YAPIYOR (2026-08-19'dan beri): varsayılan motor ev ağındaki DGX Spark'ta koşan YEREL
    ComfyUI + Juggernaut'tur (LOCAL_ENGINE=default_on) — bedava, kredi harcamaz. Higgsfield/gpt_image_2
    artık yalnızca YEDEKTİR: Spark'ın heartbeat'i bayatsa ya da yerel üretim patlarsa oraya düşer, ve

@@ -3,6 +3,7 @@ import { pool, logEvent } from "../db";
 import { etsyRaw } from "../etsy";
 import { shopifyGql } from "../shopify";
 import { printfulRaw } from "../printful";
+import { draftProduct } from "./draft-product";
 
 /**
  * Run the model's SQL confined to one shop.
@@ -122,6 +123,35 @@ export const TOOL_DEFS = [
       + "(redo_note ile). Uretmez, sadece okur ve ucretsizdir. Kullanici 'ne oldu / nerede kaldi / "
       + "hazir mi' diye sordugunda BUNU cagir; urun uretmeye kalkma.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "draft_product",
+    description: "TEK bir urunu eksiksiz olarak olusturur (products satiri + istege bagli schedule). "
+      + "Toplu istekte (\"5 tasarim uret\") HER URUN ICIN AYRI CAGIR — elle INSERT yazma, ham SQL ile "
+      + "products'a INSERT reddedilir. Alanlarin hepsi dogrulanir ve biri eksikse satir HIC yazilmaz: "
+      + "title 125-140, tam 13 cok-kelimeli tag, DTF'te hook zorunlu (hooksuz satiri uretim kuyrugu "
+      + "almaz), design_prompt >=120 karakter ve icinde YAZI istegi olamaz, aciklamanin ustunde AI "
+      + "beyani, fiyat anchor olarak 18-26 bandina denk gelmeli. Geri okur ve ne yazildigini dondurur. "
+      + "schedule satiri her zaman 'pending' acilir — onayi operator verir.",
+    input_schema: {
+      type: "object",
+      properties: {
+        slug: { type: "string", description: "'{hat}-c{n}-v1' (ornek: pet-c1-v1), kucuk harf ve tire" },
+        niche: { type: "string", description: "alici kitlesi, birkac kelime" },
+        technique: { type: "string", enum: ["dtf", "embroidery"], description: "varsayilan dtf" },
+        title: { type: "string", description: "125-140 karakter, virgulle ayrilmis, ana anahtar kelime ilk 40 karakterde bolunmeden" },
+        description: { type: "string", description: "ilk paragrafta AI beyani ZORUNLU" },
+        tags: { type: "array", items: { type: "string" }, description: "tam 13, her biri <=20 karakter ve COK KELIMELI" },
+        hook: { type: "string", description: "DTF'te tasarima dizilecek slogan (zorunlu, <=60 karakter). Tarif cumlesi degil." },
+        design_prompt: { type: "string", description: "ne cizilecek: konu, kompozisyon, stil, palet, arka plan. Yazi/harf isteme." },
+        design_model: { type: "string", description: "varsayilan gpt_image_2 (yedek yol okur; cizimi yerel Juggernaut yapar)" },
+        price_cents: { type: "number", description: "ANCHOR fiyat; varsayilan 3570 = aliciya $24.99" },
+        personalised: { type: "boolean" },
+        hero_colorway: { type: "string", description: "kapak rengi, varsayilan Pepper" },
+        scheduled_at: { type: "string", description: "ISO tarih-saat; verilirse 'pending' schedule satiri acilir" },
+      },
+      required: ["slug", "niche", "title", "description", "tags", "design_prompt"],
+    },
   },
   {
     name: "update_product",
@@ -448,6 +478,17 @@ function refuseIrreversible(name: string, input: any): string | null {
       + "ilk yanlis siparise kadar gorunmez. update_product ayrica basligi/tag'i limitlere gore dogrular "
       + "ve yazdiktan sonra ilani geri okur.";
   }
+  // Same lesson as the price/title guard above, learned the same way: the general tool beat the
+  // specific one. A hand-written INSERT carrying a dozen columns fails PARTIALLY and silently — five
+  // rows went in on 2026-08-19 with title, tags and price filled and design_prompt, hook and
+  // design_model empty, looking finished at content_status='approved'. draft_product refuses such a
+  // row outright and says which field is wrong, which raw SQL cannot do.
+  if (name === "sql" && /\binsert\s+into\s+(only\s+)?(\w+\.)?products\b/.test(q)) {
+    return "ERROR: products'a ham SQL ile INSERT yapilamaz — draft_product aracini kullan, her urun icin "
+      + "bir cagri. Sebebi: elle yazilan cok kolonlu INSERT kismen basarili olur, design_prompt/hook/"
+      + "design_model bos kalir ve satir 'approved' gorunur ama uretim kuyrugu onu hic almaz. "
+      + "draft_product eksik alani soyler ve satiri hic yazmaz.";
+  }
   // `drop\s+(table|column)` was narrower than the anchored /^(delete|truncate|drop)/ it replaced: drop
   // index, view, schema, database and function all became reachable while the change was being sold as a
   // fix. `drop <word>` covers every object type there will ever be; a column literally named "drop" is not
@@ -554,6 +595,13 @@ export async function execTool(name: string, input: any):
           + "kullanici mesaji olarak gelecek. Tekrar sorma, tahmin etme.",
         summary: `soru ▸ ${q.slice(0, 40)}`,
       };
+    }
+    if (name === "draft_product") {
+      const { currentShopId } = await import("../shops");
+      const shopId = await currentShopId();
+      const out = await draftProduct(input, shopId);
+      await logEvent("agent_tool", { productId: out.id, detail: `draft_product: ${out.slug}` });
+      return { result: clip(JSON.stringify(out)), summary: `taslak ▸ ${out.slug} (${out.id})` };
     }
     if (name === "update_product") {
       const out = await updateProduct(input);

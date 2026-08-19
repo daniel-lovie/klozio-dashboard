@@ -22,7 +22,9 @@ export async function GET(req: Request) {
   // had simply not shipped yet: the build log's "Healthcheck succeeded" belongs to whichever build
   // wrote it last, so tailing it says nothing about the build you just pushed. Comparing this against
   // `git rev-parse HEAD` is a fact.
-  const build = (process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || null;
+  // RAILWAY_GIT_COMMIT_SHA is only set for repo-triggered deploys; `railway up` ships local
+  // files and leaves it empty, so the deploy script sets BUILD_SHA itself.
+  const build = (process.env.BUILD_SHA || process.env.RAILWAY_GIT_COMMIT_SHA || "").slice(0, 7) || null;
   if (!url.searchParams.has("engine")) return Response.json({ ok: true, build });
 
   const want = (process.env.AGENT_ENGINE || "cloud").trim();

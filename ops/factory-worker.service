@@ -1,0 +1,17 @@
+[Unit]
+Description=Klozio factory worker (claims generation_jobs, runs them locally)
+After=network-online.target comfyui.service
+Wants=comfyui.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/klozio
+# The worker polls OUTBOUND. Nothing listens on this machine for the cloud app's benefit, and that
+# is the whole security model of putting a home device behind a production storefront.
+ExecStart=/bin/bash -lc 'set -a; . %h/klozio/.env; set +a; exec %h/ComfyUI/.venv/bin/python %h/klozio/scripts/factory_worker.py'
+Restart=always
+RestartSec=15
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

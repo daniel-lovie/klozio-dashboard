@@ -496,7 +496,7 @@ def set_type(p: dict, art_path: Path, work: Path) -> Path:
 
     out = work / f"{p['slug']}-typed.png"
     canvas, drawn, type_mask = typeset.compose(Image.open(art_path), hook,
-                                               style=style or "engraving", ink=ink)
+                                               style=style or "engraving", ink=ink, size=PRINT_PX)
     if not drawn:
         return art_path
 
@@ -546,16 +546,35 @@ def _ensure_readable(canvas: Image.Image, type_mask: Image.Image, art_path: Path
     print(f"  UYARI yazi kumasa karsi okunmuyor (yazi {lum:.0f} vs kumas {garment_lum:.0f}, "
           f"kontrast {contrast:.0f} < {floor:.0f}) — murekkep {flipped} ile tekrar diziliyor",
           file=sys.stderr)
-    again, _, _ = typeset.compose(Image.open(art_path), hook, style=style or "engraving", ink=flipped)
+    again, _, _ = typeset.compose(Image.open(art_path), hook, style=style or "engraving",
+                                  ink=flipped, size=PRINT_PX)
     return again, flipped
+
+
+# 10 inches at 300 PPI, which is the print the producer lays down.
+#
+# typeset.compose defaults to a 2048 px canvas, and produce_product accepted that default from the day
+# it was written: every design whose hook got typeset shipped a 2048 px print file — 205 PPI across a
+# 10 inch chest, a fifth short of the floor stated in the standards and enforced on the cutout two
+# stages earlier. The gate never caught it because the gate measures the CUTOUT (3031 px, 10.1 inches
+# at 300) while the file stored for the producer is the typeset canvas. Wordless designs were fine and
+# hid the pattern: they skip compose entirely and keep the full-resolution cutout, which is why the
+# catalogue reads 2880 and 3000 almost everywhere and 2048 only where a slogan was set.
+#
+# Everything inside compose is a fraction of the canvas, so a larger number changes resolution and
+# nothing else about the composition.
+PRINT_PX = 3000
 
 
 def store_print_file(p: dict, art: Path) -> None:
     blob = art.read_bytes()
     w, h = Image.open(art).size
     c = conn(); k = c.cursor()
+    # print_dpi was left null by this path, so the one column that says what the file is FOR carried
+    # nothing on every product it produced — and a print file without its intended resolution is just
+    # a picture.
     k.execute("""UPDATE products SET print_file=%s, print_file_name=%s, print_file_w=%s,
-                        print_file_h=%s, design_state='generating', updated_at=now()
+                        print_file_h=%s, print_dpi=300, design_state='generating', updated_at=now()
                   WHERE id=%s""",
               (psycopg2.Binary(blob), f"{p['slug']}-print.png", w, h, p["id"]))
     c.commit(); c.close()

@@ -1,0 +1,15 @@
+[Unit]
+Description=ComfyUI (Klozio design factory)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/factory/start_comfy.sh
+Restart=always
+RestartSec=10
+# Loopback only, always. This process executes arbitrary graphs and has no authentication; the SSH
+# tunnel is the access control.
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

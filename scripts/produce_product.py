@@ -105,7 +105,13 @@ REINFORCE = ""
 def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Path:
     """The paid step. Prompt comes from the row, so what was approved is what gets drawn."""
     raw = work / f"{p['slug']}{('-' + tag) if tag else ''}-raw.png"
+    # Which engine drew is written beside the file, because resuming is the normal case here — a re-run
+    # returns the existing raw without generating, and without this the cutout would pick its method
+    # from an unset field and key a magenta background that is not there.
+    stamp = raw.with_suffix(".engine")
     if raw.exists():
+        if stamp.exists():
+            p["_engine"] = stamp.read_text().strip()
         return raw
     prompt = (p["design_prompt"] or "").strip()
     if not prompt:
@@ -185,12 +191,59 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
     ratio = as_params(params).get("aspect_ratio")
     if reinforce and REINFORCE:
         full = f"{full}{REINFORCE}"
+    # ---- which engine draws ----
+    #
+    # One call site, two possible engines. The local path is a feature behind LOCAL_ENGINE, which
+    # defaults to `off` and restores byte-identical behaviour when it is; the hosted path below is
+    # never deleted and is also where a local failure lands.
+    #
+    # Falling back is deliberately quiet for the product — a design still gets drawn — and loud in the
+    # record, because "how much work is local actually carrying" is unanswerable afterwards otherwise.
+    import image_engine as ie                                     # noqa: PLC0415
+    local, why = ie.use_local(p.get("id"))
+    if local:
+        try:
+            info = ie.generate_local(full, raw, aspect=ratio or "1:1")
+            p["_engine"] = "local-comfyui"
+            stamp.write_text("local-comfyui")
+            print(f"  yerel uretim: {info['model']} · seed {info['seed']} · {info['seconds']}s")
+            _record_engine(p, info)
+            return raw
+        except Exception as e:
+            why = f"{type(e).__name__}: {e}"[:200]
+            print(f"  UYARI yerel uretim dustu, Higgsfield'a geciliyor — {why}")
+
+    p["_engine"] = "higgsfield"
+    stamp.write_text("higgsfield")
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
                 shop_id=p["shop_id"])
     if not out.get("ok"):
         raise RuntimeError(f"higgsfield: {out.get('error')}")
+    _record_engine(p, {"engine": "higgsfield", "model": br.DEFAULT_MODEL,
+                       "licence": "hosted", "fallback_reason": why or None})
     return raw
+
+
+def _record_engine(p: dict, info: dict) -> None:
+    """Write which engine drew, into the same table the design gates already use.
+
+    Provenance is a publish gate here, not a log line: a design cannot go live without being able to
+    name what drew it. A local model is the first setup that can state the checkpoint, licence and
+    seed exactly rather than approximately, and that is worth capturing at the moment it happens.
+    """
+    try:
+        import psycopg2, json as _j, os as _os                    # noqa: PLC0415
+        c = psycopg2.connect(_os.environ["DATABASE_URL"], connect_timeout=20)
+        k = c.cursor()
+        k.execute("""INSERT INTO design_feedback (product_id, shop_id, source, verdict, reason,
+                                                  metrics, design_model)
+                     VALUES (%s,%s,'pipeline','accepted',%s,%s,%s)""",
+                  (p.get("id"), p.get("shop_id"), info.get("fallback_reason"),
+                   _j.dumps(info), info.get("model")))
+        c.commit(); c.close()
+    except Exception as e:
+        print(f"  UYARI motor kaydi yazilamadi: {e}")
 
 
 # How far from the key colour still counts as background. 60 is generous, which is right when the artwork
@@ -200,6 +253,16 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
 # hole. The background itself is drawn flat at exactly #E6007E, so a tight tolerance still keys it
 # perfectly. Second attempt narrows the band rather than repeating the same cut and hoping.
 TOL_WIDE, TOL_TIGHT = 60, 30
+
+
+def _drawn_locally(p: dict) -> bool:
+    """Did the local engine draw this one? Read from the row the process is already carrying.
+
+    This used to ask the database and read back what generate() had just written, which is a round
+    trip for a fact held in memory — and it failed closed twice on check constraints, so the cutout
+    quietly used the key-colour method on an image that had no key colour in it.
+    """
+    return p.get("_engine") == "local-comfyui"
 
 
 def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1,
@@ -213,7 +276,15 @@ def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1
     # defect that reaches the customer as visible dirt, and it is cheap to detect: the key colour cannot
     # legitimately appear in the artwork, so any of it left over means the generator drifted and the file
     # must not ship.
-    cut, rep = br.key_cutout(raw, work / f"{p['slug']}{('-' + tag) if tag else ''}-cutout.png", tol=tol)
+    cut_to = work / f"{p['slug']}{('-' + tag) if tag else ''}-cutout.png"
+    if _drawn_locally(p):
+        # rembg, not the key colour. The local model will not paint the flat #E6007E field the key
+        # cutout keys on, so keying it produces either "no background found" or a punched-through
+        # emblem. rembg is already in the postprocess path and measured at 0.60% partly-transparent
+        # after thresholding, which is inside the DTF gate.
+        cut, rep = br.matte_cutout(raw, cut_to)
+    else:
+        cut, rep = br.key_cutout(raw, cut_to, tol=tol)
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
           f"kalan anahtar %{rep['leftover_frac']*100:.3f} ({rep['leftover_key_px']}px), delik {rep['holes_px']}px, "
           f"acik alan %{rep['pale_field_frac']*100:.0f}, hale %{rep['halo_frac']*100:.2f}, kenar temasi %{rep['edge_contact']*100:.1f}, "

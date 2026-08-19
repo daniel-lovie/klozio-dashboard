@@ -1013,6 +1013,51 @@ def key_cutout(raw: Path, out: Path, key: str = KEY_COLOR, tol: int = 60) -> tup
     return out, report
 
 
+def matte_cutout(raw: Path, out: Path) -> tuple[Path, dict]:
+    """Cut a subject out by matting, for images with no keyed background.
+
+    The key-colour cutout is the better tool when the generator paints the flat #E6007E field it was
+    asked for. The local model does not, reliably — measured on the first real local run: one draw
+    came back with no background at all, the next with 18.9% background, a 57% halo and 109k holes.
+    That is not a tolerance to tune; it is a different kind of image.
+
+    Alpha is driven to two values afterwards, with a narrow ramp kept only at the very edge. DTF
+    cannot lay down a 40%-opaque pixel, and rembg's default matte is full of them.
+
+    Returns the same shape as key_cutout so the caller's gates and logging do not change.
+    """
+    from PIL import Image                                         # noqa: PLC0415
+    from rembg import remove                                      # noqa: PLC0415
+    import numpy as _np                                           # noqa: PLC0415
+
+    im = Image.open(raw).convert("RGBA")
+    cut = remove(im)
+    a = cut.getchannel("A").point(lambda v: 0 if v < 96 else (255 if v > 168 else v))
+    cut.putalpha(a)
+    bb = cut.getbbox()
+    if bb:
+        cut = cut.crop(bb)
+    cut.save(out)
+
+    arr = _np.asarray(cut)
+    alpha = arr[:, :, 3]
+    total = alpha.size or 1
+    opaque = float((alpha == 255).sum()) / total
+    mid = float(((alpha > 8) & (alpha < 248)).sum()) / total
+    art_px = max(cut.size)
+    # Same keys the key_cutout report carries, so every gate and print statement downstream still
+    # reads. The key-specific numbers are zero by construction: there was no key colour involved.
+    # Every key the gates read, including the ones that are zero by construction here. A missing key
+    # is a KeyError three functions later, at which point the cause looks like anything but a cutout
+    # that returned a differently-shaped report.
+    rep = {"opaque_frac": opaque, "bg_frac": 1.0 - opaque - mid,
+           "leftover_frac": 0.0, "leftover_key_px": 0,
+           "holes_frac": 0.0, "holes_px": 0,
+           "pale_field_frac": 0.0, "halo_frac": mid, "edge_contact": 0.0,
+           "art_px": art_px, "size_in_at_300": round(art_px / 300.0, 1), "method": "matte"}
+    return out, rep
+
+
 def local_cutout(raw: Path, out: Path, tol: int = 26) -> Path:
     """Cut the emblem out of the painted background locally, for free.
 

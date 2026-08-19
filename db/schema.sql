@@ -460,3 +460,67 @@ BEGIN
   END IF;
 END
 $do$;
+
+
+-- ---------------------------------------------------------------- local generation queue (dgx)
+-- The Spark sits on a home network with no inbound port, so it POLLS. Jobs live in their own table
+-- rather than on products: the agent service's producer already owns those rows, and a second
+-- claimant there means two workers racing and paying twice for one product.
+CREATE TABLE IF NOT EXISTS generation_jobs (
+  id            BIGSERIAL PRIMARY KEY,
+  product_id    BIGINT REFERENCES products(id),
+  kind          TEXT NOT NULL CHECK (kind IN ('image','text','both')),
+  status        TEXT NOT NULL DEFAULT 'queued'
+                CHECK (status IN ('queued','claimed','running','done','failed','cancelled')),
+  payload       JSONB NOT NULL,
+  run_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Which engine was ASKED for and which actually ran. They differ whenever a fallback fired, and
+  -- that difference is the only way to know how much load local is really carrying.
+  engine_pref   TEXT,
+  engine_text   TEXT,
+  engine_image  TEXT,
+  fallback_reason TEXT,
+  -- Provenance as columns, not a log line: publishing depends on these. CLAUDE.md is explicit that
+  -- no archive means no publish, and a local model is the first setup that can state the checkpoint,
+  -- licence and seed exactly.
+  model         TEXT,
+  model_licence TEXT,
+  seed          BIGINT,
+  steps         INTEGER,
+  workflow_sha  TEXT,
+  claimed_at    TIMESTAMPTZ,
+  worker        TEXT,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  last_error    TEXT,
+  timings       JSONB,
+  result_url    TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS generation_jobs_due_idx ON generation_jobs (status, run_at)
+  WHERE status = 'queued';
+
+-- Routing to the Spark because nothing has failed yet is how a job sits queued until someone
+-- notices. A row it wrote recently is the only honest signal that it is alive.
+CREATE TABLE IF NOT EXISTS worker_heartbeat (
+  worker  TEXT PRIMARY KEY,
+  beat_at TIMESTAMPTZ NOT NULL,
+  detail  JSONB
+);
+
+
+-- Which checkpoint the local engine draws with. A ROW, not a constant in code: the choice belongs to
+-- the team's votes on the output and has not been made yet. A constant would need a deploy to revisit,
+-- and the people who decide this do not deploy.
+CREATE TABLE IF NOT EXISTS local_engine_config (
+  id             INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  image_workflow TEXT NOT NULL DEFAULT 'wf_graphic.json',
+  image_model    TEXT NOT NULL DEFAULT 'sd_xl_base_1.0.safetensors',
+  image_licence  TEXT NOT NULL DEFAULT 'CreativeML OpenRAIL++-M',
+  steps          INT  NOT NULL DEFAULT 28,
+  batch_size     INT  NOT NULL DEFAULT 1,
+  decided_by     TEXT,
+  decided_at     TIMESTAMPTZ,
+  note           TEXT,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);

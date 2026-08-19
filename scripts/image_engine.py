@@ -148,14 +148,17 @@ def generate_via_queue(prompt: str, out: Path, aspect: str, seed: int | None,
         time.sleep(5)
         c = _db(); k = c.cursor()
         k.execute("""SELECT status, engine_image, model, model_licence, seed, steps,
-                            last_error, result_image
+                            last_error, result_image, result_meta
                        FROM generation_jobs WHERE id=%s""", (jid,))
-        st, eng, model, lic, sd, steps, err, img = k.fetchone()
+        st, eng, model, lic, sd, steps, err, img, meta = k.fetchone()
         c.close()
         if st == "done" and img:
             out.write_bytes(bytes(img))
+            meta = meta or {}
             return {"engine": eng or "local-comfyui", "model": model, "licence": lic,
-                    "seed": sd, "steps": steps, "seconds": 0, "job": jid}
+                    "seed": sd, "steps": steps, "seconds": 0, "job": jid,
+                    # Measured on the Spark, which is where the OCR lives; judged by the caller.
+                    "text_found": meta.get("text_found"), "cutout": meta.get("cutout")}
         if st in ("failed", "cancelled"):
             raise RuntimeError(f"is {jid} {st}: {err}")
     raise TimeoutError(f"is {jid} {QUEUE_TIMEOUT_S}s icinde bitmedi")

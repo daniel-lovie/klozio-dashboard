@@ -265,6 +265,26 @@ def image_local(payload: dict) -> dict:
             # Cut AFTER the upscale, not before: LANCZOS on a hard-alpha edge reintroduces exactly the
             # partly-transparent pixels DTF cannot lay down. Thresholding and the gates stay on the app
             # side — a gate that runs on the machine being gated is not a gate.
+            # Rule 5 has no enforcement anywhere in production, and the local model breaks it often:
+            # measured across 45 generations, Juggernaut put letterforms in 40% of images. Every word on
+            # a garment is hand-set by typeset.py precisely because models return malformed glyphs — a
+            # bake-off produced badges reading "EESTOR DUTDER" and "WIRILS · BOGAE". ops/text_gate.py
+            # was written as the backstop and then wired to nothing. It runs HERE because this machine
+            # has the OCR: the web container has neither tesseract nor easyocr, and the decision to
+            # refuse still belongs to the app.
+            #
+            # Reported, not enforced, on this side: a worker that silently dropped images would leave
+            # the app waiting on a job that never returns.
+            ocr_s = time.time()
+            try:
+                sys.path.insert(0, str(Path.home() / "klozio" / "ops"))
+                import text_gate                                   # noqa: PLC0415
+                found = text_gate.letterforms(out_png)
+                ocr_ms = int((time.time() - ocr_s) * 1000)
+            except Exception as e:
+                jlog(event="text_gate_failed", error=f"{type(e).__name__}: {e}"[:160])
+                found, ocr_ms = None, None
+
             cut_s = time.time()
             try:
                 from rembg import remove                           # noqa: PLC0415
@@ -281,6 +301,7 @@ def image_local(payload: dict) -> dict:
                     "model": cfg.get("model") or payload.get("model", wf_name),
                     "licence": cfg.get("licence") or payload.get("licence"),
                     "cutout": "matte-spark" if cut_ms is not None else None, "cutout_ms": cut_ms,
+                    "text_found": found, "text_gate_ms": ocr_ms,
                     "bytes": out_png.read_bytes(), "name": imgs[0]["filename"]}
         time.sleep(3)
     raise TimeoutError(f"ComfyUI {IMAGE_TIMEOUT_S}s icinde bitirmedi")
@@ -336,6 +357,8 @@ def run_job(job: dict) -> None:
             if out.get("bytes"):
                 cols["result_image"] = psycopg2.Binary(out["bytes"])
                 cols["result_name"] = out.get("name")
+                cols["result_meta"] = json.dumps({k: out.get(k) for k in
+                                                  ("text_found", "text_gate_ms", "cutout", "cutout_ms")})
             p["images"] = out["images"]
 
         timings["total_s"] = round(time.time() - t0, 1)

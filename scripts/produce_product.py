@@ -204,6 +204,10 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
     if local:
         try:
             info = ie.generate_local(full, raw, aspect=ratio or "1:1", product_id=p.get("id"))
+            # Carried, not judged, here: the refusal belongs beside the other gates in cutout(), where
+            # a rejection is labelled and turns into another candidate rather than a fallback to a paid
+            # engine. Drawing letters is a bad draw, not a broken machine.
+            p["_text_found"] = info.get("text_found")
             p["_engine"] = "local-comfyui"
             stamp.write_text("local-comfyui")
             print(f"  yerel uretim: {info['model']} · seed {info['seed']} · {info['seconds']}s")
@@ -325,6 +329,20 @@ def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1
     def refuse(gate: str, message: str) -> None:
         label("rejected", f"{gate} {message}")
         raise RuntimeError(message)
+
+    # NON-NEGOTIABLE 5: no AI-rendered text. Every word on a garment is hand-set by typeset.py because
+    # models return malformed glyphs — the bake-off that first looked for this found badges reading
+    # "EESTOR DUTDER" and "WIRILS · BOGAE", and across 45 generations Juggernaut drew letterforms in 40%
+    # of images. ops/text_gate.py was written as the backstop and then wired to nothing, so until now the
+    # only rule the shop calls absolute was the one rule production never checked. The OCR runs on the
+    # Spark, which has it; this is where the answer is acted on.
+    #
+    # A missing measurement is not a clean image. It is only tolerated because the hosted path has no
+    # OCR at all and refusing everything there would stop production for a rule it cannot evaluate.
+    found = p.get("_text_found")
+    if found:
+        refuse("yazi", f"model harf cizdi ({', '.join(sorted(set(found))[:6])}) — "
+                       "yazi elle diziliyor, yeniden cizilecek")
 
     if rep["bg_frac"] < 0.15:
         refuse("bg", 

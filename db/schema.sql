@@ -309,6 +309,9 @@ CREATE TABLE IF NOT EXISTS usage_events (
   meta jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now()
 );
 -- cache token cols + hf per-shop
+-- what the worker measured about the image it returned (OCR letterforms, cutout timings):
+-- the decision to refuse stays with the app, so the measurement has to travel back with the file
+ALTER TABLE generation_jobs ADD COLUMN IF NOT EXISTS result_meta jsonb;
 ALTER TABLE usage_events ADD COLUMN IF NOT EXISTS cache_read int NOT NULL DEFAULT 0, ADD COLUMN IF NOT EXISTS cache_write int NOT NULL DEFAULT 0;
 ALTER TABLE hf_tokens ADD COLUMN IF NOT EXISTS shop_id int NOT NULL DEFAULT 1;
 -- multi-shop: drop single-row check on etsy_tokens; one token row per shop

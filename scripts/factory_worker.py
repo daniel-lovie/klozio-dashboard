@@ -41,11 +41,19 @@ import psycopg2
 WORKER = os.environ.get("FACTORY_WORKER", "dgx-spark")
 COMFY = os.environ.get("COMFY_URL", "http://127.0.0.1:8188")
 OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
-LOCAL_TEXT_MODEL = os.environ.get("LOCAL_TEXT_MODEL", "qwen3:32b")
+# The MoE the spec names: 30B total, ~3B active, which is what makes it usable beside diffusion on
+# one unified-memory device. Verified producing a listing title inside the shop's 125-140 band on the
+# first attempt.
+LOCAL_TEXT_MODEL = os.environ.get("LOCAL_TEXT_MODEL", "qwen3:30b-a3b")
 
-TEXT_TIMEOUT_S = 90
+# 90 s was too tight and would have sent every cold start to Sonnet for nothing: a 30B MoE takes
+# ~115 s on the first call while the weights load, then answers in seconds while OLLAMA_KEEP_ALIVE
+# holds it resident. The budget has to cover the cold case or the fallback fires on success.
+TEXT_TIMEOUT_S = 240
 IMAGE_TIMEOUT_S = 600
 POLL_S = 10
+# After this many tries a job stops being retried and starts being a question for a person.
+MAX_ATTEMPTS = 3
 LOG = Path(os.environ.get("FACTORY_LOG", str(Path.home() / "factory-jobs.jsonl")))
 
 
@@ -82,15 +90,25 @@ def claim():
     c = conn(); k = c.cursor()
     # Same shape as claimDue() in publish.ts, including the stale-lock release: a worker that dies
     # holding a claim must not park a job forever.
+    # Two conditions this query earns the hard way, both found by leaving the worker running:
+    #
+    #   IT MUST NOT CLAIM CLOUD JOBS. A job handed back for the cloud engine is the APP's to run — the
+    #   Higgsfield session lives there, not here. Claiming it anyway produced a hot loop: claim, see
+    #   there is nothing local to do, requeue, claim again — and it starved every job behind it.
+    #
+    #   IT MUST GIVE UP. Without an attempt cap a job that always fails is claimed forever. Three
+    #   tries, then it is somebody's problem to look at, not the queue's to retry.
     k.execute("""
         UPDATE generation_jobs j
            SET status='running', claimed_at=now(), worker=%s, attempts=j.attempts+1, updated_at=now()
          WHERE j.id IN (
            SELECT id FROM generation_jobs
-            WHERE (status='queued' AND run_at <= now())
-               OR (status IN ('claimed','running') AND claimed_at < now() - INTERVAL '20 minutes')
+            WHERE (COALESCE(engine_pref, 'local') LIKE 'local%%')
+              AND attempts < %s
+              AND ((status='queued' AND run_at <= now())
+                OR (status IN ('claimed','running') AND claimed_at < now() - INTERVAL '20 minutes'))
             ORDER BY run_at LIMIT 1 FOR UPDATE SKIP LOCKED)
-        RETURNING id, product_id, kind, payload, engine_pref, attempts""", (WORKER,))
+        RETURNING id, product_id, kind, payload, engine_pref, attempts""", (WORKER, MAX_ATTEMPTS))
     row = k.fetchone()
     c.commit(); c.close()
     if not row:

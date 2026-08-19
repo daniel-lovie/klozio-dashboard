@@ -183,7 +183,47 @@ def phase5():
         "systemd --user" if unit else ("cron respawn" if rc2 == 0 else "hicbiri"))
 
 
-PHASES = {0: phase0, 1: phase1, 2: phase2, 3: phase3, 4: phase4, 5: phase5}
+def phase3_text():
+    """The local text engine, end to end and against the gate the shop already uses.
+
+    Not "does Ollama answer" — that proves a daemon is up. The question is whether local output clears
+    the SAME bar Sonnet's output has to clear, because the flag cannot advance past `internal` on a
+    model that writes titles the analyser rejects.
+    """
+    rc, out = ssh("curl -s -m 8 localhost:11434/api/tags", 40)
+    if '"models"' not in out:
+        rec(3, "ollama up", FAIL, out[:60]); return
+    import json as _j
+    tags = [m["name"] for m in _j.loads(out).get("models", [])]
+    rec(3, "ollama up", PASS, f"{len(tags)} model")
+    if not tags:
+        rec(3, "local text model present", FAIL, "model cekilmemis"); return
+    rec(3, "local text model present", PASS, tags[0])
+
+    # A real listing title, judged by the shop's own rules: 125-140 chars, keyword in the first 40,
+    # thirteen multi-word tags. This is the quality gate from the spec, run rather than described.
+    sys_p = ("You write Etsy listing titles for a US print-on-demand t-shirt shop. Reply with ONE "
+             "title only, no explanation, no quotes. 125 to 140 characters. Four or five phrases "
+             "separated by commas. Include the words Comfort Colors once. No exclamation marks.")
+    usr = "Design: a flat vector stack of colourful books under a crescent moon. Niche: book lovers."
+    body = _j.dumps({"model": tags[0], "stream": False, "options": {"temperature": 0.7},
+                     "messages": [{"role": "system", "content": sys_p},
+                                  {"role": "user", "content": usr}]}).replace("'", "'\\''")
+    rc, out = ssh(f"curl -s -m 240 localhost:11434/api/chat -d '{body}'", 300)
+    try:
+        txt = _j.loads(out)["message"]["content"].strip().splitlines()[-1].strip().strip('"')
+    except Exception:
+        rec(3, "local text produces a title", FAIL, out[:70]); return
+    ok_len = 125 <= len(txt) <= 140
+    ok_cc = "comfort colors" in txt.lower()
+    ok_head = len(txt.split(",")[0].strip()) <= 40
+    rec(3, "local text produces a title", PASS if txt else FAIL, f"{len(txt)} karakter")
+    rec(3, "title in the 125-140 band", PASS if ok_len else FAIL, txt[:60])
+    rec(3, "title carries Comfort Colors", PASS if ok_cc else FAIL)
+    rec(3, "primary keyword inside first 40", PASS if ok_head else FAIL)
+
+
+PHASES = {0: phase0, 1: phase1, 2: phase2, 3: phase3, 4: phase4, 5: phase5, 31: phase3_text}
 
 
 def main() -> int:

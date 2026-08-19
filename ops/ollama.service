@@ -1,0 +1,20 @@
+[Unit]
+Description=Ollama (local text engine for the design factory)
+After=network-online.target
+
+[Service]
+Type=simple
+# Loopback only, like ComfyUI. Reached through the SSH tunnel; never exposed to the LAN.
+Environment=OLLAMA_HOST=127.0.0.1:11434
+Environment=OLLAMA_MODELS=%h/.ollama/models
+# Diffusion and the LLM must not run at once on a single unified-memory device. Keeping one model
+# resident and refusing parallel requests is what enforces that from this side.
+Environment=OLLAMA_NUM_PARALLEL=1
+Environment=OLLAMA_MAX_LOADED_MODELS=1
+Environment=OLLAMA_KEEP_ALIVE=10m
+ExecStart=%h/.local/bin/ollama serve
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

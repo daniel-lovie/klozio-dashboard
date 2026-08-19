@@ -105,7 +105,13 @@ REINFORCE = ""
 def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Path:
     """The paid step. Prompt comes from the row, so what was approved is what gets drawn."""
     raw = work / f"{p['slug']}{('-' + tag) if tag else ''}-raw.png"
+    # Which engine drew is written beside the file, because resuming is the normal case here — a re-run
+    # returns the existing raw without generating, and without this the cutout would pick its method
+    # from an unset field and key a magenta background that is not there.
+    stamp = raw.with_suffix(".engine")
     if raw.exists():
+        if stamp.exists():
+            p["_engine"] = stamp.read_text().strip()
         return raw
     prompt = (p["design_prompt"] or "").strip()
     if not prompt:
@@ -198,6 +204,8 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
     if local:
         try:
             info = ie.generate_local(full, raw, aspect=ratio or "1:1")
+            p["_engine"] = "local-comfyui"
+            stamp.write_text("local-comfyui")
             print(f"  yerel uretim: {info['model']} · seed {info['seed']} · {info['seconds']}s")
             _record_engine(p, info)
             return raw
@@ -205,6 +213,8 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
             why = f"{type(e).__name__}: {e}"[:200]
             print(f"  UYARI yerel uretim dustu, Higgsfield'a geciliyor — {why}")
 
+    p["_engine"] = "higgsfield"
+    stamp.write_text("higgsfield")
     out = br.hf({"op": "generate", "prompt": full, "out": str(raw), "aspect_ratio": ratio or "1:1",
                  "model": br.DEFAULT_MODEL, "quality": br.DEFAULT_QUALITY, "resolution": "4k"},
                 shop_id=p["shop_id"])
@@ -228,7 +238,7 @@ def _record_engine(p: dict, info: dict) -> None:
         k = c.cursor()
         k.execute("""INSERT INTO design_feedback (product_id, shop_id, source, verdict, reason,
                                                   metrics, design_model)
-                     VALUES (%s,%s,'engine','info',%s,%s,%s)""",
+                     VALUES (%s,%s,'pipeline','accepted',%s,%s,%s)""",
                   (p.get("id"), p.get("shop_id"), info.get("fallback_reason"),
                    _j.dumps(info), info.get("model")))
         c.commit(); c.close()
@@ -245,6 +255,16 @@ def _record_engine(p: dict, info: dict) -> None:
 TOL_WIDE, TOL_TIGHT = 60, 30
 
 
+def _drawn_locally(p: dict) -> bool:
+    """Did the local engine draw this one? Read from the row the process is already carrying.
+
+    This used to ask the database and read back what generate() had just written, which is a round
+    trip for a fact held in memory — and it failed closed twice on check constraints, so the cutout
+    quietly used the key-colour method on an image that had no key colour in it.
+    """
+    return p.get("_engine") == "local-comfyui"
+
+
 def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1,
            tag: str = "") -> Path:
     # Each candidate needs its own files or the second draw silently reuses the first — the `if
@@ -256,7 +276,15 @@ def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1
     # defect that reaches the customer as visible dirt, and it is cheap to detect: the key colour cannot
     # legitimately appear in the artwork, so any of it left over means the generator drifted and the file
     # must not ship.
-    cut, rep = br.key_cutout(raw, work / f"{p['slug']}{('-' + tag) if tag else ''}-cutout.png", tol=tol)
+    cut_to = work / f"{p['slug']}{('-' + tag) if tag else ''}-cutout.png"
+    if _drawn_locally(p):
+        # rembg, not the key colour. The local model will not paint the flat #E6007E field the key
+        # cutout keys on, so keying it produces either "no background found" or a punched-through
+        # emblem. rembg is already in the postprocess path and measured at 0.60% partly-transparent
+        # after thresholding, which is inside the DTF gate.
+        cut, rep = br.matte_cutout(raw, cut_to)
+    else:
+        cut, rep = br.key_cutout(raw, cut_to, tol=tol)
     print(f"  kesim: opak %{rep['opaque_frac']*100:.1f}, zemin %{rep['bg_frac']*100:.1f}, "
           f"kalan anahtar %{rep['leftover_frac']*100:.3f} ({rep['leftover_key_px']}px), delik {rep['holes_px']}px, "
           f"acik alan %{rep['pale_field_frac']*100:.0f}, hale %{rep['halo_frac']*100:.2f}, kenar temasi %{rep['edge_contact']*100:.1f}, "

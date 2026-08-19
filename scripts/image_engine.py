@@ -88,6 +88,25 @@ def use_local(product_id: int | None = None) -> tuple[bool, str]:
     return ((product_id or 0) * 2654435761) % 100 < pct, ""
 
 
+# The producer prints ten inches at 300 PPI, so the artwork needs ~3000 px on its long side. ComfyUI
+# draws at 1024 and the hosted engine was asked for "4k", which is why local output first came out at
+# 3.2 inches with the pipeline correctly refusing it. Upscaling here rather than downstream keeps every
+# gate reading the same shape of file whichever engine drew it.
+PRINT_LONG_PX = 3200
+
+
+def _upscale_for_print(src: Path, dst: Path) -> None:
+    from PIL import Image                                          # noqa: PLC0415
+    im = Image.open(src)
+    if max(im.size) >= PRINT_LONG_PX:
+        dst.write_bytes(src.read_bytes())
+        return
+    f = PRINT_LONG_PX / max(im.size)
+    # LANCZOS, not a learned upscaler: this artwork is flat shapes with hard edges, and an ESRGAN
+    # invents texture that the DTF flatness gate then has to reject.
+    im.resize((round(im.width * f), round(im.height * f)), Image.LANCZOS).save(dst)
+
+
 def generate_local(prompt: str, out: Path, aspect: str = "1:1", seed: int | None = None) -> dict:
     """Draw on the Spark through ComfyUI. Raises on any failure so the caller can fall back."""
     cfg = config()
@@ -131,7 +150,7 @@ def generate_local(prompt: str, out: Path, aspect: str = "1:1", seed: int | None
                 raise RuntimeError("ComfyUI bitirdi ama gorsel dondurmedi")
             src = (Path.home() / "ComfyUI" / "output" / imgs[0].get("subfolder", "")
                    / imgs[0]["filename"])
-            out.write_bytes(src.read_bytes())
+            _upscale_for_print(src, out)
             return {"engine": "local-comfyui", "model": cfg["model"], "licence": cfg["licence"],
                     "seed": seed, "steps": cfg["steps"], "seconds": round(time.time() - t0, 1)}
         time.sleep(2)

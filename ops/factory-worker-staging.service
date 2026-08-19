@@ -1,0 +1,18 @@
+[Unit]
+Description=Klozio factory worker — STAGING database
+After=network-online.target comfyui.service ollama.service
+Wants=comfyui.service ollama.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/klozio
+# Points at .env.staging on purpose. Production runs LOCAL_ENGINE=off, so it has no use for this
+# worker; pointing it at staging is what lets the operator try the local engine against real briefs
+# without a single row of production data being touched.
+ExecStart=/bin/bash -lc 'set -a; . %h/klozio/.env.staging; set +a; exec %h/ComfyUI/.venv/bin/python %h/klozio/scripts/factory_worker.py'
+Restart=always
+RestartSec=15
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

@@ -96,16 +96,41 @@ export async function* streamOllama(messages: any[], system: string, tools: read
   { kind: "assistant"; content: any[]; stopReason: string;
     usage: { input_tokens: number; output_tokens: number; cache_read: number; cache_write: number; searches: number } }
 > {
+  // Two clocks, because a hang and a slow answer look identical from here and only one is a fault.
+  //
+  // COLD START is the slow one: loading Qwen off disk takes ~115s before a single token appears, so a
+  // first-byte budget shorter than that would reject a healthy machine every time it had been idle.
+  //
+  // SILENCE is the fault. The chat agent lost a turn on 2026-08-19 this way: a tool finished, the next
+  // request never reached the Spark, and the loop sat on a fetch with no deadline until the request
+  // itself died fourteen minutes later — no answer, no error, a spinner that never stopped. The cloud
+  // path has always retried a cut stream; this path had nothing to cut it. Once tokens are flowing a
+  // gap this long is not a slow model, it is a connection that is never coming back, and throwing hands
+  // the turn to the retry-then-fall-back-to-cloud logic that already exists in loop.ts.
+  const FIRST_BYTE_MS = 180_000;
+  const IDLE_MS = 90_000;
+
+  const abort = new AbortController();
+  let timer = setTimeout(() => abort.abort(), FIRST_BYTE_MS);
+  const bump = (ms: number) => { clearTimeout(timer); timer = setTimeout(() => abort.abort(), ms); };
+
   const res = await fetch(`${OLLAMA}/api/chat`, {
     method: "POST",
+    signal: abort.signal,
     headers: ollamaHeaders({ "content-type": "application/json" }),
     body: JSON.stringify({
       model: MODEL, stream: true, keep_alive: "10m",
       tools: toolsForOllama(tools),
       messages: toOllama(messages, system),
     }),
+  }).catch((e: any) => {
+    clearTimeout(timer);
+    throw e?.name === "AbortError"
+      ? new Error(`Ollama ${FIRST_BYTE_MS / 1000}sn icinde yanit vermedi`)
+      : e;
   });
   if (!res.ok || !res.body) {
+    clearTimeout(timer);
     const err = await res.text().catch(() => "");
     throw new Error(`Ollama ${res.status}: ${err.slice(0, 300)}`);
   }
@@ -118,9 +143,19 @@ export async function* streamOllama(messages: any[], system: string, tools: read
   let inTokens = 0, outTokens = 0;
 
   while (true) {
-    const { done, value } = await reader.read();
+    let done: boolean, value: Uint8Array | undefined;
+    try {
+      ({ done, value } = await reader.read());
+    } catch (e: any) {
+      clearTimeout(timer);
+      throw e?.name === "AbortError"
+        ? new Error(`Ollama akisi ${IDLE_MS / 1000}sn sessiz kaldi`)
+        : e;
+    }
     if (done) break;
-    buf += dec.decode(value, { stream: true });
+    // Every chunk resets the deadline, so a long answer is never cut short — only a stalled one is.
+    bump(IDLE_MS);
+    buf += dec.decode(value!, { stream: true });
     let nl;
     while ((nl = buf.indexOf("\n")) >= 0) {
       const line = buf.slice(0, nl).trim();
@@ -137,6 +172,8 @@ export async function* streamOllama(messages: any[], system: string, tools: read
       }
     }
   }
+
+  clearTimeout(timer);
 
   const content: any[] = [];
   if (text.trim()) content.push({ type: "text", text });

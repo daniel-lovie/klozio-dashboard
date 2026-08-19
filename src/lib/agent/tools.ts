@@ -597,8 +597,14 @@ export async function execTool(name: string, input: any):
       };
     }
     if (name === "draft_product") {
-      const { currentShopId } = await import("../shops");
+      const { currentShopId, NO_SHOP } = await import("../shops");
       const shopId = await currentShopId();
+      // NO_SHOP is -1, and -1 reaches the insert as a foreign key that cannot resolve — a row refused
+      // for a reason that has nothing to do with the row. Say what is actually wrong instead.
+      if (shopId === NO_SHOP) {
+        return { result: "ERROR: aktif magaza cozulemedi — urun hangi magazaya yazilacagi belli degil.",
+                 summary: "draft_product ▸ magaza yok" };
+      }
       const out = await draftProduct(input, shopId);
       await logEvent("agent_tool", { productId: out.id, detail: `draft_product: ${out.slug}` });
       return { result: clip(JSON.stringify(out)), summary: `taslak ▸ ${out.slug} (${out.id})` };

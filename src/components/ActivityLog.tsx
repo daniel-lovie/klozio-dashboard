@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-export type LogLine = { k: "engine" | "think" | "tool" | "ok" | "warn" | "end"; s: string; ms?: number; at: number };
+export type LogLine = { k: "engine" | "think" | "tool" | "ok" | "warn" | "end"; s: string;
+                        ms?: number; tok?: number; at: number };
 
 /**
  * What the agent is doing, while it is doing it.
@@ -24,7 +25,8 @@ export type LogLine = { k: "engine" | "think" | "tool" | "ok" | "warn" | "end"; 
  *   IT IS NOT PERSISTED. These lines are progress, not transcript. Reloading gives you the answer and
  *   the tool chips, which is the durable record; re-reading last Tuesday's timings helps nobody.
  */
-export function ActivityLog({ lines, live }: { lines: LogLine[]; live: boolean }) {
+export function ActivityLog({ lines, live, liveTok = 0 }:
+                            { lines: LogLine[]; live: boolean; liveTok?: number }) {
   const [open, setOpen] = useState(true);
   const [now, setNow] = useState(Date.now());
   const box = useRef<HTMLDivElement>(null);
@@ -48,6 +50,9 @@ export function ActivityLog({ lines, live }: { lines: LogLine[]; live: boolean }
 
   const t0 = lines[0].at;
   const total = (live ? now : lines[lines.length - 1].at) - t0;
+  // Output tokens across the turn. A step count says how many times it thought; this says how much it
+  // actually wrote, which is the number that tracks with the wait.
+  const tokens = lines.reduce((n, l) => n + (l.tok ?? 0), 0) + liveTok;
 
   if (!open) {
     const tools = lines.filter((l) => l.k === "tool").length;
@@ -55,7 +60,7 @@ export function ActivityLog({ lines, live }: { lines: LogLine[]; live: boolean }
       <button onClick={() => setOpen(true)}
         className="mb-2 flex items-center gap-2 rounded border border-line bg-sunken px-2 py-1 font-mono text-[10px] text-muted hover:text-fg">
         <span className="opacity-60">▸</span>
-        <span>{lines.length} lines · {tools} tool calls · {secs(total)}</span>
+        <span>{lines.length} lines · {tools} tool calls · {fmt(tokens)} tok · {secs(total)}</span>
         <span className="opacity-60">open log</span>
       </button>
     );
@@ -71,6 +76,9 @@ export function ActivityLog({ lines, live }: { lines: LogLine[]; live: boolean }
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {tokens > 0 && (
+            <span className="font-mono text-[10px] tabular-nums text-white/40">{fmt(tokens)} tok</span>
+          )}
           <span className="font-mono text-[10px] tabular-nums text-white/40">{secs(total)}</span>
           <button onClick={() => setOpen(false)} className="font-mono text-[10px] text-white/40 hover:text-white/80">close</button>
         </div>
@@ -117,6 +125,11 @@ function secs(ms: number): string {
   if (s < 60) return `${s < 10 ? s.toFixed(1) : Math.round(s)}s`;
   const m = Math.floor(s / 60);
   return `${m}:${String(Math.round(s - m * 60)).padStart(2, "0")}`;
+}
+
+/** 1761 -> "1.8k". The exact figure is in the step line; the header wants the shape of it. */
+function fmt(n: number): string {
+  return n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}k`;
 }
 
 function glyph(k: LogLine["k"]): string {

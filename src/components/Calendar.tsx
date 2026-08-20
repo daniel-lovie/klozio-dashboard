@@ -29,6 +29,8 @@ export default function Calendar() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
 
   const monthParam = `${ym.y}-${String(ym.m + 1).padStart(2, "0")}`;
 
@@ -62,12 +64,44 @@ export default function Calendar() {
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
+  const todayKey = dayKey(today);
+  const isCurrentMonth = ym.y === today.getFullYear() && ym.m === today.getMonth();
+
   const counts = rows.reduce<Record<string, number>>((a, r) => ((a[r.status] = (a[r.status] ?? 0) + 1), a), {});
 
   async function approve(id: number, on: boolean) {
     const res = await fetch(`/api/schedule/${id}/approve`, { method: on ? "POST" : "DELETE" });
     if (!res.ok) setMsg((await res.json().catch(() => ({}))).error || "Failed");
     else setMsg(null);
+    load();
+  }
+
+  /**
+   * Move a launch to another day, keeping its time of day.
+   *
+   * The endpoint already resets approval when a row moves, which is the behaviour we want and the reason
+   * dragging is safe to offer: a launch that changes date is a launch the operator re-confirms. Only the
+   * DATE comes from the drop; the hour stays where it was, because the stagger across a day was chosen
+   * deliberately and a drop target has no hour in it.
+   */
+  async function moveTo(scheduleId: number, day: Date) {
+    const r = rows.find((x) => x.id === scheduleId);
+    if (!r) return;
+    if (r.status === "published") { setMsg("Published launches cannot be moved."); return; }
+    const from = new Date(r.scheduled_at);
+    const to = new Date(day.getFullYear(), day.getMonth(), day.getDate(),
+                        from.getHours(), from.getMinutes(), 0, 0);
+    if (to.getTime() === from.getTime()) return;
+    // Optimistic: the card follows the cursor immediately and the reload confirms it. A drag that only
+    // moves after a round trip feels broken even when it works.
+    setRows((cur) => cur.map((x) => x.id === scheduleId
+      ? { ...x, scheduled_at: to.toISOString(), status: "pending" } : x));
+    const res = await fetch(`/api/schedule/${scheduleId}/reschedule`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scheduled_at: to.toISOString() }),
+    });
+    if (!res.ok) setMsg((await res.json().catch(() => ({}))).error || "Move failed");
+    else setMsg(`${r.slug} moved to ${to.toLocaleDateString()} — approval reset`);
     load();
   }
 
@@ -127,17 +161,37 @@ export default function Calendar() {
         ))}
         {cells.map((d, i) => {
           const k = d ? dayKey(d) : `x${i}`;
-          const items = d ? byDay.get(k) ?? [] : [];
-          const isToday = d && dayKey(d) === dayKey(today);
+          // The calendar opens on today and the days behind it are not shown. Everything before now is
+          // either published or abandoned; either way it is history, and it was pushing the only rows
+          // that can still be acted on off the first screen. Stepping back a month with ← still shows
+          // that month in full — the past is hidden, not unreachable.
+          const past = Boolean(d) && isCurrentMonth && dayKey(d!) < todayKey;
+          const items = d && !past ? byDay.get(k) ?? [] : [];
+          const isToday = d && dayKey(d) === todayKey;
+          const isDropTarget = Boolean(d) && !past && dragId !== null;
           return (
-            <div key={k} className={`min-h-[132px] bg-ivory p-1.5 ${d ? "" : "opacity-40"}`}>
+            <div key={k}
+              className={`min-h-[132px] p-1.5 transition-colors ${d ? "" : "opacity-40"} `
+                + (past ? "bg-sunken/40 " : "bg-ivory ")
+                + (overKey === k && isDropTarget ? "ring-2 ring-inset ring-espresso/50 " : "")}
+              onDragOver={(e) => { if (isDropTarget) { e.preventDefault(); setOverKey(k); } }}
+              onDragLeave={() => setOverKey((cur) => (cur === k ? null : cur))}
+              onDrop={(e) => {
+                e.preventDefault();
+                setOverKey(null);
+                if (isDropTarget && dragId !== null && d) moveTo(dragId, d);
+                setDragId(null);
+              }}>
               {d && (
-                <div className={`mb-1 text-xs ${isToday ? "font-bold text-warn" : "text-muted"}`}>
+                <div className={`mb-1 text-xs ${isToday ? "font-bold text-warn" : past ? "text-muted/40" : "text-muted"}`}>
                   {d.getDate()}
                 </div>
               )}
               <div className="space-y-1">
-                {items.map((r) => <ItemCard key={r.id} r={r} approve={approve} />)}
+                {items.map((r) => (
+                  <ItemCard key={r.id} r={r} approve={approve}
+                            onDragStart={() => setDragId(r.id)} onDragEnd={() => { setDragId(null); setOverKey(null); }} />
+                ))}
               </div>
             </div>
           );
@@ -180,10 +234,21 @@ export default function Calendar() {
 
 /** One scheduled product, as shown in both the month grid and the phone list. Two copies of this markup
  *  would drift: a fix applied to the grid would silently miss the view most operators use on the road. */
-function ItemCard({ r, approve }: { r: Row; approve: (id: number, ok: boolean) => void }) {
+function ItemCard({ r, approve, onDragStart, onDragEnd }: {
+  r: Row; approve: (id: number, ok: boolean) => void;
+  onDragStart?: () => void; onDragEnd?: () => void;
+}) {
   const s = STATUS_STYLE[r.status] ?? STATUS_STYLE.pending;
+  // A published launch has a live Etsy listing behind it; moving its row would say something untrue
+  // about a thing that already happened, so it does not lift.
+  const movable = r.status !== "published";
   return (
-    <div className={`rounded-lg border p-1.5 ${s.bg}`}>
+    <div
+      draggable={movable}
+      onDragStart={(e) => { if (movable) { e.dataTransfer.effectAllowed = "move"; onDragStart?.(); } }}
+      onDragEnd={() => onDragEnd?.()}
+      title={movable ? "Drag to another day" : "Published — cannot be moved"}
+      className={`rounded-lg border p-1.5 ${s.bg} ${movable ? "cursor-grab active:cursor-grabbing" : ""}`}>
       <a href={`/product/${r.product_id}?s=${r.id}`} className="flex gap-1.5">
         {r.cover_image_id ? (
           <img src={`/api/images/${r.cover_image_id}`} alt=""

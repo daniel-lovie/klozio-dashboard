@@ -168,9 +168,14 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    Slug deseni: '{hat}-c{n}-v1' (ör. pet-c1-v1). slot: mevcutlar A1/A2/A3/B1/B2/OB/EMB/EMBH; yeni hat açabilirsin.
 2. İÇERİK ONAYI: operatör /plan'dan ya da chat'ten onaylar → content_status='approved'.
 3. GÖRSEL ÜRETİM (OTOMATİK): content_status='approved' + design_prompt dolu + görseli yok olan ürünleri
-   sunucudaki producer döngüsü kendisi alır (90 sn'de bir, tek ürün): tasarımı çizer,
+   AYRI BİR SERVİSTE koşan producer döngüsü kendisi alır (90 sn'de bir, tek ürün): tasarımı çizer,
    arka planı keser, print_file'ı yazar, 7-9 ilan görselini kurar, design_state='ready' yapar.
    Claim atomiktir (design_state='generating'), aynı ürünü iki süreç alamaz.
+   ENABLE_PRODUCER=false GÖRÜRSEN BU DOĞRUDUR, ARIZA DEĞİL — ve operatöre "aç" DEME. Üretim `agent`
+   servisinin işi; web servisindeki aynı döngü bilerek kapalı, çünkü ikisi de aynı satırlardan claim
+   alır ve ikisi birden açıkken aynı ürün iki kez üretilir (2026-08-12'de olan tam olarak buydu).
+   Bunu bir kez daha yanlış okudun: iki anime ürünü zaten 7'şer görselle hazırken "üretim başlamaz,
+   ayarı açın" dedin. Üretimin çalışıp çalışmadığını env var'dan değil `production_status`'tan öğren.
    TOPLU İSTEK KUYRUK İŞİDİR — 'produce' İLE ÜRETMEYE KALKMA. "5 tasarım üret" gibi bir istekte senin işin
    satırları yazmaktır ve bunu **draft_product** ile, HER ÜRÜN İÇİN AYRI BİR ÇAĞRIYLA yaparsın. Ham SQL ile
    products'a INSERT REDDEDİLİR: elle yazılan çok kolonlu INSERT kısmen başarılı olur — 2026-08-19'da beş
@@ -191,19 +196,16 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    recraft_v4_1 52/16 (%31). nano_banana_pro'yu bilerek seçme: tasarımın çevresine die-cut sticker taban
    plakası çiziyor (opak alanın %53.8'i), koyu kumaşta krem levha olarak basıyor ve prompta yasak eklemek
    bunu DEĞİŞTİRMEDİ (ölçüldü, 2026-08-12). Ayrıca kredi başına 4.00 vs 0.75.
-   hook KOLONU DA ZORUNLUDUR ve ne yazacağı TEKNİĞE GÖRE DEĞİŞİR — ikisini karıştırmak ürünü bozar.
-   · DTF'te (technique='dtf'): hook, tasarıma DİZİLECEK SLOGANDIR — kısa, çoğunlukla büyük harf
-     (ör. 'STILL WAITING (FOR TOMATOES)', 'HOARD ACQUIRED'). Tarif cümlesi YAZMA. Sloganı title veya
-     design_prompt içine gömmek YETMEZ; yazı dizme girdiyi products.hook'tan okur. design_prompt'ta o
-     yazıyı İSTEME (madde 1'deki "AI ASLA YAZI ÇİZMEZ" kuralı), sadece ona yer bırak.
-     Boş bırakırsan üretici İKİ ŞEYİ BİRDEN sessizce atlar: (1) slogan dizilmez, ürün yazısız çıkar,
-     (2) ölçülmüş kumaş seçimi hiç koşmaz — pick_garment set_type'ın İÇİNDE ve hook kontrolünden sonra
-     çağrılıyor, yani hero_colorway senin yazdığın değerde kalır, kontrast ölçülmez. Hata vermez,
-     "ready" olur, sadece zayıf çıkar. Ölçüm: hook'u boş bıraktığım üç üründe (2111, 2118, 2120)
-     üçü de yazısız çıktı.
-     Tarif cümlesi yazarsan tersi olur: üretici onu OLDUĞU GİBİ tişörte dizer. Ölçüm: 14 DTF üründe
-     hook bir tarif ('A d20 in a laurel wreath, printed large.'); bugün zararsız çünkü hepsi yazı
-     dizmeyen eski yoldan geçti, ama biri redo edilirse tişörtte o cümle basılır (2'si Etsy'de aktif).
+   hook KOLONU = TİŞÖRTE DİZİLECEK SLOGAN. VARSAYILAN BOŞ. (Operatör talimatı, 2026-08-20.)
+   · Slogan YALNIZCA operatör açıkça yazı istediyse yazılır ("üstünde şu yazsın", "şöyle bir slogan
+     olsun"). İstemediyse hook'u BOŞ BIRAK; tasarım yazısız çıkar ve bu doğrudur.
+     Zorunlu bir alan modeli slogan uydurmaya iter: anime portresi "CHERRY ANIME" başlığıyla çıktı —
+     hiçbir şey ifade etmiyor ve şablon gibi duruyor. Konuyu title ve tag'ler anlatır, tişört anlatmaz.
+   · Yazı istendiyse: kısa, çoğunlukla büyük harf (ör. 'STILL WAITING (FOR TOMATOES)'). Tarif cümlesi
+     YAZMA — üretici hook'u OLDUĞU GİBİ tişörte dizer. Ölçüm: 14 eski DTF üründe hook bir tarif cümlesi
+     ('A d20 in a laurel wreath, printed large.'); biri redo edilirse o cümle tişörte basılır.
+     Sloganı title veya design_prompt içine gömmek YETMEZ; dizgi girdiyi products.hook'tan okur, ve
+     design_prompt'ta o yazıyı İSTEME (madde 1: "AI ASLA YAZI ÇİZMEZ"), sadece ona yer bırak.
    · NAKIŞTA (technique='embroidery'): hook TARİF CÜMLESİDİR ve dizilmez — produce_product.py nakışta
      set_type'ı hiç çağırmaz, çünkü print_file dijitizasyon spesifikasyonudur ve dizilse fabrikaya
      dikilecek bir paragraf gider. Nakışta 37 üründen 37'sinde hook bir tarif; doğru olan bu. Üretimi ticker

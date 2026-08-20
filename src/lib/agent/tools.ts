@@ -129,8 +129,9 @@ export const TOOL_DEFS = [
     description: "TEK bir urunu eksiksiz olarak olusturur (products satiri + istege bagli schedule). "
       + "Toplu istekte (\"5 tasarim uret\") HER URUN ICIN AYRI CAGIR — elle INSERT yazma, ham SQL ile "
       + "products'a INSERT reddedilir. Alanlarin hepsi dogrulanir ve biri eksikse satir HIC yazilmaz: "
-      + "title 125-140, tam 13 cok-kelimeli tag, DTF'te hook zorunlu (hooksuz satiri uretim kuyrugu "
-      + "almaz), design_prompt >=120 karakter ve icinde YAZI istegi olamaz, aciklamanin ustunde AI "
+      + "title 125-140 (kisa baslik urunun kendi tag'leriyle otomatik tamamlanir), tam 13 cok-kelimeli "
+      + "tag, hook YALNIZCA operator yazi istediyse doldurulur (varsayilan yazisiz), design_prompt >=120 "
+      + "karakter ve icinde YAZI istegi olamaz, aciklamanin ustunde AI "
       + "beyani, fiyat anchor olarak 18-26 bandina denk gelmeli. Geri okur ve ne yazildigini dondurur. "
       + "schedule satiri her zaman 'pending' acilir — onayi operator verir.",
     input_schema: {
@@ -142,7 +143,9 @@ export const TOOL_DEFS = [
         title: { type: "string", description: "125-140 karakter, virgulle ayrilmis, ana anahtar kelime ilk 40 karakterde bolunmeden" },
         description: { type: "string", description: "ilk paragrafta AI beyani ZORUNLU" },
         tags: { type: "array", items: { type: "string" }, description: "tam 13, her biri <=20 karakter ve COK KELIMELI" },
-        hook: { type: "string", description: "DTF'te tasarima dizilecek slogan (zorunlu, <=60 karakter). Tarif cumlesi degil." },
+        hook: { type: "string", description: "The slogan typeset onto the design. LEAVE IT EMPTY unless "
+          + "the operator explicitly asked for words on the shirt — wordless is the default and a design "
+          + "with an invented phrase reads as a template. <=60 characters, not a descriptive sentence." },
         design_prompt: { type: "string", description: "ne cizilecek: konu, kompozisyon, stil, palet, arka plan. Yazi/harf isteme." },
         design_model: { type: "string", description: "varsayilan gpt_image_2 (yedek yol okur; cizimi yerel Juggernaut yapar)" },
         price_cents: { type: "number", description: "ANCHOR fiyat; varsayilan 3570 = aliciya $24.99" },

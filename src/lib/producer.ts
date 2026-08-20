@@ -35,10 +35,11 @@ async function claim(): Promise<{ id: number; slug: string; priorState: string |
          WHERE p.content_status = 'approved'
            AND (p.design_state IS NULL OR p.design_state = 'redo')
            AND p.design_prompt IS NOT NULL
-           -- A DTF row with no hook produces a wordless design and skips the measured garment pick.
-           -- produceOne refuses such a row outright; the queue must agree rather than quietly paying for
-           -- the weak version. These surface via production_status.wordless_no_hook.
-           AND (p.technique = 'embroidery' OR coalesce(btrim(p.hook), '') <> '')
+           -- No hook check. A wordless design is the default, not a defect: the operator's standing
+           -- instruction (2026-08-20) is that nothing carries a slogan unless they asked for one, and a
+           -- required hook field is exactly what made the agent invent phrases — an anime portrait went
+           -- out captioned "CHERRY ANIME". The gate's real concern, that the garment pick lived behind
+           -- the hook check in set_type, is fixed there: a wordless row picks its garment too.
            AND NOT EXISTS (SELECT 1 FROM product_images g WHERE g.product_id = p.id)
          ORDER BY p.id
          LIMIT 1

@@ -155,7 +155,17 @@ export type AgentEvent =
    * 2026-08-19. These lines are progress, not transcript: they are streamed, never persisted, and
    * carry timings so a slow step reads as slow rather than as broken.
    */
-  | { t: "log"; d: { k: LogKind; s: string; ms?: number } }
+  | { t: "log"; d: { k: LogKind; s: string; ms?: number; tok?: number } }
+  /**
+   * Tokens produced so far in the CURRENT step, while it is still producing them.
+   *
+   * The usage figure only exists once a step ends, so a two-minute step showed nothing moving until it
+   * was over. The local path emits one stream event per token, which makes this an exact count rather
+   * than an estimate; the cloud path sends text in chunks, so there it is characters over four. Throttled
+   * to four updates a second — the number is there to show motion, and a per-token repaint is not motion,
+   * it is a flicker.
+   */
+  | { t: "tok"; d: number }
   | { t: "done" };
 
 export type LogKind = "engine" | "think" | "tool" | "ok" | "warn" | "end";
@@ -426,8 +436,11 @@ export async function* runAgentTurn(
             ? streamOllama(messages, `${AGENT_SYSTEM}\n\n${LOCAL_ENGINE_NOTE}`, TOOL_DEFS)
             : streamOnce(messages, apiKey);
           let firstToken = 0;
+          let live = 0, lastTick = 0;
           for await (const ev of stream) {
             if (ev.kind === "text") {
+              live += servedLocal ? 1 : Math.max(1, Math.round(ev.text.length / 4));
+              if (Date.now() - lastTick > 250) { lastTick = Date.now(); yield { t: "tok", d: live }; }
               // Time to first token is the number that separates a cold model from a dead one: a Qwen
               // load off disk is ~115s of silence, and without this line that silence looks like a hang.
               if (!firstToken) {
@@ -439,11 +452,16 @@ export async function* runAgentTurn(
           }
           if (assistant) {
             const calls = assistant.content.filter((b: any) => b.type === "tool_use").map((b: any) => b.name);
+            // Both token counts, because they answer different questions: output is what the step
+            // produced, input is what it had to read to produce it — and on a local model with a 20k+
+            // system prompt the input is where the time goes.
+            const inTok = assistant.usage?.input_tokens ?? 0;
+            const outTok = assistant.usage?.output_tokens ?? 0;
             yield { t: "log", d: {
               k: "ok",
-              s: `step ${step + 1} done · ${assistant.usage?.output_tokens ?? 0} tokens`
+              s: `step ${step + 1} done · ${outTok} out / ${inTok} in`
                  + (calls.length ? ` · ${calls.length} tool${calls.length > 1 ? "s" : ""}: ${calls.join(", ")}` : ""),
-              ms: Date.now() - stepStart } };
+              ms: Date.now() - stepStart, tok: outTok } };
           }
         } catch (e: any) {
           lastErr = e;

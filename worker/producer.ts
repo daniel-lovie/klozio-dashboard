@@ -45,11 +45,8 @@ export function makeProducer(pool: pg.Pool) {
         SELECT pr.id, pr.design_state AS prior_state FROM products pr
         WHERE (pr.design_prompt IS NOT NULL OR pr.mockup_prompt IS NOT NULL)
           AND pr.id NOT IN (SELECT product_id FROM schedule WHERE status='published')
-          -- A DTF row with no hook produces a wordless design and skips the measured garment pick, because
-          -- pick_garment lives inside set_type behind the hook check. src/lib/producer.ts's produceOne
-          -- refuses such a row outright; this queue agrees rather than quietly paying for the weak version.
-          -- They surface via production_status.wordless_no_hook for the operator to fill in.
-          AND (pr.technique = 'embroidery' OR coalesce(btrim(pr.hook), '') <> '')
+          -- No hook check; see the same note in src/lib/producer.ts. A wordless design is the default,
+          -- and pick_garment now runs for one too.
           AND (
             (pr.content_status='approved' AND pr.design_state IS NULL
               AND NOT EXISTS (SELECT 1 FROM product_images i WHERE i.product_id=pr.id))

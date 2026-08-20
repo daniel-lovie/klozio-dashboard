@@ -165,14 +165,13 @@ export async function draftProduct(input: DraftInput, shopId: number) {
   // throw away, and that is the model's decision, not a formatting step.
   const { title, titleNote } = fitTitle(rawTitle, tags);
 
+  // WORDLESS BY DEFAULT (operator instruction, 2026-08-20). The hook used to be required on DTF, and a
+  // required field is exactly what makes a model invent one: asked for an anime design it produced a
+  // portrait captioned "CHERRY ANIME", which means nothing and reads as a template. Words go on a shirt
+  // when the operator asks for words. Leave this empty otherwise — the design ships as artwork alone.
   const hook = String(input.hook ?? "").trim();
-  if (technique === "dtf") {
-    if (!hook) {
-      fail("hook is empty. On DTF the hook is the SLOGAN TYPESET ONTO THE DESIGN and it is required — "
-         + "the production queue refuses a row without one (wordless_no_hook), so the product is never "
-         + "drawn at all and nothing says why.");
-    }
-    if (hook.length > 60) fail(`hook is ${hook.length} characters — keep it under 60 or it will not fit the design.`);
+  if (hook.length > 60) {
+    fail(`hook is ${hook.length} characters — keep it under 60 or it will not fit the design.`);
   }
 
   const designPrompt = String(input.design_prompt ?? "").trim();

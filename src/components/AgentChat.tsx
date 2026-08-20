@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { JobBar } from "./JobBar";
 import { ApprovalCard } from "./ApprovalCard";
 import { ActivityLog, type LogLine } from "./ActivityLog";
+import { Markdown } from "./Markdown";
 
 type Ask = { question: string; options: string[]; multi?: boolean; allow_other?: boolean };
 type Msg = { role: "user" | "assistant"; text: string; tools?: string[]; images?: number;
-             previews?: string[]; ask?: Ask; logs?: LogLine[] };
+             previews?: string[]; ask?: Ask; logs?: LogLine[]; liveTok?: number };
 type Session = { id: number; title: string | null; updated_at: string; messages_n: number };
 type Attachment = { id: string; name: string; dataUrl: string };
 
@@ -100,7 +101,13 @@ export default function AgentChat() {
           else if (ev.t === "tool") last.tools = [...(last.tools ?? []), ev.d];
           // Stamped on arrival, not on the server: the log's clock has to agree with the one the
           // operator is watching, and a server timestamp carries the network hop into every duration.
-          else if (ev.t === "log") last.logs = [...(last.logs ?? []), { ...ev.d, at: Date.now() }];
+          else if (ev.t === "log") {
+            last.logs = [...(last.logs ?? []), { ...ev.d, at: Date.now() }];
+            // A step that finished reports its exact usage, so the running estimate for that step is
+            // spent and must not be added on top of it.
+            if (ev.d?.tok !== undefined) last.liveTok = 0;
+          }
+          else if (ev.t === "tok") last.liveTok = ev.d;
           else if (ev.t === "ask") last.ask = ev.d;
           else if (ev.t === "error") last.text += `\n\n⚠️ ${ev.d}`;
           c[c.length - 1] = last; return c;
@@ -221,10 +228,11 @@ export default function AgentChat() {
         )}
         {msgs.map((m, i) => (
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
-            <div className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2.5 text-sm sm:max-w-[85%] sm:px-3.5 ${
+            <div className={`max-w-[90%] rounded-lg px-3 py-2.5 text-sm sm:max-w-[85%] sm:px-3.5 ${
+              m.role === "user" ? "whitespace-pre-wrap " : ""}${
               m.role === "user" ? "bg-espresso text-white" : "border border-line bg-amber-50"}`}>
               {m.role === "assistant" && (m.logs ?? []).length > 0 && (
-                <ActivityLog lines={m.logs!} live={busy && i === msgs.length - 1} />
+                <ActivityLog lines={m.logs!} live={busy && i === msgs.length - 1} liveTok={m.liveTok ?? 0} />
               )}
               {(m.tools ?? []).length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
@@ -244,7 +252,9 @@ export default function AgentChat() {
                 // thumbnail — better than pretending the image is gone.
                 <div className="mb-1 text-[11px] opacity-70">🖼 {m.images} görsel</div>
               ) : null}
-              {m.text || (busy && i === msgs.length - 1 && !(m.logs ?? []).length ? "…" : "")}
+              {m.role === "assistant" && m.text
+                ? <Markdown text={m.text} />
+                : m.text || (busy && i === msgs.length - 1 && !(m.logs ?? []).length ? "…" : "")}
               {m.ask && (
                 <div className="mt-2 border-t border-line pt-2">
                   <div className="mb-1.5 text-[13px] font-medium">{m.ask.question}</div>

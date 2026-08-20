@@ -19,11 +19,11 @@ type Job = {
   productId: number | null;
 };
 
-const KIND_TR: Record<string, string> = {
-  design: "tasarım üretimi",
-  listing_images: "ilan görselleri",
-  etsy_resync: "Etsy görsel yükleme",
-  shopify_refresh: "Shopify görsel yenileme",
+const KIND_LABEL: Record<string, string> = {
+  design: "design generation",
+  listing_images: "listing images",
+  etsy_resync: "Etsy image upload",
+  shopify_refresh: "Shopify image refresh",
 };
 
 export function JobBar() {
@@ -93,7 +93,7 @@ export function JobBar() {
                   <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-accent" />
                 )}
                 <strong className="min-w-0 truncate">{j.label}</strong>
-                <span className="hidden text-muted sm:inline">{KIND_TR[j.kind] ?? j.kind}</span>
+                <span className="hidden text-muted sm:inline">{KIND_LABEL[j.kind] ?? j.kind}</span>
                 <span className="ml-auto tabular text-muted">
                   {j.total > 0 ? `${j.done + j.failed}/${j.total}` : j.done > 0 ? `${j.done}` : ""}
                   {j.failed > 0 && <span className="ml-2 text-danger">{j.failed} hata</span>}

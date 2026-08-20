@@ -511,7 +511,20 @@ def set_type(p: dict, art_path: Path, work: Path) -> Path:
     """
     hook = (p.get("hook") or "").strip()
     if not hook:
-        return art_path                      # a wordless design is valid, just weaker
+        # A wordless design is the DEFAULT now, not a weaker case. The operator's standing instruction
+        # (2026-08-20) is that nothing carries a slogan unless they asked for one: the agent had started
+        # inventing phrases to satisfy a required field and shipped an anime portrait captioned
+        # "CHERRY ANIME", which means nothing and reads as a template.
+        #
+        # The garment pick still has to happen. It used to live behind this early return, which is the
+        # real reason the queue refused wordless rows at all — not the missing words, the missing
+        # measurement. Choosing it here keeps the same measured contrast for a design with no type.
+        garment, _ink, _lum = pick_garment(art_path)
+        c = conn(); k = c.cursor()
+        k.execute("UPDATE products SET hero_colorway=%s WHERE id=%s", (garment, p["id"]))
+        c.commit(); c.close()
+        print(f"  yazisiz tasarim · garment {garment} secildi", file=sys.stderr)
+        return art_path
     hook = fill_placeholders(hook)
     style = (p.get("design_params") or {}).get("style") if isinstance(p.get("design_params"), dict) else None
 
@@ -663,7 +676,7 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
         c.commit(); c.close()
         p = load(pid)                     # has_print is now false; generate from scratch
 
-    with Job("design", f"{p['slug']} · tasarim + gorseller", total=3, shop_id=p["shop_id"],
+    with Job("design", f"{p['slug']} · design + images", total=3, shop_id=p["shop_id"],
              product_id=pid) as job:
         with tempfile.TemporaryDirectory(prefix=f"prod-{p['slug']}-") as tmp:
             work = Path(tmp)
@@ -691,7 +704,7 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                     if retrying and best[1] is not None:
                         break
                     raw = generate(p, work, tag=f"a{attempt}")
-                    job.tick("tasarim uretildi" if attempt == 1 else "tasarim tekrar uretildi")
+                    job.tick("artwork drawn" if attempt == 1 else "artwork redrawn")
                     try:
                         cand = cutout(p, raw, work, tol=TOL_TIGHT if retrying else TOL_WIDE,
                                       attempt=attempt, tag=f"a{attempt}")
@@ -709,7 +722,7 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                 art = best[1]
                 if BEST_OF > 1:
                     print(f"  secilen: {best[0]}/100", file=sys.stderr)
-                job.tick("arka plan temizlendi")
+                job.tick("background removed")
                 # Embroidery is typeset by the generator, not by us. print_file for an embroidery
                 # product is the digitiser's spec — flat colour, exact thread hexes — and its hook is a
                 # descriptive sentence ("a stone dice tower crowned as a guild badge"), not a slogan.
@@ -721,8 +734,8 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                     print("  nakis: yazi dizilmedi (print_file dijitizasyon spesifikasyonu)", file=sys.stderr)
                 store_print_file(p, art)
             else:
-                job.tick("print_file zaten var")
-                job.tick("arka plan atlandi")
+                job.tick("print file already present")
+                job.tick("background step skipped")
             # Two stages, because approval is worth money. "artwork" stops at a design the operator can
             # look at — the print file plus a lead shot and a close crop, about twenty seconds of
             # compositing. "finish" buys the other eight frames and the schedule slot, and only runs on
@@ -730,12 +743,12 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
             # how a rejected style costs half an hour of composites.
             if stage == "artwork":
                 n = build_images(pid, only_cover=True)
-                job.tick(f"{n} onizleme gorseli")
+                job.tick(f"{n} preview image(s)")
                 set_state(pid, "awaiting_approval")
                 return {"ok": True, "slug": p["slug"], "images": n, "stage": "artwork",
                         "state": "awaiting_approval"}
             n = build_images(pid)
-            job.tick(f"{n} ilan gorseli")
+            job.tick(f"{n} listing image(s)")
     mark_ready(pid)
     return {"ok": True, "slug": p["slug"], "images": n}
 

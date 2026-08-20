@@ -33,6 +33,12 @@ import psycopg2
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = Path(__file__).resolve().parent
+
+# The stamp is only honest where the shipping actually is free, and that is a per-shop fact rather than
+# a global one — it was carried in this file's docstring and in nobody's code. Klozio (1) and
+# HillsByElgin (2) both ship free as of 2026-08-16. A shop that starts charging comes out of this list
+# and every cover it makes stops claiming otherwise.
+FREE_SHIPPING_SHOPS = {1, 2}
 sys.path.insert(0, str(HERE))
 
 # The shop is an argument, not a constant. This started as a Klozio-only tactic and was extended to

@@ -620,6 +620,44 @@ def store_print_file(p: dict, art: Path) -> None:
     c.commit(); c.close()
 
 
+def stamp_cover_now(pid: int, shop_id: int) -> None:
+    """Put FREE SHIPPING on the cover, here, while the cover is being made.
+
+    It existed only as a batch script someone had to remember to run — and they did not: four products
+    made on 2026-08-19/20 went to 'ready' with bare covers. A step that depends on being remembered is
+    not part of the pipeline, it is a chore beside it.
+
+    Only where shipping is actually free, which is a per-shop fact the script already owns. Failure is
+    non-fatal: a missing stamp is a weaker thumbnail, a raised exception here would be a lost product.
+    """
+    try:
+        sys.path.insert(0, str(HERE))
+        import free_shipping_stamp as fss                          # noqa: PLC0415
+        if shop_id not in fss.FREE_SHIPPING_SHOPS:
+            return
+        c = conn(); k = c.cursor()
+        k.execute("""SELECT g.id, g.bytes FROM product_images g
+                      WHERE g.product_id = %s
+                        AND NOT EXISTS (SELECT 1 FROM product_images u
+                                         WHERE u.product_id = g.product_id AND u.role = 'cover_unstamped')
+                      ORDER BY g.rank NULLS LAST, g.id LIMIT 1""", (pid,))
+        row = k.fetchone()
+        if not row:
+            c.close(); return
+        img_id, raw = row
+        stamped = fss.stamp_cover(bytes(raw))
+        # The original is kept beside it so the stamp can come off without regenerating anything.
+        k.execute("""INSERT INTO product_images (product_id, rank, role, label, filename, mime, bytes)
+                     SELECT product_id, NULL, 'cover_unstamped', label, filename, mime, bytes
+                       FROM product_images WHERE id = %s""", (img_id,))
+        k.execute("UPDATE product_images SET bytes = %s WHERE id = %s",
+                  (psycopg2.Binary(stamped), img_id))
+        c.commit(); c.close()
+        print("  kapak damgalandi: FREE SHIPPING", file=sys.stderr)
+    except Exception as e:
+        print(f"  UYARI kapak damgalanamadi: {type(e).__name__}: {e}", file=sys.stderr)
+
+
 def build_images(pid: int, only_cover: bool = False) -> int:
     cmd = [sys.executable, str(HERE / "produce_images.py"), str(pid)]
     if only_cover:
@@ -749,6 +787,7 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                         "state": "awaiting_approval"}
             n = build_images(pid)
             job.tick(f"{n} listing image(s)")
+            stamp_cover_now(pid, p["shop_id"])
     mark_ready(pid)
     return {"ok": True, "slug": p["slug"], "images": n}
 

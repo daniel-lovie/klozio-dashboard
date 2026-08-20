@@ -29,8 +29,17 @@ Darboğaz burası: 11.4 sn/görsel, üretimden uzun, CPU'da. 1000 tasarım/günd
 **Yarısı 2026-08-19'da yapıldı — ama planlandığı sebeple değil.** Kesim artık Spark'ta, worker'ın
 içinde (`scripts/factory_worker.py`), çünkü web konteynerinde rembg yok ve yerel motor açılınca her
 tasarım `ModuleNotFoundError` ile öldü. Ölçülen: kesim 12.5 sn, yazı kapısı 8.8 sn — ikisi de hâlâ
-CPU'da ve birlikte üretimin (28 sn) %75'i kadar. GPU'ya alma ve paralelleştirme kısmı duruyor;
-şimdi kazanç daha da büyük çünkü aynı makinede iki CPU işi var.
+CPU'da ve birlikte üretimin (28 sn) %75'i kadar. GPU'ya alma kısmı duruyor.
+
+**Yazı kapısı GPU'ya alındı (2026-08-19): 8.8 sn → 0.8 sn.** easyocr'ın reader'ı `gpu=True` ile
+kuruluyor ve süreç başına bir kez yaratılıyor.
+
+**rembg GPU'ya alınamıyor, ve ucuz kısayolu yok — ölçüldü.** Spark'taki `onnxruntime` 1.29 yalnızca
+`CPUExecutionProvider` sunuyor; aarch64 + CUDA 13 için hazır `onnxruntime-gpu` tekerleği yok.
+Akla gelen kısayol da işe yaramıyor: u2net girdiyi zaten içeride 320×320'ye indirdiği için 3200 px
+yerine 1600 px kopyadan maske çıkarmak **11.0 sn → 10.8 sn** yapıyor (eşikten sonra maskeler %99.9
+aynı). Yani maliyet çözünürlükte değil, CPU çıkarımında. Gerçek çözüm arka plan silmeyi ComfyUI
+grafiğinin içine bir GPU düğümü olarak (BiRefNet/RMBG) almak; bu bir öğleden sonralık iş, kısayol değil.
 
 ## 5. Kullanıcı başına adil kuyruk
 Tek FIFO. 100 kullanıcıda sonuncusu saatlerce bekler.

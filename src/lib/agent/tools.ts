@@ -506,8 +506,8 @@ export async function execTool(name: string, input: any):
   try {
     const refusal = refuseIrreversible(name, input);
     if (refusal) {
-      await logEvent("agent_tool", { detail: `REDDEDILDI ${name}: ${refusal.slice(0, 90)}` });
-      return { result: refusal, summary: `${name} ▸ reddedildi (geri alinamaz)` };
+      await logEvent("agent_tool", { detail: `REFUSED ${name}: ${refusal.slice(0, 90)}` });
+      return { result: refusal, summary: `${name} ▸ refused (irreversible)` };
     }
     if (name === "sql") {
       const q = String(input.query ?? "");
@@ -525,7 +525,7 @@ export async function execTool(name: string, input: any):
       const { produceOne } = await import("../producer");
       const out = await produceOne(pid, stage);
       await logEvent("agent_tool", { detail: `produce ${pid}: ${out.ok ? "ok" : out.out.slice(0, 120)}` });
-      return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "hata"}` };
+      return { result: clip(JSON.stringify(out)), summary: `produce ▸ ${pid} ${out.ok ? "ok" : "failed"}` };
     }
     if (name === "read_file") {
       const { readRepoFile } = await import("./workspace");
@@ -534,7 +534,7 @@ export async function execTool(name: string, input: any):
       await logEvent("agent_tool", { detail: `read_file ${rel}` });
       // Source files run well past the 12k default clip, and a file cut to a third silently answers the
       // wrong question. Reads get their own, larger ceiling; offset/limit is how the rest is reached.
-      return { result: clip(r.text, 45_000), summary: `read_file ▸ ${rel}${r.ok ? "" : " (red)"}` };
+      return { result: clip(r.text, 45_000), summary: `read_file ▸ ${rel}${r.ok ? "" : " (refused)"}` };
     }
     if (name === "run_script") {
       const { runRepoScript } = await import("./workspace");
@@ -542,7 +542,7 @@ export async function execTool(name: string, input: any):
       const args = Array.isArray(input.args) ? input.args.map(String) : [];
       const r = await runRepoScript(script, args);
       await logEvent("agent_tool", { detail: `run_script ${script} ${args.join(" ")}`.slice(0, 180) });
-      return { result: clip(r.text, 30_000), summary: `run_script ▸ ${script} ${r.ok ? "ok" : "hata"}` };
+      return { result: clip(r.text, 30_000), summary: `run_script ▸ ${script} ${r.ok ? "ok" : "failed"}` };
     }
     if (name === "look") {
       const pid = Number(input.product_id);
@@ -550,7 +550,7 @@ export async function execTool(name: string, input: any):
       const args = [String(pid), what, ...(input.on ? ["--on", String(input.on)] : [])];
       const r = await runScript("look_product.py", args);
       if (r?.error || !r?.data) {
-        return { result: `ERROR: ${r?.error ?? "gorsel alinamadi"}`, summary: `look ▸ ${pid} hata` };
+        return { result: `ERROR: ${r?.error ?? "could not load the image"}`, summary: `look ▸ ${pid} failed` };
       }
       await logEvent("agent_tool", { detail: `look ${pid} ${what}` });
       // The image travels as a real content block. Returning a description instead would be the same
@@ -578,7 +578,7 @@ export async function execTool(name: string, input: any):
       const out = await productionStatus();
       return {
         result: clip(JSON.stringify(out)),
-        summary: `durum ▸ ${out.queued} kuyrukta · ${out.by_state.ready ?? 0} hazir · ${out.by_state.error ?? 0} hata`,
+        summary: `status ▸ ${out.queued} queued · ${out.by_state.ready ?? 0} ready · ${out.by_state.error ?? 0} failed`,
       };
     }
     if (name === "ask") {
@@ -588,12 +588,12 @@ export async function execTool(name: string, input: any):
       const q = String(input.question ?? "").trim();
       const opts = (Array.isArray(input.options) ? input.options : []).map((o: any) => String(o)).filter(Boolean);
       if (!q || opts.length < 2) {
-        return { result: "ERROR: question ve en az 2 option gerekli", summary: "ask ▸ gecersiz" };
+        return { result: "ERROR: a question and at least 2 options are required", summary: "ask ▸ invalid" };
       }
       return {
         result: "Soru operatore secenekleriyle gosterildi. TURU BITIR ve cevabi bekle — cevap bir sonraki "
           + "kullanici mesaji olarak gelecek. Tekrar sorma, tahmin etme.",
-        summary: `soru ▸ ${q.slice(0, 40)}`,
+        summary: `ask ▸ ${q.slice(0, 40)}`,
       };
     }
     if (name === "draft_product") {
@@ -602,12 +602,13 @@ export async function execTool(name: string, input: any):
       // NO_SHOP is -1, and -1 reaches the insert as a foreign key that cannot resolve — a row refused
       // for a reason that has nothing to do with the row. Say what is actually wrong instead.
       if (shopId === NO_SHOP) {
-        return { result: "ERROR: aktif magaza cozulemedi — urun hangi magazaya yazilacagi belli degil.",
-                 summary: "draft_product ▸ magaza yok" };
+        return { result: "ERROR: could not resolve the active shop — there is no way to tell which shop "
+                 + "this product belongs to.",
+                 summary: "draft_product ▸ no shop" };
       }
       const out = await draftProduct(input, shopId);
       await logEvent("agent_tool", { productId: out.id, detail: `draft_product: ${out.slug}` });
-      return { result: clip(JSON.stringify(out)), summary: `taslak ▸ ${out.slug} (${out.id})` };
+      return { result: clip(JSON.stringify(out)), summary: `draft ▸ ${out.slug} (${out.id})` };
     }
     if (name === "update_product") {
       const out = await updateProduct(input);
@@ -636,8 +637,8 @@ export async function execTool(name: string, input: any):
     // about why, and the catch logged nothing either — so the reason existed only inside the model's
     // context, where nobody can read it afterwards. Both halves are fixed here: carry the reason into
     // the chip, and write the failure down.
-    await logEvent("agent_tool", { detail: `HATA ${name}: ${msg.slice(0, 220)}` }).catch(() => {});
-    return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ HATA: ${msg.slice(0, 90)}` };
+    await logEvent("agent_tool", { detail: `FAILED ${name}: ${msg.slice(0, 220)}` }).catch(() => {});
+    return { result: `ERROR: ${msg}${advice(name, e)}`, summary: `${name} ▸ FAILED: ${msg.slice(0, 90)}` };
   }
 }
 

@@ -55,8 +55,8 @@ export function ActivityLog({ lines, live }: { lines: LogLine[]; live: boolean }
       <button onClick={() => setOpen(true)}
         className="mb-2 flex items-center gap-2 rounded border border-line bg-sunken px-2 py-1 font-mono text-[10px] text-muted hover:text-fg">
         <span className="opacity-60">▸</span>
-        <span>{lines.length} satır · {tools} araç · {secs(total)}</span>
-        <span className="opacity-60">günlüğü aç</span>
+        <span>{lines.length} lines · {tools} tool calls · {secs(total)}</span>
+        <span className="opacity-60">open log</span>
       </button>
     );
   }
@@ -67,12 +67,12 @@ export function ActivityLog({ lines, live }: { lines: LogLine[]; live: boolean }
         <div className="flex items-center gap-1.5">
           <Dot live={live} />
           <span className="font-mono text-[10px] uppercase tracking-wider text-white/50">
-            {live ? "çalışıyor" : "tamamlandı"}
+            {live ? "RUNNING" : "DONE"}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-mono text-[10px] tabular-nums text-white/40">{secs(total)}</span>
-          <button onClick={() => setOpen(false)} className="font-mono text-[10px] text-white/40 hover:text-white/80">kapat</button>
+          <button onClick={() => setOpen(false)} className="font-mono text-[10px] text-white/40 hover:text-white/80">close</button>
         </div>
       </div>
       <div ref={box} className="max-h-56 overflow-y-auto px-2.5 py-1.5">

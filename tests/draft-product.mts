@@ -39,6 +39,15 @@ const cases: [string, any][] = [
   ["gecmis tarih", { ...good, scheduled_at: "2020-01-01T10:00:00Z" }],
 ];
 
+// A previous run that died mid-way leaves its rows behind and every later run then fails on the slug
+// instead of on what it meant to test.
+{
+  const c0 = pool();
+  await c0.query("delete from generation_jobs where product_id in (select id from products where slug like 'zztest-%')");
+  await c0.query("delete from schedule where product_id in (select id from products where slug like 'zztest-%')");
+  await c0.query("delete from products where slug like 'zztest-%'");
+}
+
 let pass = 0;
 for (const [label, inp] of cases) {
   try {
@@ -51,12 +60,26 @@ for (const [label, inp] of cases) {
 }
 console.log(`\nred testleri: ${pass}/${cases.length}`);
 
+// A short title is no longer a refusal: the tool closes the gap with the product's own tags. This is
+// the case that burned an entire turn on 2026-08-19, six calls in a row.
+const short = { ...good, slug: "zztest-shorttitle-c1-v1",
+                title: "Guard Test T-Shirt for Validation Only, Please Ignore This Row, Internal Check Tee, Not For Sale Shirt" };
+const fixed = await draftProduct(short as any, 1);
+console.log(`\n  ok  kisa baslik onarildi -> ${fixed.title_len} karakter · ${fixed.title_fixed}`);
+if (fixed.title_len < 125 || fixed.title_len > 140) throw new Error("baslik banda oturmadi");
+{
+  const c2 = pool();
+  await c2.query("delete from generation_jobs where product_id=$1", [fixed.id]);
+  await c2.query("delete from products where id=$1", [fixed.id]);
+}
+
 // happy path, then remove it again
 const ok = await draftProduct({ ...good, scheduled_at: "2026-08-23T15:00:00Z" } as any, 1);
 console.log("\nyazildi:", JSON.stringify(ok));
 const c = pool();
 const back = await c.query("select coalesce(btrim(design_prompt),'')<>'' p, coalesce(btrim(hook),'')<>'' h, design_model is not null m, (select count(*) from schedule s where s.product_id=$1) sched from products where id=$1", [ok.id]);
 console.log("geri okuma:", back.rows[0]);
+await c.query("delete from generation_jobs where product_id=$1", [ok.id]);
 await c.query("delete from schedule where product_id=$1", [ok.id]);
 await c.query("delete from products where id=$1", [ok.id]);
 console.log("test satiri silindi");

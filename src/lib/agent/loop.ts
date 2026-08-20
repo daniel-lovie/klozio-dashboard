@@ -172,9 +172,10 @@ const LOCAL_MODEL = (process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b").trim();
  * only on the local path, so the cloud prompt stays byte-identical and its cache is not invalidated.
  */
 const LOCAL_ENGINE_NOTE =
-  `MOTOR: Bu turu Anthropic degil, ev agindaki DGX Spark uzerinde kosan yerel ${LOCAL_MODEL} yanitliyor. ` +
-  `Hangi model/LLM oldugun sorulursa BUNU soyle — "Claude" deme. Web arama araclarin bu yolda yoktur; ` +
-  `arama gerekiyorsa bunu soyle, uydurma.`;
+  "ENGINE: This turn is answered by the shop's own local text model, not by Anthropic. If you are asked "
+  + "which model or LLM you are, say exactly that — a local text model running on the shop's own "
+  + "hardware — and do NOT say Claude and do NOT name a model or a machine. Web search tools do not "
+  + "exist on this path; if a search is needed, say so rather than inventing an answer.";
 
 /**
  * Is the chat agent running on the Spark this turn?
@@ -414,12 +415,13 @@ export async function* runAgentTurn(
           servedLocal = await useLocalAgent();
           if (!announcedEngine) {
             announcedEngine = true;
-            yield { t: "log", d: { k: "engine", s: servedLocal
-              ? `yerel ${LOCAL_MODEL} · DGX Spark` : `bulut ${MODEL}` } };
+            // Named by ROLE, never by model or machine. Which weights sit behind "text model" is an
+            // implementation detail that changes, and the log is read over someone's shoulder.
+            yield { t: "log", d: { k: "engine", s: servedLocal ? "text model · local" : "text model · cloud" } };
           }
           const stepStart = Date.now();
           steps = step + 1;
-          yield { t: "log", d: { k: "think", s: `adim ${step + 1} · dusunuyor` } };
+          yield { t: "log", d: { k: "think", s: `step ${step + 1} · thinking` } };
           const stream = servedLocal
             ? streamOllama(messages, `${AGENT_SYSTEM}\n\n${LOCAL_ENGINE_NOTE}`, TOOL_DEFS)
             : streamOnce(messages, apiKey);
@@ -430,7 +432,7 @@ export async function* runAgentTurn(
               // load off disk is ~115s of silence, and without this line that silence looks like a hang.
               if (!firstToken) {
                 firstToken = Date.now();
-                yield { t: "log", d: { k: "ok", s: "ilk token", ms: firstToken - stepStart } };
+                yield { t: "log", d: { k: "ok", s: "first token", ms: firstToken - stepStart } };
               }
               yield { t: "text", d: ev.text };
             } else assistant = ev;
@@ -439,8 +441,8 @@ export async function* runAgentTurn(
             const calls = assistant.content.filter((b: any) => b.type === "tool_use").map((b: any) => b.name);
             yield { t: "log", d: {
               k: "ok",
-              s: `adim ${step + 1} bitti · ${assistant.usage?.output_tokens ?? 0} token`
-                 + (calls.length ? ` · ${calls.length} arac: ${calls.join(", ")}` : ""),
+              s: `step ${step + 1} done · ${assistant.usage?.output_tokens ?? 0} tokens`
+                 + (calls.length ? ` · ${calls.length} tool${calls.length > 1 ? "s" : ""}: ${calls.join(", ")}` : ""),
               ms: Date.now() - stepStart } };
           }
         } catch (e: any) {
@@ -454,7 +456,7 @@ export async function* runAgentTurn(
         if (attempt < 3) {
           // Say it out loud: text from the failed attempt may already be on screen, and a silent
           // restart would read as the agent repeating itself for no reason.
-          yield { t: "tool", d: `akis kesildi, tekrar deneniyor (${attempt}/3)` };
+          yield { t: "tool", d: `stream cut, retrying (${attempt}/3)` };
           await new Promise((r) => setTimeout(r, 1500 * attempt));
         }
       }
@@ -499,7 +501,7 @@ export async function* runAgentTurn(
       // Hitting the token ceiling is not the end of the turn. It used to break here, so a long answer
       // stopped mid-sentence and looked like the agent had finished.
       if (assistant.stopReason === "max_tokens") {
-        yield { t: "tool", d: "uzunluk siniri, kaldigi yerden devam ediyor" };
+        yield { t: "tool", d: "length limit reached, continuing from where it stopped" };
         messages.push({ role: "user", content: "Cevabin uzunluk sinirina takildi. Kaldigin yerden devam et, bastan yazma." });
         continue;
       }
@@ -510,7 +512,7 @@ export async function* runAgentTurn(
         // `echo` was already pushed above — pushing again appended a SECOND assistant turn carrying the
         // same thinking blocks and their signatures, which is the malformed shape this file exists to
         // prevent, and it was being persisted. Resuming needs nothing but the continue.
-        yield { t: "tool", d: "arama surdu — devam ediliyor" };
+        yield { t: "tool", d: "search still running — continuing" };
         continue;
       }
       if (assistant.stopReason !== "tool_use") {
@@ -528,7 +530,7 @@ export async function* runAgentTurn(
         // trip, and only in the case where the answer is most likely to be wrong.
         if (failed.length && nudges < 2) {
           nudges++;
-          yield { t: "log", d: { k: "warn", s: `${failed.length} basarisiz cagri — cevap dogrulatiliyor` } };
+          yield { t: "log", d: { k: "warn", s: `${failed.length} failed call(s) — reconciling the answer` } };
           messages.push({ role: "user", content:
             `DOGRULAMA. Bu turda ${failed.length} arac cagrisi BASARISIZ oldu:\n`
             + failed.map((f) => `- ${f}`).join("\n")
@@ -540,7 +542,7 @@ export async function* runAgentTurn(
         }
         if (!wrote && nudges < 2 && promisedWork(said)) {
           nudges++;
-          yield { t: "tool", d: "soz verildi ama yazilmadi — simdi yaptiriliyor" };
+          yield { t: "tool", d: "promised but not written — making it do the work now" };
           messages.push({ role: "user", content:
             "Hicbir yazma islemi yapmadin, sadece okudun. Simdi gercekten yap: gerekli INSERT/UPDATE'leri "
             + "calistir, sonra ayni turda SELECT ile eklenen id'leri getir ve onlari yaz. Yapamiyorsan "
@@ -562,7 +564,7 @@ export async function* runAgentTurn(
           const refusal = `ERROR: bu turda ${MAX_PRODUCE_PER_TURN} 'produce' cagrisi siniri asildi. `
             + "Toplu uretim bu aracin isi degil: content_status='approved' ve design_prompt dolu satirlari "
             + "INSERT et, producer dongusu 90 sn'de bir birini alir. Durumu 'production_status' ile bildir.";
-          yield { t: "tool", d: "produce ▸ tur siniri — kuyruga yonlendirildi" };
+          yield { t: "tool", d: "produce ▸ per-turn limit — sent to the queue" };
           results.push({ type: "tool_result", tool_use_id: block.id, content: refusal });
           continue;
         }
@@ -573,7 +575,7 @@ export async function* runAgentTurn(
             + `${TURN_CEILING_MS / 1000}sn ve bir uretim ${PRODUCE_WORST_CASE_MS / 1000}sn surebilir. `
             + "Satiri content_status='approved' yap, producer dongusu sirasi gelince uretir; durumu "
             + "'production_status' ile bildir.";
-          yield { t: "tool", d: "produce ▸ sure yetmiyor — kuyruga yonlendirildi" };
+          yield { t: "tool", d: "produce ▸ not enough time left — sent to the queue" };
           results.push({ type: "tool_result", tool_use_id: block.id, content: refusal });
           continue;
         }
@@ -661,6 +663,6 @@ export async function* runAgentTurn(
   }
   // The closing line. Without it the log's last entry is whatever happened to be last, and the operator
   // has to work out from silence whether the turn ended or died.
-  yield { t: "log", d: { k: "end", s: `bitti · ${steps} adim · ${toolCalls} arac`, ms: Date.now() - startedAt } };
+  yield { t: "log", d: { k: "end", s: `done · ${steps} steps · ${toolCalls} tool calls`, ms: Date.now() - startedAt } };
   yield { t: "done" };
 }

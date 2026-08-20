@@ -79,80 +79,131 @@ function fail(msg: string): never {
   throw new Error(msg);
 }
 
+const TITLE_MIN = 125;
+const TITLE_MAX = 140;
+/** Below this, nothing was written that could be called a title. */
+const TITLE_REPAIRABLE = 90;
+
+/** Bring a short title into the operating band using the product's own tags; refuse an over-long one. */
+function fitTitle(raw: string, tags: string[]): { title: string; titleNote: string | null } {
+  if (raw.length > TITLE_MAX) {
+    fail(`title is ${raw.length} characters, ${raw.length - TITLE_MAX} over Etsy's ${TITLE_MAX} limit. `
+       + "Remove a phrase — which keyword to drop is your call, so the tool will not cut it for you.");
+  }
+  if (raw.length >= TITLE_MIN) return { title: raw, titleNote: null };
+  // Repair a title, do not write one. Padding a fifteen-character stub with seven tags produces a
+  // keyword salad that satisfies the rule and sells nothing — the test caught exactly that. Below this
+  // floor the title has not been written yet, and no amount of appending changes that.
+  if (raw.length < TITLE_REPAIRABLE) {
+    fail(`title is only ${raw.length} characters. Write a real title first — comma-separated keyword `
+       + `phrases, primary keyword unbroken in the first 40 characters, ${TITLE_MIN}-${TITLE_MAX} total. `
+       + "The tool will close a small gap with your tags, but it will not invent the title for you.");
+  }
+
+  const titleCase = (t: string) => t.replace(/\b\w/g, (m) => m.toUpperCase());
+  const used = raw.toLowerCase();
+  let out = raw;
+  const added: string[] = [];
+  // Nearest fit first, so one good tag lands mid-band instead of three short ones overshooting.
+  const pool = tags.filter((t) => !used.includes(t.toLowerCase()))
+                   .sort((a, b) => Math.abs(132 - (raw.length + a.length + 2))
+                                 - Math.abs(132 - (raw.length + b.length + 2)));
+  for (const t of pool) {
+    if (out.length >= TITLE_MIN) break;
+    const next = `${out}, ${titleCase(t)}`;
+    if (next.length <= TITLE_MAX) { out = next; added.push(titleCase(t)); }
+  }
+  if (out.length < TITLE_MIN) {
+    fail(`title is ${out.length} characters and the tags could not close the gap to ${TITLE_MIN}. `
+       + `Add at least ${TITLE_MIN - out.length} more characters of real keywords.`);
+  }
+  return { title: out, titleNote: added.length ? `${raw.length} -> ${out.length} chars, appended: ${added.join(", ")}` : null };
+}
+
 export async function draftProduct(input: DraftInput, shopId: number) {
   const slug = String(input.slug ?? "").trim().toLowerCase();
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
-    fail("slug gecersiz: kucuk harf, rakam ve tire. Desen '{hat}-c{n}-v1' (ornek: pet-c1-v1).");
+    fail("invalid slug: lowercase letters, digits and hyphens. Pattern '{line}-c{n}-v1' (e.g. pet-c1-v1).");
   }
   const technique = String(input.technique ?? "dtf").trim().toLowerCase();
-  if (technique !== "dtf" && technique !== "embroidery") fail("technique 'dtf' ya da 'embroidery' olmali.");
+  if (technique !== "dtf" && technique !== "embroidery") fail("technique must be 'dtf' or 'embroidery'.");
 
   const niche = String(input.niche ?? "").trim();
-  if (niche.length < 3) fail("niche bos — hangi alici kitlesi icin, birkac kelimeyle yaz.");
+  if (niche.length < 3) fail("niche is empty — name the buyer audience in a few words.");
 
-  const title = String(input.title ?? "").trim();
-  // 140 is Etsy's hard cap; 125 is the bottom of the operating band. A short title is not an error
-  // Etsy will report — it is simply less surface to be found on, so it is refused here.
-  if (title.length < 125 || title.length > 140) {
-    fail(`title ${title.length} karakter — 125-140 bandinda olmali (140 Etsy siniri). Anahtar kelime ilk 40 karakterde bolunmeden gecmeli.`);
-  }
+  const rawTitle = String(input.title ?? "").trim();
 
   const description = String(input.description ?? "").trim();
-  if (description.length < 200) fail("description cok kisa (en az 200 karakter).");
+  if (description.length < 200) fail("description is too short (200 characters minimum).");
   // Rule 4: the disclosure is a publish gate and it has to be high in the description, not buried.
   if (!/\bAI\b|yapay zeka|AI image|AI tools/i.test(description.slice(0, 600))) {
-    fail("description'in ust kisminda AI aciklamasi yok. Etsy 14 Oca 2026'dan beri generatif AI beyanini "
-       + "zorunlu tutuyor ve bunu gizlemek yuksek cezali. Ilk paragrafa acik bir cumle koy.");
+    fail("no AI disclosure near the top of the description. Etsy has required a generative-AI "
+       + "disclosure since 14 Jan 2026 and burying it carries a heavy penalty. Put a clear sentence "
+       + "in the first paragraph.");
   }
 
   const tags = (input.tags ?? []).map((t) => String(t).trim()).filter(Boolean);
-  if (tags.length !== 13) fail(`tags tam 13 olmali, ${tags.length} geldi.`);
+  if (tags.length !== 13) fail(`tags must be exactly 13, got ${tags.length}.`);
   const tooLong = tags.filter((t) => t.length > 20);
-  if (tooLong.length) fail(`20 karakteri asan tag: ${tooLong.join(", ")}`);
+  if (tooLong.length) fail(`tags over 20 characters: ${tooLong.join(", ")}`);
   // A single-word tag competes with the whole marketplace and matches almost nothing a buyer types.
   // The five rows written by hand on 2026-08-19 had thirteen of them ("pet", "dog", "cat").
   const single = tags.filter((t) => !/\s/.test(t));
-  if (single.length) fail(`tek kelimelik tag kabul edilmiyor (cok kelimeli olmali): ${single.join(", ")}`);
-  if (new Set(tags.map((t) => t.toLowerCase())).size !== 13) fail("tag'lerde tekrar var.");
+  if (single.length) fail(`single-word tags are not accepted (they must be multi-word): ${single.join(", ")}`);
+  if (new Set(tags.map((t) => t.toLowerCase())).size !== 13) fail("duplicate tags.");
+
+  // Title length is arithmetic, and the model cannot do arithmetic on its own output.
+  //
+  // Asked for two anime products, the agent called this tool seven times and six of those calls died on
+  // the same rule — 123, 145, 123, 144, 115 characters — until the turn's time budget ran out with one
+  // product written instead of two. Rejecting was correct and useless: it sent the model back to guess
+  // a length it has no way to measure, and it guessed wrong five more times.
+  //
+  // So the tool closes the gap itself, and only in the direction that is safe. Too SHORT is padded with
+  // the product's own tags in title case — the model's keywords, not invented ones — until the band is
+  // reached. Too LONG is still refused, because trimming an SEO title means choosing which keyword to
+  // throw away, and that is the model's decision, not a formatting step.
+  const { title, titleNote } = fitTitle(rawTitle, tags);
 
   const hook = String(input.hook ?? "").trim();
   if (technique === "dtf") {
     if (!hook) {
-      fail("hook bos. DTF'te hook tasariMA DIZILECEK SLOGANDIR ve zorunludur — hooksuz satiri uretim "
-         + "kuyrugu almaz (wordless_no_hook), yani urun sessizce hic uretilmez.");
+      fail("hook is empty. On DTF the hook is the SLOGAN TYPESET ONTO THE DESIGN and it is required — "
+         + "the production queue refuses a row without one (wordless_no_hook), so the product is never "
+         + "drawn at all and nothing says why.");
     }
-    if (hook.length > 60) fail(`hook ${hook.length} karakter — 60'i gecmesin, tasarima sigmaz.`);
+    if (hook.length > 60) fail(`hook is ${hook.length} characters — keep it under 60 or it will not fit the design.`);
   }
 
   const designPrompt = String(input.design_prompt ?? "").trim();
   if (designPrompt.length < 120) {
-    fail(`design_prompt ${designPrompt.length} karakter — en az 120. Ne cizilecegini tarif et: konu, `
-       + "kompozisyon, stil, renk paleti, arka plan. Bos birakilirsa urun hic cizilmez.");
+    fail(`design_prompt is ${designPrompt.length} characters — 120 minimum. Describe what to draw: `
+       + "subject, composition, style, colour palette, background. Left empty the product is never drawn.");
   }
   const askedForText = TEXT_IN_ART.filter((w) => designPrompt.toLowerCase().includes(w));
   if (askedForText.length) {
-    fail(`design_prompt goruntu modelinden YAZI istiyor ("${askedForText[0]}"). Kural 5: yazi asla AI ile `
-       + "cizilmez, lisansli fontla elle dizilir — model bozuk harf uretir. Sloganı hook alanina yaz, "
-       + "prompt'tan yazi istegini cikar.");
+    fail(`design_prompt asks the image model for TEXT ("${askedForText[0]}"). Rule 5: type is never `
+       + "drawn by AI, it is hand-set in a licensed font, because models return malformed glyphs. Put "
+       + "the slogan in the hook field and take the request for words out of the prompt.");
   }
   const lower = designPrompt.toLowerCase();
   const named = COLOUR_WORDS.filter((w) => new RegExp(`\\b${w}\\b`).test(lower));
   if (named.length < 2 && !MONOCHROME.test(designPrompt)) {
-    fail(`design_prompt'ta palet yok (${named.length} renk adi gecti). Tasarimlar renkli ve dikkat `
-       + "cekici olmali — DTF tam rengi zaten basiyor, kisit duzluk, palet degil. En az iki rengi "
-       + "ADIYLA yaz (ornek: 'warm rust, deep olive ve mustard'). Bilerek tek renk istiyorsan "
-       + "'monochrome' ya da 'one-colour' de, o zaman kabul edilir.");
+    fail(`design_prompt names no palette (${named.length} colour words found). Designs are meant to be `
+       + "colourful and eye-catching — DTF prints full colour natively, the constraint is flatness, not "
+       + "palette size. Name at least two colours (e.g. 'warm rust, deep olive and mustard'). If you "
+       + "want one colour on purpose, say 'monochrome' or 'one-colour' and it passes.");
   }
 
   const ip = IP_WORDS.filter((w) => `${designPrompt} ${title} ${hook}`.toLowerCase().includes(w));
-  if (ip.length) fail(`marka/karakter adi geciyor: ${ip.join(", ")}. Ozgun is disinda hicbir sey cizilmez.`);
+  if (ip.length) fail(`a brand or character name appears: ${ip.join(", ")}. Nothing but original work is drawn.`);
 
   const priceCents = Math.round(Number(input.price_cents ?? DEFAULT_PRICE_CENTS));
   const buyer = (priceCents * SALE) / 100;
   if (!Number.isFinite(priceCents) || buyer < 18 || buyer > 26) {
-    fail(`price_cents ${priceCents} -> aliciya $${buyer.toFixed(2)}. price_cents ANCHOR fiyattir, `
-       + "uzerinde surekli %30 indirim var; aliciya gorunen 18-26 bandinda olmali "
-       + `(varsayilan ${DEFAULT_PRICE_CENTS} = $24.99).`);
+    fail(`price_cents ${priceCents} -> $${buyer.toFixed(2)} to the buyer. price_cents is the ANCHOR `
+       + "price with a standing 30% sale on top; what the buyer pays must land in the 18-26 band "
+       + `(default ${DEFAULT_PRICE_CENTS} = $24.99).`);
   }
 
   const designModel = String(input.design_model ?? "gpt_image_2").trim() || "gpt_image_2";
@@ -163,15 +214,15 @@ export async function draftProduct(input: DraftInput, shopId: number) {
   let scheduledAt: Date | null = null;
   if (input.scheduled_at) {
     scheduledAt = new Date(input.scheduled_at);
-    if (Number.isNaN(scheduledAt.getTime())) fail(`scheduled_at okunamadi: ${input.scheduled_at}`);
-    if (scheduledAt.getTime() < Date.now() - 60_000) fail("scheduled_at gecmiste — ileri bir tarih ver.");
+    if (Number.isNaN(scheduledAt.getTime())) fail(`could not read scheduled_at: ${input.scheduled_at}`);
+    if (scheduledAt.getTime() < Date.now() - 60_000) fail("scheduled_at is in the past — give a future date.");
   }
 
   const client = await pool().connect();
   try {
     await client.query("BEGIN");
     const dup = await client.query(`SELECT id FROM products WHERE slug = $1 AND shop_id = $2`, [slug, shopId]);
-    if (dup.rowCount) fail(`slug '${slug}' bu magazada zaten var (id ${dup.rows[0].id}).`);
+    if (dup.rowCount) fail(`slug '${slug}' already exists in this shop (id ${dup.rows[0].id}).`);
 
     const ins = await client.query(
       `INSERT INTO products
@@ -205,16 +256,16 @@ export async function draftProduct(input: DraftInput, shopId: number) {
     const r = back.rows[0];
     if (!r.has_prompt || !r.has_model || (technique === "dtf" && !r.has_hook)) {
       await client.query("ROLLBACK");
-      fail("yazma sonrasi dogrulama basarisiz — satir geri alindi.");
+      fail("post-write verification failed — the row was rolled back.");
     }
     await client.query("COMMIT");
 
     return {
-      id, slug, technique, title_len: title.length, tags: tags.length,
+      id, slug, technique, title_len: title.length, title_fixed: titleNote, tags: tags.length,
       buyer_price: `$${buyer.toFixed(2)}`, scheduled: r.scheduled > 0 ? scheduledAt!.toISOString() : null,
       queue: technique === "dtf"
-        ? "producer dongusu 90 sn'de bir bir urun alir; ilerlemeyi production_status ile bildir"
-        : "nakis: uretim akisi ayri",
+        ? "the producer loop takes one product every 90s; report progress with production_status"
+        : "embroidery: separate production flow",
     };
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});

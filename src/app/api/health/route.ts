@@ -34,6 +34,7 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true, build,
     chat: { requested: want, reachable, effective: want === "local" && reachable ? "local" : "cloud",
-            model: process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b" },
+            // Role, not model name: the endpoint is public and unauthenticated.
+            engine: want === "local" && reachable ? "local text model" : "cloud" },
   });
 }

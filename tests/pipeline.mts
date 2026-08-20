@@ -16,8 +16,14 @@
  * on DTF, and whether the listing carries what Etsy requires. It cleans up after itself unless asked
  * not to.
  *
- * It is slow — about three minutes per product — because the thing being tested is slow. That is the
- * cost of testing the pipeline instead of testing the functions inside it.
+ * It is slow — five to ten minutes per product, depending on how many candidates the producer has to
+ * draw — because the thing being tested is slow. That is the cost of testing the pipeline instead of
+ * the functions inside it.
+ *
+ * DO NOT DEPLOY WHILE IT RUNS. The producer runs in the `agent` service; restarting that service kills
+ * the child mid-product and leaves the row claimed at design_state='generating' until the thirty-minute
+ * reclaim. A run failed exactly that way on 2026-08-19 and the failure looked like a pipeline defect
+ * for as long as it took to read the container's start line in the log.
  */
 import { execFileSync } from "child_process";
 import { draftProduct } from "../src/lib/agent/draft-product";

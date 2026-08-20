@@ -647,8 +647,12 @@ def stamp_cover_now(pid: int, shop_id: int) -> None:
         img_id, raw = row
         stamped = fss.stamp_cover(bytes(raw))
         # The original is kept beside it so the stamp can come off without regenerating anything.
-        k.execute("""INSERT INTO product_images (product_id, rank, role, label, filename, mime, bytes)
-                     SELECT product_id, NULL, 'cover_unstamped', label, filename, mime, bytes
+        # rank 9000, matching free_shipping_stamp.py: the column is NOT NULL and the value has to sort
+        # far above every real image so nothing that reads "ORDER BY rank" ever picks the backup first.
+        k.execute("""INSERT INTO product_images (product_id, rank, role, label, filename, mime,
+                                                 width, height, bytes, created_at)
+                     SELECT product_id, 9000, 'cover_unstamped', label, filename, mime,
+                            width, height, bytes, now()
                        FROM product_images WHERE id = %s""", (img_id,))
         k.execute("UPDATE product_images SET bytes = %s WHERE id = %s",
                   (psycopg2.Binary(stamped), img_id))

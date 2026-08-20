@@ -135,8 +135,16 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
       });
       await q(`UPDATE products SET etsy_listing_id=$2, etsy_state='draft' WHERE id=$1`, [product_id, listingId]);
 
+      // The unstamped backup is a copy of the cover kept so the FREE SHIPPING stamp can be removed
+      // without regenerating anything. It is not a listing photo, and branch B has always excluded it.
+      // Branch A did not, and did not have to: stamping used to run only on listings that were already
+      // live, so a brand-new draft never had a backup row to trip over. Since 2026-08-20 the stamp is
+      // applied while the cover is made, which means every new product now reaches this line with one —
+      // and without the filter Etsy would receive the same photo twice, the second time unstamped.
+      // coalesce because role is nullable and `NULL <> 'x'` is NULL, which silently drops the image.
       const imgs = await q<any>(
-        `SELECT rank, filename, mime, bytes FROM product_images WHERE product_id=$1 ORDER BY rank`,
+        `SELECT rank, filename, mime, bytes FROM product_images
+          WHERE product_id=$1 AND coalesce(role,'') <> 'cover_unstamped' ORDER BY rank`,
         [product_id]
       );
       if (imgs.length === 0) throw new Error("product has no images — Etsy requires at least one to go active");
@@ -166,7 +174,7 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
       // Ask ETSY what it actually holds, and upload whatever is missing by rank.
       const ours = await q<any>(
         `SELECT rank, filename, mime, bytes FROM product_images
-          WHERE product_id=$1 AND role <> 'cover_unstamped' ORDER BY rank`,
+          WHERE product_id=$1 AND coalesce(role,'') <> 'cover_unstamped' ORDER BY rank`,
         [product_id]
       );
       if (ours.length === 0) {

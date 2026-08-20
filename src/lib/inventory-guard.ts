@@ -38,7 +38,7 @@ async function guardShop(shopId: number, repair: boolean): Promise<GuardResult> 
   const rows: any[] = await q(
     `SELECT id, slug, etsy_listing_id, sizes, colorways, price_cents, quantity,
             (SELECT count(*) FROM product_images g
-              WHERE g.product_id = products.id AND g.role <> 'cover_unstamped') img_n
+              WHERE g.product_id = products.id AND coalesce(g.role,'') <> 'cover_unstamped') img_n
        FROM products
       WHERE shop_id = $1 AND etsy_listing_id IS NOT NULL AND etsy_state = 'active'
       ORDER BY updated_at DESC`,
@@ -65,7 +65,7 @@ async function guardShop(shopId: number, repair: boolean): Promise<GuardResult> 
           if (repair) {
             const ours: any[] = await q(
               `SELECT rank, filename, mime, bytes FROM product_images
-                WHERE product_id = $1 AND role <> 'cover_unstamped' ORDER BY rank`,
+                WHERE product_id = $1 AND coalesce(role,'') <> 'cover_unstamped' ORDER BY rank`,
               [p.id]
             );
             let up = 0;

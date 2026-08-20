@@ -345,9 +345,18 @@ def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1
                        "yazi elle diziliyor, yeniden cizilecek")
 
     if rep["bg_frac"] < 0.15:
-        refuse("bg", 
-            f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
-            f"{br.KEY_COLOR} arka plani cizmemis; prompt/urun kontrol edilmeli")
+        # Same number, two different diagnoses, and telling them apart matters because the reason is
+        # written into design_feedback and read later as training data. On the hosted path the model was
+        # asked to paint a key colour and did not. On the local path nothing was ever asked for a key
+        # colour: too little background means the matte found no background to remove — the subject
+        # fills the frame, or rembg came back with almost everything opaque. Sending someone to check a
+        # key-colour clause that the local prompt does not contain is a wasted hour.
+        refuse("bg",
+               (f"kesim zemin bulamadi (zemin %{rep['bg_frac']*100:.1f}) — konu kareyi dolduruyor ya da "
+                "matte neredeyse her seyi opak birakti; yeniden cizilecek")
+               if rep.get("method") == "matte" else
+               (f"anahtar renk zemin bulunamadi (zemin %{rep['bg_frac']*100:.1f}) — generator istenen "
+                f"{br.KEY_COLOR} arka plani cizmemis; prompt/urun kontrol edilmeli"))
     # As a SHARE of the artwork. 200 pixels was never calibrated — it guarded a metric that always returned
     # 0 — and on a 3000px print 300 stray pixels is a speck, while on a small patch it is dirt. Measured
     # across 215 shipped files the median is 0 and the 99th percentile 143 absolute; 0.2% of the opaque

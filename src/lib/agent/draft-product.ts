@@ -48,6 +48,27 @@ const IP_WORDS = [
   "taylor swift", "mickey", "batman", "superman", "spider-man", "spiderman", "barbie",
 ];
 
+/**
+ * Colour words, for the one standing directive nothing enforced.
+ *
+ * "Designs should be colourful and eye-catching. DTF prints full colour natively; the constraint is
+ * flatness, not palette size. Minimal one-colour work is a style, not the default." A prompt that
+ * names no colour at all leaves the palette to the model, and the model's default is the muted,
+ * washed-out look that directive was written against — measured on the first local batch, where a
+ * prompt with no palette produced a beige dog on a beige cushion.
+ *
+ * Two named colours is a low bar deliberately: this rejects the prompt that forgot to decide, not the
+ * prompt that decided on restraint. A design that genuinely wants one colour says so and passes.
+ */
+const COLOUR_WORDS = [
+  "red", "crimson", "scarlet", "rust", "terracotta", "orange", "amber", "gold", "golden", "mustard",
+  "yellow", "cream", "ivory", "sand", "tan", "brown", "chocolate", "olive", "sage", "green", "pine",
+  "emerald", "teal", "turquoise", "aqua", "blue", "navy", "indigo", "cobalt", "purple", "violet",
+  "plum", "lavender", "magenta", "pink", "blush", "coral", "peach", "charcoal", "grey", "gray",
+  "black", "white", "silver", "bronze", "copper", "burgundy", "maroon", "mint", "lilac", "ochre",
+];
+const MONOCHROME = /monochrome|one[- ]colou?r|single colou?r|two[- ]tone|black and white/i;
+
 /** Phrases that ask an image model to draw letters. Rule 5: all type is hand-set in a licensed font. */
 const TEXT_IN_ART = [
   "the text", "text reads", "the word", "the words", "written", "lettering", "typography",
@@ -114,6 +135,15 @@ export async function draftProduct(input: DraftInput, shopId: number) {
        + "cizilmez, lisansli fontla elle dizilir — model bozuk harf uretir. Sloganı hook alanina yaz, "
        + "prompt'tan yazi istegini cikar.");
   }
+  const lower = designPrompt.toLowerCase();
+  const named = COLOUR_WORDS.filter((w) => new RegExp(`\\b${w}\\b`).test(lower));
+  if (named.length < 2 && !MONOCHROME.test(designPrompt)) {
+    fail(`design_prompt'ta palet yok (${named.length} renk adi gecti). Tasarimlar renkli ve dikkat `
+       + "cekici olmali — DTF tam rengi zaten basiyor, kisit duzluk, palet degil. En az iki rengi "
+       + "ADIYLA yaz (ornek: 'warm rust, deep olive ve mustard'). Bilerek tek renk istiyorsan "
+       + "'monochrome' ya da 'one-colour' de, o zaman kabul edilir.");
+  }
+
   const ip = IP_WORDS.filter((w) => `${designPrompt} ${title} ${hook}`.toLowerCase().includes(w));
   if (ip.length) fail(`marka/karakter adi geciyor: ${ip.join(", ")}. Ozgun is disinda hicbir sey cizilmez.`);
 

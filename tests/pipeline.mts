@@ -25,7 +25,11 @@ import { pool } from "../src/lib/db";
 
 const KEEP = process.argv.includes("--keep");
 const N = Math.max(1, Math.min(4, Number(process.argv[process.argv.indexOf("--n") + 1]) || 2));
-const READY_TIMEOUT_MS = 14 * 60_000;
+/** The producer takes one product at a time, on a 90s tick, drawing up to three candidates each. A
+ *  fixed window failed the third product of a three-product run for being third — a property of the
+ *  test, not of the pipeline. Budget per product, with slack for the tick. */
+const READY_MS_PER_PRODUCT = 9 * 60_000;
+const READY_SLACK_MS = 3 * 60_000;
 
 /** 10 inches at 300 PPI: the print the producer lays down. */
 const PRINT_PX = 3000;
@@ -147,7 +151,9 @@ async function main() {
   // 2. the producer in production picks them up on its own; nothing here pushes it
   const t0 = Date.now();
   const done = new Map<number, string>();
-  while (done.size < ids.length && Date.now() - t0 < READY_TIMEOUT_MS) {
+  const budget = ids.length * READY_MS_PER_PRODUCT + READY_SLACK_MS;
+  console.log(`  uretim bekleniyor · butce ${Math.round(budget / 60000)} dk\n`);
+  while (done.size < ids.length && Date.now() - t0 < budget) {
     const r = await c.query(
       `SELECT id, slug, design_state FROM products WHERE id = ANY($1) AND design_state IN ('ready','error')`,
       [ids]);
@@ -190,6 +196,18 @@ async function main() {
           p.tags.length === 13 && p.tags.every((t: string) => /\s/.test(t) && t.length <= 20));
     check(`${p.slug} · hook duruyor`, !!String(p.hook || "").trim(), p.hook);
     check(`${p.slug} · AI beyani ust kisimda`, /\bAI\b/i.test(String(p.description).slice(0, 600)));
+    // The gate that enforces non-negotiable 5 runs on the Spark, so the only evidence on this side is
+    // what the worker wrote back. A run where it never reported is a run where the rule went unchecked,
+    // which is exactly the state this pipeline was in until 2026-08-19.
+    const jobs = (await c.query(
+      `SELECT result_meta m FROM generation_jobs
+        WHERE product_id = $1 AND result_meta IS NOT NULL ORDER BY id DESC LIMIT 1`, [id])).rows[0];
+    const meta = jobs?.m ?? null;
+    check(`${p.slug} · yazi kapisi kostu`, Array.isArray(meta?.text_found),
+          meta ? `${meta.text_gate_ms}ms, bulunan ${JSON.stringify(meta.text_found)}` : "rapor yok");
+    check(`${p.slug} · modelin cizdigi harf yok`, (meta?.text_found ?? []).length === 0);
+    check(`${p.slug} · kesim Spark'ta`, meta?.cutout === "matte-spark", String(meta?.cutout));
+
     const buyer = (p.price_cents * 0.7) / 100;
     check(`${p.slug} · alici fiyati 18-26`, buyer >= 18 && buyer <= 26, `$${buyer.toFixed(2)}`);
     console.log();

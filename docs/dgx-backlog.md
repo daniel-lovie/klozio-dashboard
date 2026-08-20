@@ -26,6 +26,12 @@ modeliyle kazananı çıkarır. Model kararı buradan gelir, benim ölçtüğüm
 ## 4. rembg'yi GPU'ya al ve paralelleştir
 Darboğaz burası: 11.4 sn/görsel, üretimden uzun, CPU'da. 1000 tasarım/günde 3.17 saat.
 
+**Yarısı 2026-08-19'da yapıldı — ama planlandığı sebeple değil.** Kesim artık Spark'ta, worker'ın
+içinde (`scripts/factory_worker.py`), çünkü web konteynerinde rembg yok ve yerel motor açılınca her
+tasarım `ModuleNotFoundError` ile öldü. Ölçülen: kesim 12.5 sn, yazı kapısı 8.8 sn — ikisi de hâlâ
+CPU'da ve birlikte üretimin (28 sn) %75'i kadar. GPU'ya alma ve paralelleştirme kısmı duruyor;
+şimdi kazanç daha da büyük çünkü aynı makinede iki CPU işi var.
+
 ## 5. Kullanıcı başına adil kuyruk
 Tek FIFO. 100 kullanıcıda sonuncusu saatlerce bekler.
 

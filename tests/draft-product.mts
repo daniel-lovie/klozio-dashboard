@@ -27,7 +27,6 @@ const cases: [string, any][] = [
   ["baslik kisa", { ...good, title: "Short Title Tee" }],
   ["12 tag", { ...good, tags: good.tags.slice(0, 12) }],
   ["tek kelime tag", { ...good, tags: [...good.tags.slice(0, 12), "dog"] }],
-  ["hook bos", { ...good, hook: "" }],
   ["prompt kisa", { ...good, design_prompt: "a dog" }],
   ["prompt yazi istiyor", { ...good, design_prompt: good.design_prompt + " The text reads GOOD BOY across the chest." }],
   ["marka adi", { ...good, design_prompt: good.design_prompt.replace("shield", "nike swoosh") }],
@@ -59,6 +58,19 @@ for (const [label, inp] of cases) {
   }
 }
 console.log(`\nred testleri: ${pass}/${cases.length}`);
+
+// An empty hook is ACCEPTED, and this is the case that matters most: wordless is the default since
+// 2026-08-20, and the read-back went on demanding a hook after the validation stopped, so every
+// wordless product passed every check and was then rolled back by its own verification.
+{
+  const w = await draftProduct({ ...good, slug: "zztest-wordless-c1-v1", hook: "" } as any, 1);
+  console.log(`\n  ok  hooksuz urun yazildi -> ${w.slug} (${w.id})`);
+  const c1 = pool();
+  const back = await c1.query("select coalesce(btrim(hook),'') hook from products where id=$1", [w.id]);
+  if (back.rows[0].hook !== "") throw new Error("hook bos kalmaliydi");
+  await c1.query("delete from generation_jobs where product_id=$1", [w.id]);
+  await c1.query("delete from products where id=$1", [w.id]);
+}
 
 // A short title is no longer a refusal: the tool closes the gap with the product's own tags. This is
 // the case that burned an entire turn on 2026-08-19, six calls in a row.

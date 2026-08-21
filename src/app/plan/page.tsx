@@ -58,7 +58,8 @@ export default async function PlanPage({
             p.mockup_prompt_hanging, p.mockup_prompt_model,
             p.price_cents, p.content_status, p.content_note,
             s.scheduled_at, s.status AS sched_status,
-            (SELECT count(*)::int FROM product_images i WHERE i.product_id = p.id) AS image_count
+            (SELECT count(*)::int FROM product_images i
+              WHERE i.product_id = p.id AND coalesce(i.role,'') <> 'cover_unstamped') AS image_count
        FROM products p JOIN schedule s ON s.product_id = p.id
       WHERE p.shop_id=${shopId} AND ${where.join(" AND ")}
       ORDER BY s.scheduled_at, p.slot, p.concept_no, p.variant`, params);

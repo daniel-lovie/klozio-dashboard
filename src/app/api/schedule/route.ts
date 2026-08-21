@@ -19,7 +19,8 @@ export async function GET(req: Request) {
             p.id AS product_id, p.slug, p.title, p.price_cents, p.colorways, p.sizes,
             p.seo_score, p.net_margin_pct, p.etsy_listing_id, p.etsy_state,
             (SELECT id FROM product_images i WHERE i.product_id=p.id ORDER BY rank LIMIT 1) AS cover_image_id,
-            (SELECT count(*) FROM product_images i WHERE i.product_id=p.id) AS image_count
+            (SELECT count(*) FROM product_images i
+              WHERE i.product_id=p.id AND coalesce(i.role,'') <> 'cover_unstamped') AS image_count
        FROM schedule s JOIN products p ON p.id=s.product_id
        ${where}
       ORDER BY s.scheduled_at`, params);

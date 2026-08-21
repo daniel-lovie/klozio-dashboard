@@ -182,6 +182,24 @@ export async function* streamOllama(messages: any[], system: string, tools: read
 
   clearTimeout(timer);
 
+  // A tool call the model TYPED instead of calling.
+  //
+  // Qwen does this: asked which style to use, it produced the literal characters
+  // {"name": "ask", "arguments": {"question": ..., "options": [...]}} as its answer, and the operator
+  // was shown raw JSON where a row of buttons belonged. Nothing failed — the model believed it had
+  // asked, the app believed it had answered, and the turn ended.
+  //
+  // It is salvaged rather than refused because the model's INTENT is unambiguous and the alternative
+  // is losing the turn. Only when no real tool call came through, and only when the parse yields a tool
+  // this agent actually has: a message that merely quotes JSON stays a message.
+  if (!calls.length) {
+    const typed = typedToolCall(text, tools);
+    if (typed) {
+      calls = [{ function: { name: typed.name, arguments: typed.args } }];
+      text = "";
+    }
+  }
+
   const content: any[] = [];
   if (text.trim()) content.push({ type: "text", text });
   for (const c of calls) {
@@ -203,6 +221,48 @@ export async function* streamOllama(messages: any[], system: string, tools: read
 
 function safeParse(s: string) {
   try { return JSON.parse(s); } catch { return {}; }
+}
+
+/**
+ * Recover a tool call the model wrote as text.
+ *
+ * Three shapes seen from Qwen: a bare object, one inside ```json fences, and one inside the
+ * <tool_call> tags its chat template uses. The braces are matched by scanning rather than by regex,
+ * because a nested object — which `ask` always has — ends a lazy pattern at the wrong place.
+ */
+function typedToolCall(raw: string, tools: readonly any[]):
+    { name: string; args: any } | null {
+  const known = new Set(tools.map((t: any) => t?.name).filter(Boolean));
+  let s = raw.trim();
+  if (!s) return null;
+  const tag = /<tool_call>([\s\S]*?)<\/tool_call>/.exec(s);
+  if (tag) s = tag[1].trim();
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+
+  const start = s.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false, end = -1;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (esc) { esc = false; continue; }
+    if (ch === "\\") { esc = true; continue; }
+    if (ch === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) { end = i + 1; break; }
+  }
+  if (end < 0) return null;
+
+  // Text around the object means prose that happens to quote JSON, not a call. Ten characters of
+  // slack covers a trailing newline or a stray period, not a sentence.
+  if (start > 10 || s.length - end > 10) return null;
+
+  let obj: any;
+  try { obj = JSON.parse(s.slice(start, end)); } catch { return null; }
+  const name = obj?.name ?? obj?.tool ?? obj?.function?.name;
+  if (typeof name !== "string" || !known.has(name)) return null;
+  const args = obj?.arguments ?? obj?.parameters ?? obj?.input ?? obj?.function?.arguments ?? {};
+  return { name, args: typeof args === "string" ? safeParse(args) : (args ?? {}) };
 }
 
 /** Is the chat agent configured to run locally, and is the model actually there? */

@@ -1069,6 +1069,22 @@ def _finish_matte(cut, out: Path) -> tuple[Path, dict]:
     opaque = float((alpha == 255).sum()) / total
     mid = float(((alpha > 8) & (alpha < 248)).sum()) / total
     art_px = max(cut.size)
+
+    # A large flat field inside the artwork is a backing plate — the model drawing a disc or slab behind
+    # the subject, invisible on ivory and a sticker on anything else. key_cutout has measured this for a
+    # while; THIS path reported a hard-coded 0.0 alongside the numbers that genuinely are zero here
+    # (there was no key colour, so leftover-key really is nil). pale_field is not in that category, and
+    # sitting at zero disabled the gate for every locally drawn design — which is now all of them. A
+    # dragon on a solid pink disc reached a live launch that way on 2026-08-21.
+    #
+    # Measured the same way as the key path, on the opaque pixels only, so the two reports mean the same
+    # thing and the 70% threshold that was calibrated over the catalogue still applies.
+    solid = alpha == 255
+    n_solid = int(solid.sum())
+    pale_frac = 0.0
+    if n_solid:
+        lum = arr[:, :, :3].astype(float) @ _np.array([0.2126, 0.7152, 0.0722])
+        pale_frac = round(float((lum[solid] > 215).sum()) / float(n_solid), 4)
     # Same keys the key_cutout report carries, so every gate and print statement downstream still
     # reads. The key-specific numbers are zero by construction: there was no key colour involved.
     # Every key the gates read, including the ones that are zero by construction here. A missing key
@@ -1077,7 +1093,7 @@ def _finish_matte(cut, out: Path) -> tuple[Path, dict]:
     rep = {"opaque_frac": opaque, "bg_frac": 1.0 - opaque - mid,
            "leftover_frac": 0.0, "leftover_key_px": 0,
            "holes_frac": 0.0, "holes_px": 0,
-           "pale_field_frac": 0.0, "halo_frac": mid, "edge_contact": 0.0,
+           "pale_field_frac": pale_frac, "halo_frac": mid, "edge_contact": 0.0,
            "art_px": art_px, "size_in_at_300": round(art_px / 300.0, 1), "method": "matte"}
     return out, rep
 

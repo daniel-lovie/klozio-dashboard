@@ -79,13 +79,55 @@ function fail(msg: string): never {
   throw new Error(msg);
 }
 
+/**
+ * Characters Etsy allows at most ONCE in a title.
+ *
+ * Not a style rule — the API rejects the listing outright. `dnd-c1-v1` failed to publish on 2026-08-21
+ * with `too_many_invalid_characters: "& can only be use once"` because its title said "D&D" twice, and
+ * it failed at PUBLISH time: after the design was drawn, the images composited and the launch slot
+ * approved. Every one of those steps is expensive and none of them could have known. It costs nothing
+ * to check the string the moment it is written.
+ */
+const ETSY_ONCE_ONLY = ["&", "%", ":"];
+
+/**
+ * Words that belong to us, not to a buyer.
+ *
+ * The same title carried "No Text" and "DTF Print" — the operator's own instructions, echoed back into
+ * the shop window. A buyer searching for a dragon shirt does not type "no text"; it spends characters
+ * from a 140-character budget saying something about our process instead of about the product.
+ */
+const INTERNAL_WORDS = [
+  "no text", "wordless", "dtf print", "dtf", "print file", "design file", "mockup", "png",
+  "300 dpi", "transparent background", "t-shirt design", "tshirt design",
+];
+
 const TITLE_MIN = 125;
 const TITLE_MAX = 140;
 /** Below this, nothing was written that could be called a title. */
 const TITLE_REPAIRABLE = 90;
 
 /** Bring a short title into the operating band using the product's own tags; refuse an over-long one. */
+function checkTitleText(t: string): void {
+  for (const ch of ETSY_ONCE_ONLY) {
+    const n = t.split(ch).length - 1;
+    if (n > 1) {
+      fail(`title uses "${ch}" ${n} times — Etsy allows it once and rejects the listing otherwise `
+         + `(too_many_invalid_characters). Rewrite so only one "${ch}" remains; for example spell the `
+         + "second one out.");
+    }
+  }
+  const lower = t.toLowerCase();
+  const leaked = INTERNAL_WORDS.filter((w) => lower.includes(w));
+  if (leaked.length) {
+    fail(`title contains our own process words (${leaked.join(", ")}). The title is shop-window copy: `
+       + "it says what the buyer is getting, not how we make it. Spend those characters on keywords "
+       + "someone would actually search for.");
+  }
+}
+
 function fitTitle(raw: string, tags: string[]): { title: string; titleNote: string | null } {
+  checkTitleText(raw);
   if (raw.length > TITLE_MAX) {
     fail(`title is ${raw.length} characters, ${raw.length - TITLE_MAX} over Etsy's ${TITLE_MAX} limit. `
        + "Remove a phrase — which keyword to drop is your call, so the tool will not cut it for you.");
@@ -113,6 +155,8 @@ function fitTitle(raw: string, tags: string[]): { title: string; titleNote: stri
     const next = `${out}, ${titleCase(t)}`;
     if (next.length <= TITLE_MAX) { out = next; added.push(titleCase(t)); }
   }
+  // Padding pulls text in from the tags, so the rules have to hold for the RESULT, not just the input.
+  checkTitleText(out);
   if (out.length < TITLE_MIN) {
     fail(`title is ${out.length} characters and the tags could not close the gap to ${TITLE_MIN}. `
        + `Add at least ${TITLE_MIN - out.length} more characters of real keywords.`);

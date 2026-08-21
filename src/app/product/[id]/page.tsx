@@ -15,7 +15,8 @@ export default async function ProductPage(
   if (!p) return <main className="p-8">Product not found.</main>;
 
   const imgs = await q<any>(
-    `SELECT id, rank, role, label, filename, width, height FROM product_images WHERE product_id=$1 ORDER BY rank`,
+    `SELECT id, rank, role, label, filename, width, height FROM product_images
+      WHERE product_id=$1 AND coalesce(role,'') <> 'cover_unstamped' ORDER BY rank`,
     [Number(id)]
   );
   const sched = await q<any>(

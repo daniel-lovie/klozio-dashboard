@@ -6,7 +6,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
   if (!(await isLoggedIn())) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await ctx.params;
   const row = await one<any>(`SELECT s.*, p.id AS pid,
-      (SELECT count(*) FROM product_images i WHERE i.product_id=p.id) AS imgs
+      (SELECT count(*) FROM product_images i
+        WHERE i.product_id=p.id AND coalesce(i.role,'') <> 'cover_unstamped') AS imgs
     FROM schedule s JOIN products p ON p.id=s.product_id WHERE s.id=$1`, [Number(id)]);
   if (!row) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (row.status === "published") return NextResponse.json({ error: "already published" }, { status: 409 });

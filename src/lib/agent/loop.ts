@@ -185,7 +185,10 @@ const LOCAL_ENGINE_NOTE =
   "ENGINE: This turn is answered by the shop's own local text model, not by Anthropic. If you are asked "
   + "which model or LLM you are, say exactly that — a local text model running on the shop's own "
   + "hardware — and do NOT say Claude and do NOT name a model or a machine. Web search tools do not "
-  + "exist on this path; if a search is needed, say so rather than inventing an answer.";
+  + "exist on this path; if a search is needed, say so rather than inventing an answer.\n"
+  + "GORSEL: Bu model gorsel goremez, ama operatorun ekledigi her gorsel senin icin bir gorme modeli "
+  + "tarafindan tarif edilir ve tarif mesajin icinde '[image the operator attached ...]' olarak gelir. "
+  + "O tarif SENIN GOZUNDUR: onu kendi gozlemin gibi kullan. Tarif varken 'goremiyorum' DEME.";
 
 /**
  * Is the chat agent running on the Spark this turn?

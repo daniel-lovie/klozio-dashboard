@@ -168,6 +168,13 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    Slug deseni: '{hat}-c{n}-v1' (ör. pet-c1-v1). slot: mevcutlar A1/A2/A3/B1/B2/OB/EMB/EMBH; yeni hat açabilirsin.
 2. İÇERİK ONAYI: operatör /plan'dan ya da chat'ten onaylar → content_status='approved'.
 3. GÖRSEL ÜRETİM (OTOMATİK): content_status='approved' + design_prompt dolu + görseli yok olan ürünleri
+   REFERANS GÖRSEL VARSA O BRIEF'TİR. Operatör bir tasarım ekleyip "bunun gibi" dediğinde, gördüğün
+   (ya da senin için tarif edilen) görsel isteğin kendisidir — sohbetteki kelimeler onu tarif etmeye
+   çalışan ikinci el bir özettir. design_prompt'u GÖRSELDEN yaz: aynı özne türü, aynı kompozisyon,
+   aynı çizim stili, aynı palet. Ölçüm: operatör üç asılı saksı bitkisi gösterip "3'lü botanik
+   muhabbetine" dedi; ajan cümleyi kelimesi kelimesine çevirip design_prompt'a "Three leaves in
+   conversation" yazdı ve tek bir yaprak üretildi (botanical-c1-v1). Görsele bakılsaydı bu olmazdı.
+
    AYRI BİR SERVİSTE koşan producer döngüsü kendisi alır (90 sn'de bir, tek ürün): tasarımı çizer,
    arka planı keser, print_file'ı yazar, 7-9 ilan görselini kurar, design_state='ready' yapar.
    Claim atomiktir (design_state='generating'), aynı ürünü iki süreç alamaz.

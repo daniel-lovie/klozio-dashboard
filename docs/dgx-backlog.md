@@ -58,11 +58,25 @@ Ayrıca `draft_product` artık badge/emblem/circle isteyen prompt'u reddediyor.
 | en baskın tek renk payı (n=140) | %39.6 | %35.2 | medyanın **altında** — sinyal yok |
 | en büyük tek-renk bitişik blok (n=45) | %28.1 · p95 %77.7 | %77.9 | tam p95'te, ama orada meşru işler var |
 
+**Üçüncü metrik de denendi ve kaldı (2026-08-21).** Aynı ölçüm bir *kapı* yerine *puan cezası* olarak
+denendi — kapının aksine yanlış-red üretemez, çünkü üretici zaten aynı konseptin birkaç adayını çiziyor
+ve ceza sadece plakasız olanı tercih ettirir. Ama ölçüm asıl vakayı görmüyor: sulu boya dokulu pembe
+panel **%25.5** çıktı, yani medyanın bile altında. Sebep, plakaların çoğunun *düz renk olmaması*;
+kuantalama onu birden fazla kovaya bölüyor. Kod geri alındı — hiç ateşlemeyen bir ölçüm, olmayan
+ölçümden kötüdür.
+
 İkinci metrikte %70 eşiği `vibe-pixelpet-v1` (%100), `vibe-tokens-v1` (%93) ve `spiritual-m1-v1`
 (%73.6) tasarımlarını reddederdi — hepsi kasıtlı minimal/tek renk işler ve mağazanın stili bu.
 Yani kapı, önlediğinden fazla iyi işi reddeder. Plaka, düz renk stilinden *ölçüyle* ayrılamıyor;
 ayıran şey şeklin **geometrik** olması (disk/dikdörtgen), ve bunu ölçmek için şekil analizi gerekir —
 yapılabilir ama bu bulguyla başlanmalı, sıfırdan değil.
+
+**Prompt tarafında iki gerçek düzeltme var, ve bunlar işe yarıyor:**
+`strip_background_talk` "white background" / "plain background" gibi **edatsız** arka plan
+talimatlarını kaçırıyordu (ikisi de `on`/`against` istiyordu) — `botanical-c2-v1`'in pembe paneli tam
+olarak buradan geldi: modele arka plan BOYAMASI söylendi, şeffafa beyaz boyayamayınca renkli panel
+çizdi. Artık temizleniyor (7/7 test, meşru "green field" cümlelerine dokunmadan). Ayrıca
+`draft_product` arka plan isteyen prompt'u yazma anında reddediyor.
 
 `produce_product.py`'deki `pale_field` kapısı (krem plaka) duruyor ve **onarıldı**: yerel kesim yolu
 `pale_field_frac`'i sabit `0.0` döndürüyordu, yani o kapı yerel çizilen her tasarım için — ki artık

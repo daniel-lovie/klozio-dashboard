@@ -84,6 +84,22 @@ const PLATE_WORDS = [
   "framed", "in a frame", "banner", "plaque", "roundel", "crest",
 ];
 
+/**
+ * Asking for a background at all.
+ *
+ * The print is cut out and laid on cotton, so there IS no background — and a model told to put the
+ * subject on "a plain white background" cannot paint white onto transparency, so it paints a coloured
+ * panel instead. botanical-c2-v1 came out with a solid pink slab behind one plant on 2026-08-21, from
+ * a prompt ending "...palette on plain white background". The pipeline strips this before generating
+ * as a second line of defence; refusing it here means the concept never carries the contradiction.
+ */
+const BACKGROUND_WORDS = [
+  "white background", "plain background", "solid background", "flat background",
+  "light background", "neutral background", "clean background", "simple background",
+  "coloured background", "colored background", "background colour", "background color",
+  "on a background", "against a background", "backdrop",
+];
+
 /** Phrases that ask an image model to draw letters. Rule 5: all type is hand-set in a licensed font. */
 const TEXT_IN_ART = [
   "the text", "text reads", "the word", "the words", "written", "lettering", "typography",
@@ -277,6 +293,14 @@ export async function draftProduct(input: DraftInput, shopId: number) {
        + "colourful and eye-catching — DTF prints full colour natively, the constraint is flatness, not "
        + "palette size. Name at least two colours (e.g. 'warm rust, deep olive and mustard'). If you "
        + "want one colour on purpose, say 'monochrome' or 'one-colour' and it passes.");
+  }
+
+  const bg = BACKGROUND_WORDS.filter((w) => lower.includes(w));
+  if (bg.length) {
+    fail(`design_prompt asks for a background ("${bg[0]}"). The artwork is cut out and printed onto `
+       + "cotton, so there is no background to paint — and a model told to paint a white one cannot "
+       + "paint white onto transparency, so it paints a coloured panel instead. Say 'transparent "
+       + "background' or describe the subject alone.");
   }
 
   const plate = PLATE_WORDS.filter((w) => lower.includes(w));

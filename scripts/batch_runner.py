@@ -266,6 +266,15 @@ _BG_PHRASE = re.compile(
     r"\s*\b(on|against|over|upon|atop|in front of)\s+(a|an|the)?\s*[^.,;]*?"
     r"\b(background|backdrop|field|ground|backing)\b[^.,;]*", re.I)
 
+# The same instruction with the preposition left off — "..., white background" or ", plain background,"
+# — which is how a concept usually writes it in a comma-separated list and which both patterns above
+# missed, because both require an "on"/"against". It reached the model as a request to PAINT a
+# background, and since it cannot paint white onto transparency it painted a coloured panel instead:
+# botanical-c2-v1 came out with a solid pink slab behind one of its plants (2026-08-21).
+_BG_BARE = re.compile(
+    r"\s*,?\s*\b(plain|solid|flat|white|light|neutral|clean|simple)\s+"
+    r"(background|backdrop|field|ground)\b", re.I)
+
 
 # The concept's own palette can make the file uncuttable before a single credit is spent: the cut keys on
 # magenta, so a concept that asks for pink artwork gets holes punched through it. 36 rows in this catalogue
@@ -313,11 +322,11 @@ def strip_caption_talk(text: str) -> str:
 def strip_background_talk(text: str) -> str:
     """Remove any background instruction from a concept, so the pipeline's own clause stands alone."""
     src = (text or "").strip()
-    out = re.sub(r"\s{2,}", " ", _BG_SENTENCE.sub("", src)).strip()
+    out = re.sub(r"\s{2,}", " ", _BG_BARE.sub("", _BG_SENTENCE.sub("", src))).strip().rstrip(",.;— ")
     if out:
         return out
     # Sentence-level strip took the subject with it. Cut the phrase instead.
-    narrow = re.sub(r"\s{2,}", " ", _BG_PHRASE.sub("", src)).strip().rstrip(",.;— ")
+    narrow = re.sub(r"\s{2,}", " ", _BG_BARE.sub("", _BG_PHRASE.sub("", src))).strip().rstrip(",.;— ")
     return narrow if narrow else src
 
 
@@ -1085,6 +1094,7 @@ def _finish_matte(cut, out: Path) -> tuple[Path, dict]:
     if n_solid:
         lum = arr[:, :, :3].astype(float) @ _np.array([0.2126, 0.7152, 0.0722])
         pale_frac = round(float((lum[solid] > 215).sum()) / float(n_solid), 4)
+
     # Same keys the key_cutout report carries, so every gate and print statement downstream still
     # reads. The key-specific numbers are zero by construction: there was no key colour involved.
     # Every key the gates read, including the ones that are zero by construction here. A missing key

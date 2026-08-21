@@ -33,7 +33,16 @@ async function claim(): Promise<{ id: number; slug: string; priorState: string |
     `WITH picked AS (
         SELECT p.id, p.design_state AS prior_state FROM products p
          WHERE p.content_status = 'approved'
-           AND (p.design_state IS NULL OR p.design_state = 'redo')
+           -- 'ready' with no images belongs here too. It is a contradiction — the artwork exists and
+           -- the listing has nothing to show — and until now no loop resolved it: the producer only
+           -- claimed NULL or 'redo', so four approved products sat unreachable, one of them scheduled
+           -- to publish and certain to fail because Etsy requires an image. The print file is already
+           -- there, so this pass only rebuilds the mockups.
+           AND (p.design_state IS NULL OR p.design_state = 'redo'
+                OR (p.design_state = 'ready'
+                    AND NOT EXISTS (SELECT 1 FROM product_images g2
+                                     WHERE g2.product_id = p.id
+                                       AND coalesce(g2.role,'') <> 'cover_unstamped')))
            AND p.design_prompt IS NOT NULL
            -- No hook check. A wordless design is the default, not a defect: the operator's standing
            -- instruction (2026-08-20) is that nothing carries a slogan unless they asked for one, and a

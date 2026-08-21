@@ -51,6 +51,15 @@ export function makeProducer(pool: pg.Pool) {
             (pr.content_status='approved' AND pr.design_state IS NULL
               AND NOT EXISTS (SELECT 1 FROM product_images i WHERE i.product_id=pr.id))
             OR pr.design_state='redo'
+            -- 'ready' with no listing images is a contradiction nothing else resolves: the artwork
+            -- exists, the listing has nothing to show, and the claim above only takes NULL. Four
+            -- approved products sat unreachable that way, one scheduled to publish and certain to fail
+            -- because Etsy requires an image. The print file is already there, so the pass only
+            -- rebuilds the mockups. See the same note in src/lib/producer.ts.
+            OR (pr.design_state='ready'
+                AND NOT EXISTS (SELECT 1 FROM product_images i2
+                                 WHERE i2.product_id=pr.id
+                                   AND coalesce(i2.role,'') <> 'cover_unstamped'))
             OR (pr.design_state='generating' AND pr.updated_at < now() - interval '30 minutes')
           )
         ORDER BY pr.id LIMIT 1 FOR UPDATE SKIP LOCKED)

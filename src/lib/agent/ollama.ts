@@ -107,7 +107,14 @@ export async function* streamOllama(messages: any[], system: string, tools: read
   // path has always retried a cut stream; this path had nothing to cut it. Once tokens are flowing a
   // gap this long is not a slow model, it is a connection that is never coming back, and throwing hands
   // the turn to the retry-then-fall-back-to-cloud logic that already exists in loop.ts.
-  const FIRST_BYTE_MS = 180_000;
+  // The first-byte budget has to cover a COLD load, and cold here is not the 115s of an idle machine.
+  // The worker evicts the text model whenever an image job needs the GPU — sequential tenancy is the
+  // rule that keeps a 128GB box off its memory ceiling — so a chat turn that lands during production
+  // waits for a reload while ComfyUI still holds the card. At 180s that read as "stream cut", retried
+  // twice, and then fell through to a cloud path this deployment does not have (2026-08-21). Silence
+  // before the first token is a slow machine; silence after it is a dead connection, and only the
+  // second is a fault.
+  const FIRST_BYTE_MS = 420_000;
   const IDLE_MS = 90_000;
 
   const abort = new AbortController();

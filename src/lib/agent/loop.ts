@@ -193,6 +193,11 @@ const LOCAL_ENGINE_NOTE =
  * Checked per turn rather than at boot: the Spark is a machine in a flat, and the honest answer
  * changes when someone unplugs it. Falling back costs a few cents and keeps the agent answering.
  */
+/** Was local ASKED for? Separate from whether it answered — the difference is the whole fallback rule. */
+function wantsLocal(): boolean {
+  return (process.env.AGENT_ENGINE || "cloud").trim() === "local";
+}
+
 async function useLocalAgent(): Promise<boolean> {
   if ((process.env.AGENT_ENGINE || "cloud").trim() !== "local") return false;
   return ollamaReady();
@@ -423,6 +428,15 @@ export async function* runAgentTurn(
           // not loaded — a chat agent that goes silent because a machine at home is off is worse than
           // one that costs pennies.
           servedLocal = await useLocalAgent();
+          // The cloud is a fallback only where a cloud actually exists. This deployment runs entirely on
+          // the shop's own hardware and carries no Anthropic key on purpose, so a local hiccup — the
+          // model still loading, a moment of network — used to route the turn at an unauthenticated API
+          // and return "Anthropic 401: x-api-key header is required" three times, which describes
+          // nothing the operator can act on and hides the real cause. Keep it local and say so.
+          if (!servedLocal && wantsLocal() && !apiKey) {
+            throw new Error("local model unreachable and no cloud key is configured — "
+                          + "check that the local text model is running");
+          }
           if (!announcedEngine) {
             announcedEngine = true;
             // Named by ROLE, never by model or machine. Which weights sit behind "text model" is an
@@ -445,7 +459,12 @@ export async function* runAgentTurn(
               // load off disk is ~115s of silence, and without this line that silence looks like a hang.
               if (!firstToken) {
                 firstToken = Date.now();
-                yield { t: "log", d: { k: "ok", s: "first token", ms: firstToken - stepStart } };
+                const wait = firstToken - stepStart;
+                // Name a cold start when it happens. The worker evicts the text model to give the GPU
+                // to an image job, so the next chat turn pays for a reload — minutes of silence that is
+                // normal and looks identical to a hang.
+                yield { t: "log", d: { k: "ok", s: wait > 30_000 ? "first token (model was cold)" : "first token",
+                                       ms: wait } };
               }
               yield { t: "text", d: ev.text };
             } else assistant = ev;

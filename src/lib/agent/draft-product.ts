@@ -253,9 +253,16 @@ export async function draftProduct(input: DraftInput, shopId: number) {
               (SELECT count(*)::int FROM schedule s WHERE s.product_id = products.id) AS scheduled
          FROM products WHERE id = $1`, [id]);
     const r = back.rows[0];
-    if (!r.has_prompt || !r.has_model || (technique === "dtf" && !r.has_hook)) {
+    // The hook is NOT checked. It was, and it outlived the rule it was enforcing: when the hook became
+    // optional the validation above stopped requiring one and this line kept demanding it, so every
+    // wordless DTF product — which is now the default — passed every check and was then rolled back by
+    // its own verification, reporting only "post-write verification failed". A read-back must verify
+    // what the writer actually promised; it stops being a safety net the moment it asks for more.
+    const missing = [!r.has_prompt && "design_prompt", !r.has_model && "design_model"].filter(Boolean);
+    if (missing.length) {
       await client.query("ROLLBACK");
-      fail("post-write verification failed — the row was rolled back.");
+      fail(`post-write verification failed (${missing.join(", ")} empty after the insert) — `
+         + "the row was rolled back.");
     }
     await client.query("COMMIT");
 

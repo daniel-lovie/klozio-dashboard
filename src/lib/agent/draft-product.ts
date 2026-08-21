@@ -119,8 +119,26 @@ const INTERNAL_WORDS = [
 
 const TITLE_MIN = 125;
 const TITLE_MAX = 140;
-/** Below this, nothing was written that could be called a title. */
-const TITLE_REPAIRABLE = 90;
+
+/**
+ * Is there a title here to repair, or only a stub?
+ *
+ * Length was the first answer and it was wrong. An Etsy title is comma-separated keyword phrases, and
+ * three of those can easily land at 80 characters — "Big Sis Tee, Custom Sibling Names Shirt Comfort
+ * Colors Shirt, Big Sister Reveal" is a real title that a length floor of 90 threw out. Structure is
+ * what actually separates the two cases: a stub is one phrase someone started, a title is several.
+ *
+ * The floor stays as a second route, for the rare long title written without commas. Together they
+ * still refuse the fifteen-character stub that padding would turn into keyword salad.
+ */
+function isRepairableTitle(t: string): boolean {
+  // Phrases, not commas: a two-phrase title at 76 characters ("Halloween Trip Shirt, Funny
+  // Personalized Headstone Tee") is a real title with room left, and a comma count of two threw it
+  // out. The length floor beside it is what keeps a short fragment with one comma from being padded
+  // into keyword salad — the two conditions have to hold together.
+  const phrases = t.split(",").map((x) => x.trim()).filter((x) => x.length > 3);
+  return (phrases.length >= 2 && t.length >= 50) || t.length >= 90;
+}
 
 /** Bring a short title into the operating band using the product's own tags; refuse an over-long one. */
 function checkTitleText(t: string): void {
@@ -141,7 +159,14 @@ function checkTitleText(t: string): void {
   }
 }
 
-function fitTitle(raw: string, tags: string[]): { title: string; titleNote: string | null } {
+/**
+ * Exported so the bulk repair uses the SAME rules as the write path.
+ *
+ * Thirty-four scheduled products carried titles of 76-95 characters, written before the band was
+ * enforced. Re-implementing the padding in a one-off script is how two definitions of "a correct
+ * title" start drifting apart; there is one, and it lives here.
+ */
+export function fitTitle(raw: string, tags: string[]): { title: string; titleNote: string | null } {
   checkTitleText(raw);
   if (raw.length > TITLE_MAX) {
     fail(`title is ${raw.length} characters, ${raw.length - TITLE_MAX} over Etsy's ${TITLE_MAX} limit. `
@@ -151,10 +176,11 @@ function fitTitle(raw: string, tags: string[]): { title: string; titleNote: stri
   // Repair a title, do not write one. Padding a fifteen-character stub with seven tags produces a
   // keyword salad that satisfies the rule and sells nothing — the test caught exactly that. Below this
   // floor the title has not been written yet, and no amount of appending changes that.
-  if (raw.length < TITLE_REPAIRABLE) {
-    fail(`title is only ${raw.length} characters. Write a real title first — comma-separated keyword `
-       + `phrases, primary keyword unbroken in the first 40 characters, ${TITLE_MIN}-${TITLE_MAX} total. `
-       + "The tool will close a small gap with your tags, but it will not invent the title for you.");
+  if (!isRepairableTitle(raw)) {
+    fail(`title is only ${raw.length} characters and is a single phrase. Write a real title first — `
+       + `comma-separated keyword phrases, primary keyword unbroken in the first 40 characters, `
+       + `${TITLE_MIN}-${TITLE_MAX} total. The tool will close a gap with your tags, but it will not `
+       + "invent the title for you.");
   }
 
   const titleCase = (t: string) => t.replace(/\b\w/g, (m) => m.toUpperCase());

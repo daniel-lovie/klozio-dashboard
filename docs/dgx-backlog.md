@@ -41,6 +41,33 @@ yerine 1600 px kopyadan maske çıkarmak **11.0 sn → 10.8 sn** yapıyor (eşik
 aynı). Yani maliyet çözünürlükte değil, CPU çıkarımında. Gerçek çözüm arka plan silmeyi ComfyUI
 grafiğinin içine bir GPU düğümü olarak (BiRefNet/RMBG) almak; bu bir öğleden sonralık iş, kısayol değil.
 
+## 4b. Arka plaka ("sticker" defekti) — çözüldü, ama KAPIYLA DEĞİL
+
+**Belirti:** model konunun arkasına istenmemiş dolu bir şekil çiziyor (D&D ejderhası pembe disk üstünde,
+`dnd-c1-v1`, 2026-08-21). Tişörte yapıştırılmış sticker gibi basılıyor ve önizlendiği renk dışındaki
+her colorway'de yanlış duruyor. `nano_banana_pro` aynı davranış yüzünden bırakılmıştı.
+
+**Çözüm: negatif prompt.** `scripts/image_engine.py` NEGATIVE'ine sticker/badge/disc/frame terimleri
+eklendi. Aynı prompt, aynı seed ile A/B: çizimin en büyük tek-renk bitişik bloğu **%77.9 → %40.7**.
+Ayrıca `draft_product` artık badge/emblem/circle isteyen prompt'u reddediyor.
+
+**Kapı KOYULMADI, ve sebebi ölçüldü — tekrar denemeyin.** İki aday metrik, ikisi de ayırmıyor:
+
+| metrik | katalog medyanı | kötü örnek | sonuç |
+|---|---|---|---|
+| en baskın tek renk payı (n=140) | %39.6 | %35.2 | medyanın **altında** — sinyal yok |
+| en büyük tek-renk bitişik blok (n=45) | %28.1 · p95 %77.7 | %77.9 | tam p95'te, ama orada meşru işler var |
+
+İkinci metrikte %70 eşiği `vibe-pixelpet-v1` (%100), `vibe-tokens-v1` (%93) ve `spiritual-m1-v1`
+(%73.6) tasarımlarını reddederdi — hepsi kasıtlı minimal/tek renk işler ve mağazanın stili bu.
+Yani kapı, önlediğinden fazla iyi işi reddeder. Plaka, düz renk stilinden *ölçüyle* ayrılamıyor;
+ayıran şey şeklin **geometrik** olması (disk/dikdörtgen), ve bunu ölçmek için şekil analizi gerekir —
+yapılabilir ama bu bulguyla başlanmalı, sıfırdan değil.
+
+`produce_product.py`'deki `pale_field` kapısı (krem plaka) duruyor ve **onarıldı**: yerel kesim yolu
+`pale_field_frac`'i sabit `0.0` döndürüyordu, yani o kapı yerel çizilen her tasarım için — ki artık
+hepsi — kapalıydı.
+
 ## 5. Kullanıcı başına adil kuyruk
 Tek FIFO. 100 kullanıcıda sonuncusu saatlerce bekler.
 

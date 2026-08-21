@@ -164,8 +164,27 @@ def generate_via_queue(prompt: str, out: Path, aspect: str, seed: int | None,
     raise TimeoutError(f"is {jid} {QUEUE_TIMEOUT_S}s icinde bitmedi")
 
 
+# The negative prompt is where a recurring defect gets fixed, because it is the only place the model
+# reliably listens. Everything here was added after seeing it in a finished product, not in advance.
+#
+# The BACKING PLATE is the newest and the most expensive. Asked for "a minimalist dragon with a castle
+# in the background", Juggernaut drew the dragon on a solid dusty-pink disc — a shape nobody asked for,
+# which prints as a sticker slapped on the shirt and reads as a mistake on every colourway but the one
+# it was previewed against. It does this because "t-shirt graphic" pulls diffusion models toward badge
+# and sticker compositions; nano_banana_pro was dropped for the same behaviour (a die-cut base plate
+# over 53.8% of the opaque area, measured 2026-08-12) and Juggernaut does a milder version of it.
+#
+# Why here rather than a gate: I looked for one. Across 140 catalogue files the obvious metric —
+# largest single-colour share of the opaque area — has a MEDIAN of 39.6%, while the offending dragon
+# measured 35.2%. It cannot separate a plate from the shop's own flat-colour style, and the
+# one-colour `vibe-*` designs sit at 100% while being exactly right. A threshold there would refuse
+# good work and still pass this. The pale-plate gate in produce_product.py stays as the backstop for
+# the cream-slab case it was calibrated for; this is the fix for the coloured one.
 NEGATIVE = ("text, words, letters, typography, watermark, signature, gradient, photo, 3d render, "
-            "drop shadow")
+            "drop shadow, "
+            "sticker, die-cut sticker, badge, emblem, logo, circular background, solid circle behind "
+            "subject, coloured disc, background shape, backing plate, filled panel, framed panel, "
+            "border, frame, plaque, label shape, rounded rectangle background, banner")
 
 
 def _dims(aspect: str) -> tuple[int, int]:

@@ -69,6 +69,21 @@ const COLOUR_WORDS = [
 ];
 const MONOCHROME = /monochrome|one[- ]colou?r|single colou?r|two[- ]tone|black and white/i;
 
+/**
+ * Compositions that produce a backing plate.
+ *
+ * Diffusion models drift toward badge and sticker layouts whenever a t-shirt graphic is described, and
+ * asking for one outright guarantees it: a solid shape behind the subject that prints as a sticker
+ * slapped on the garment and looks wrong on every colourway but the one it was previewed against.
+ * `dnd-c1-v1` shipped a dragon on a dusty-pink disc on 2026-08-21. The negative prompt now fights this
+ * on every generation; a prompt that ASKS for it fights back, so it is refused here.
+ */
+const PLATE_WORDS = [
+  "badge", "emblem", "sticker", "die-cut", "circular background", "circle background",
+  "inside a circle", "in a circle", "backing plate", "solid background", "panel behind",
+  "framed", "in a frame", "banner", "plaque", "roundel", "crest",
+];
+
 /** Phrases that ask an image model to draw letters. Rule 5: all type is hand-set in a licensed font. */
 const TEXT_IN_ART = [
   "the text", "text reads", "the word", "the words", "written", "lettering", "typography",
@@ -236,6 +251,14 @@ export async function draftProduct(input: DraftInput, shopId: number) {
        + "colourful and eye-catching — DTF prints full colour natively, the constraint is flatness, not "
        + "palette size. Name at least two colours (e.g. 'warm rust, deep olive and mustard'). If you "
        + "want one colour on purpose, say 'monochrome' or 'one-colour' and it passes.");
+  }
+
+  const plate = PLATE_WORDS.filter((w) => lower.includes(w));
+  if (plate.length) {
+    fail(`design_prompt asks for a badge-style composition ("${plate[0]}"). That draws a solid shape `
+       + "behind the subject, which prints as a sticker on the shirt and looks wrong on every colourway "
+       + "but the previewed one. Describe the subject itself against a transparent background — no "
+       + "disc, panel, frame or banner behind it.");
   }
 
   const ip = IP_WORDS.filter((w) => `${designPrompt} ${title} ${hook}`.toLowerCase().includes(w));

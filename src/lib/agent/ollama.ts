@@ -30,6 +30,107 @@ function ollamaHeaders(extra: Record<string, string> = {}): Record<string, strin
 }
 const MODEL = process.env.LOCAL_TEXT_MODEL || "qwen3:30b-a3b";
 
+/**
+ * The eye, kept separate from the brain.
+ *
+ * The text model has no vision, and `toOllama` was dropping image blocks on the floor — so asked
+ * "can you see my design?" it answered, correctly, that it could not, having been handed nothing.
+ * Worse, a tool result carrying an image (which is the entire point of `look`) fell through to
+ * JSON.stringify and poured raw base64 into the prompt.
+ *
+ * A vision model DESCRIBES; it does not take over. Swapping the agent for a VLM would trade tool
+ * calling — the thing this agent is made of — for eyesight it needs on a minority of turns. So images
+ * are turned into words once, by a small model, and the words go to the agent that can act on them.
+ */
+const VISION_MODEL = (process.env.LOCAL_VISION_MODEL || "qwen2.5vl:7b").trim();
+
+/** What the agent needs to know about a picture, in the terms it works in. */
+const VISION_BRIEF =
+  "Describe this image as a design brief for a t-shirt graphic, in English, in at most 90 words. "
+  + "Cover: the subject, the composition, the illustration style, the colour palette by name, whether "
+  + "any words or lettering appear (quote them), and the background. State only what you can see.";
+
+/**
+ * Descriptions are cached by image content for the life of the process.
+ *
+ * History is replayed in full on every turn, so a reference image pasted once would otherwise be
+ * re-described on every step of every later turn — several seconds and a model load each time, for an
+ * answer that cannot have changed.
+ */
+const seen = new Map<string, string>();
+const VISION_MAX = 400;
+
+function imageKey(data: string): string {
+  let h = 0;
+  for (let i = 0; i < data.length; i += 97) h = (h * 31 + data.charCodeAt(i)) | 0;
+  return `${data.length}:${h}`;
+}
+
+async function describeImage(b64: string, mime: string): Promise<string> {
+  const key = imageKey(b64);
+  const hit = seen.get(key);
+  if (hit) return hit;
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 180_000);
+    const res = await fetch(`${OLLAMA}/api/chat`, {
+      method: "POST", signal: c.signal,
+      headers: ollamaHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({
+        // A short hold, deliberately. Ollama runs one model at a time on this box (the memory rule that
+        // keeps diffusion and the LLM from colliding), so loading the eye evicts the brain and the next
+        // step pays for a reload. 60s is long enough for several images in one turn and short enough
+        // that the memory is back before the operator's next question.
+        model: VISION_MODEL, stream: false, keep_alive: "60s",
+        messages: [{ role: "user", content: VISION_BRIEF, images: [b64] }],
+      }),
+    });
+    clearTimeout(t);
+    if (!res.ok) throw new Error(`${res.status}`);
+    const j: any = await res.json();
+    const text = String(j?.message?.content ?? "").trim().slice(0, 1200);
+    if (!text) throw new Error("empty");
+    const out = `[image the operator attached (${mime}), described by the vision model: ${text}]`;
+    if (seen.size > VISION_MAX) seen.clear();   // a plain bound; these are cheap to recompute
+    seen.set(key, out);
+    return out;
+  } catch (e: any) {
+    // Saying so is the point. Dropping the image silently is what produced an agent that claimed it
+    // could not see while nobody knew the pipe was disconnected.
+    return `[an image is attached but it could not be read (${String(e?.message ?? e).slice(0, 60)}). `
+         + "Tell the operator you cannot see it and ask them to describe it.]";
+  }
+}
+
+/**
+ * Replace every image block with words, before the messages reach a model that cannot see.
+ *
+ * Runs over the whole history because the history is what gets replayed; the cache keeps that from
+ * costing anything after the first time.
+ */
+export async function describeImages(messages: any[]): Promise<any[]> {
+  const out: any[] = [];
+  for (const m of messages) {
+    if (typeof m.content === "string" || !Array.isArray(m.content)) { out.push(m); continue; }
+    const blocks: any[] = [];
+    for (const b of m.content) {
+      if (b?.type === "image" && b?.source?.data) {
+        blocks.push({ type: "text", text: await describeImage(b.source.data, b.source.media_type ?? "image") });
+      } else if (b?.type === "tool_result" && Array.isArray(b.content)) {
+        const parts: string[] = [];
+        for (const x of b.content) {
+          if (x?.type === "image" && x?.source?.data) {
+            parts.push(await describeImage(x.source.data, x.source.media_type ?? "image"));
+          } else parts.push(x?.text ?? JSON.stringify(x));
+        }
+        blocks.push({ ...b, content: parts.join("\n") });
+      } else blocks.push(b);
+    }
+    out.push({ ...m, content: blocks });
+  }
+  return out;
+}
+
 type Block = { type: string; [k: string]: any };
 
 /** Anthropic tool definitions -> the OpenAI-style shape Ollama expects. */
@@ -128,7 +229,7 @@ export async function* streamOllama(messages: any[], system: string, tools: read
     body: JSON.stringify({
       model: MODEL, stream: true, keep_alive: "10m",
       tools: toolsForOllama(tools),
-      messages: toOllama(messages, system),
+      messages: toOllama(await describeImages(messages), system),
     }),
   }).catch((e: any) => {
     clearTimeout(timer);

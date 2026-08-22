@@ -39,6 +39,7 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   async function switchShop(v: string) {
+    if (v === "__none__") return;
     if (v === "__new__") { router.push("/shops/new"); return; }
     setBusy(true);
     const res = await fetch("/api/shops/switch", {
@@ -59,7 +60,12 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
 
   // The active shop must be in the list or the select falls back to its first option and silently
   // displays the wrong store as current.
-  const value = shops.some((s) => s.id === active) ? active : (shops[0]?.id ?? "__new__");
+  //
+  // A user with NO shops must not land on "__new__" as the current value. A <select> fires onChange only
+  // when the value CHANGES, so preselecting it made "＋ Yeni mağaza…" already-selected and clicking it
+  // did nothing at all — for the one person who needs it most, a brand-new account with nothing else to
+  // pick. The placeholder holds the slot instead, so choosing "new" is a real change.
+  const value = shops.some((s) => s.id === active) ? active : (shops[0]?.id ?? "__none__");
 
   const links = isAdmin ? [...LINKS, { href: "/users", label: "Kullanıcılar", group: "kayit" }] : LINKS;
 
@@ -75,7 +81,10 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
           title={shops.length > 1 ? `${shops.length} mağaza` : undefined}
           className="h-9 min-w-0 max-w-[45vw] flex-none truncate rounded border border-line-strong bg-raised px-2.5 text-sm font-semibold disabled:opacity-60 sm:mr-1 sm:max-w-none"
         >
-          {shops.length === 0 && <option value="__none__">mağaza listesi alınamadı</option>}
+          {/* "could not be loaded" is what an operator with shops sees when a fetch fails; a new account
+              has no shops because it has not made one yet, and telling them something broke sends them
+              looking for a fault instead of at the option below. */}
+          {shops.length === 0 && <option value="__none__">mağaza yok — aşağıdan oluştur</option>}
           {shops.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}

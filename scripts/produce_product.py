@@ -167,7 +167,7 @@ def generate(p: dict, work: Path, reinforce: bool = False, tag: str = "") -> Pat
         # uses, so the prompt and the mockup now read one number instead of disagreeing by construction.
         from produce_images import print_placement
         dp = p.get("design_params") if isinstance(p.get("design_params"), dict) else {}
-        spot = print_placement(dp)
+        spot = print_placement(dp, shop_setting(p.get("shop_id") or 1, "print_inches", None))
         tail = br.style_tail(style, with_palette=not has_palette, subject=subject, with_text=has_hook,
                              print_in=spot.get("inches"), placement=spot.get("spot"),
                              palette=dp.get("palette"))
@@ -417,7 +417,8 @@ def cutout(p: dict, raw: Path, work: Path, tol: int = TOL_WIDE, attempt: int = 1
     # needs 1200 px and demanding 2850 of it would be a warning we learn to ignore; a full-front print still
     # has to carry its full size. The design declares the size, and the file is measured against that.
     import produce_images as pi                     # noqa: PLC0415 — only this check needs the placement
-    want_in = pi.print_placement(p.get("design_params"))["inches"]
+    want_in = pi.print_placement(p.get("design_params"),
+                                 shop_setting(p.get("shop_id") or 1, "print_inches", None))["inches"]
     if rep["size_in_at_300"] < want_in * 0.95:
         print(f"  UYARI dosya 300 PPI'da {rep['size_in_at_300']} inc basilabilir ama tasarim "
               f"{want_in:g} inc icin isaretli — daha buyuk uretilmeli", file=sys.stderr)
@@ -625,6 +626,26 @@ def store_print_file(p: dict, art: Path) -> None:
     c.commit(); c.close()
 
 
+def shop_setting(shop_id: int, key: str, default):
+    """One value out of shops.settings, with a default for a shop that has none yet.
+
+    Commercial rules — the sale percentage, whether the cover carries a FREE SHIPPING stamp, how many
+    inches the print spans — differ per shop and used to be Klozio's constants standing in for every
+    shop's. MOTIFLY runs a 50% sale, refuses the stamp and prints 9.5 inches; none of that could be
+    expressed until these moved into the row.
+    """
+    try:
+        c = conn(); k = c.cursor()
+        k.execute("SELECT settings FROM shops WHERE id = %s", (shop_id,))
+        row = k.fetchone()
+        c.close()
+        st = (row[0] if row else None) or {}
+        v = st.get(key)
+        return default if v is None else v
+    except Exception:
+        return default
+
+
 def stamp_cover_now(pid: int, shop_id: int) -> None:
     """Put FREE SHIPPING on the cover, here, while the cover is being made.
 
@@ -638,7 +659,11 @@ def stamp_cover_now(pid: int, shop_id: int) -> None:
     try:
         sys.path.insert(0, str(HERE))
         import free_shipping_stamp as fss                          # noqa: PLC0415
-        if shop_id not in fss.FREE_SHIPPING_SHOPS:
+        # Whether the stamp is honest is a per-shop fact and it now lives with the shop, not in a set of
+        # ids in this file. MOTIFLY does not want it (operator, 2026-08-22) and a list would have made
+        # that a code change every time a shop opened.
+        if not shop_setting(shop_id, "free_shipping_stamp", shop_id in fss.FREE_SHIPPING_SHOPS):
+            print("  kapak damgasi bu magazada kapali", file=sys.stderr)
             return
         c = conn(); k = c.cursor()
         k.execute("""SELECT g.id, g.bytes FROM product_images g

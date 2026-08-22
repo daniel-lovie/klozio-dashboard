@@ -14,7 +14,7 @@
  * Every check below is a rule that already exists somewhere — CLAUDE.md, the listing standards, the
  * producer's claim query — enforced here at the only moment where saying "no" is still cheap.
  */
-import { pool } from "../db";
+import { pool, one } from "../db";
 
 export const DEFAULT_COLORWAYS = [
   "Black", "Pepper", "Espresso", "Midnight", "Graphite", "Blue Jean", "Denim",
@@ -22,9 +22,32 @@ export const DEFAULT_COLORWAYS = [
 ];
 export const DEFAULT_SIZES = ["S", "M", "L", "XL", "2X", "3X", "4X", "Digital PNG"];
 
-/** $24.99 to the buyer after the standing 30% sale. The column holds the anchor, never the paid price. */
-const DEFAULT_PRICE_CENTS = 3570;
-const SALE = 0.7;
+/**
+ * Commercial rules are PER SHOP, and they were Klozio's constants pretending to be the shop's.
+ *
+ * Klozio runs a standing 30% sale and sells at $24.99, so the anchor is 3570. MOTIFLY runs 50% and
+ * sells at $23.99, so its anchor is 4798 — put Klozio's number on a MOTIFLY product and the buyer pays
+ * $17.85 instead, which is under the margin floor and invisible until someone reads a payout.
+ *
+ * These now live in shops.settings and this is the fallback for a shop that has none yet.
+ */
+const FALLBACK = { sale_pct: 30, buyer_price_usd: 24.99, print_inches: 10.0 };
+
+type ShopRules = { salePct: number; buyerPrice: number; anchorCents: number; printInches: number;
+                   techniques: string[] };
+
+async function shopRules(shopId: number): Promise<ShopRules> {
+  const row = await one<{ settings: any }>(`SELECT settings FROM shops WHERE id=$1`, [shopId]);
+  const st = row?.settings ?? {};
+  const salePct = Number(st.sale_pct ?? FALLBACK.sale_pct);
+  const buyerPrice = Number(st.buyer_price_usd ?? FALLBACK.buyer_price_usd);
+  return {
+    salePct, buyerPrice,
+    anchorCents: Math.round((buyerPrice / (1 - salePct / 100)) * 100),
+    printInches: Number(st.print_inches ?? FALLBACK.print_inches),
+    techniques: Array.isArray(st.techniques) && st.techniques.length ? st.techniques : ["dtf", "embroidery"],
+  };
+}
 
 /** Producer cost and label, from pod-fulfillment/references/cost-model.md (real numbers, 2026-07-31). */
 const POD_COST_CENTS = 950;
@@ -226,8 +249,14 @@ export async function draftProduct(input: DraftInput, shopId: number) {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
     fail("invalid slug: lowercase letters, digits and hyphens. Pattern '{line}-c{n}-v1' (e.g. pet-c1-v1).");
   }
+  const rules = await shopRules(shopId);
+
   const technique = String(input.technique ?? "dtf").trim().toLowerCase();
   if (technique !== "dtf" && technique !== "embroidery") fail("technique must be 'dtf' or 'embroidery'.");
+  if (!rules.techniques.includes(technique)) {
+    fail(`this shop does not sell ${technique} yet — it sells ${rules.techniques.join(", ")}. `
+       + "Change shops.settings.techniques first if that is wrong.");
+  }
 
   const niche = String(input.niche ?? "").trim();
   if (niche.length < 3) fail("niche is empty — name the buyer audience in a few words.");
@@ -314,12 +343,14 @@ export async function draftProduct(input: DraftInput, shopId: number) {
   const ip = IP_WORDS.filter((w) => `${designPrompt} ${title} ${hook}`.toLowerCase().includes(w));
   if (ip.length) fail(`a brand or character name appears: ${ip.join(", ")}. Nothing but original work is drawn.`);
 
-  const priceCents = Math.round(Number(input.price_cents ?? DEFAULT_PRICE_CENTS));
-  const buyer = (priceCents * SALE) / 100;
-  if (!Number.isFinite(priceCents) || buyer < 18 || buyer > 26) {
-    fail(`price_cents ${priceCents} -> $${buyer.toFixed(2)} to the buyer. price_cents is the ANCHOR `
-       + "price with a standing 30% sale on top; what the buyer pays must land in the 18-26 band "
-       + `(default ${DEFAULT_PRICE_CENTS} = $24.99).`);
+  const priceCents = Math.round(Number(input.price_cents ?? rules.anchorCents));
+  // What the buyer actually pays, through THIS shop's sale — 30% at Klozio, 50% at MOTIFLY.
+  const buyer = (priceCents * (1 - rules.salePct / 100)) / 100;
+  if (!Number.isFinite(priceCents) || buyer < 18 || buyer > 32) {
+    fail(`price_cents ${priceCents} -> $${buyer.toFixed(2)} to the buyer after this shop's `
+       + `${rules.salePct}% sale. price_cents is the ANCHOR, never the paid price; what the buyer pays `
+       + `must land in the 18-32 band (this shop's default ${rules.anchorCents} = `
+       + `$${rules.buyerPrice.toFixed(2)}).`);
   }
 
   const designModel = String(input.design_model ?? "gpt_image_2").trim() || "gpt_image_2";
@@ -385,7 +416,7 @@ export async function draftProduct(input: DraftInput, shopId: number) {
 
     return {
       id, slug, technique, title_len: title.length, title_fixed: titleNote, tags: tags.length,
-      buyer_price: `$${buyer.toFixed(2)}`, scheduled: r.scheduled > 0 ? scheduledAt!.toISOString() : null,
+      buyer_price: `$${buyer.toFixed(2)} (${rules.salePct}% sale)`, scheduled: r.scheduled > 0 ? scheduledAt!.toISOString() : null,
       queue: technique === "dtf"
         ? "the producer loop takes one product every 90s; report progress with production_status"
         : "embroidery: separate production flow",

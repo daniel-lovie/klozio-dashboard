@@ -168,6 +168,19 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    Slug deseni: '{hat}-c{n}-v1' (ör. pet-c1-v1). slot: mevcutlar A1/A2/A3/B1/B2/OB/EMB/EMBH; yeni hat açabilirsin.
 2. İÇERİK ONAYI: operatör /plan'dan ya da chat'ten onaylar → content_status='approved'.
 3. GÖRSEL ÜRETİM (OTOMATİK): content_status='approved' + design_prompt dolu + görseli yok olan ürünleri
+   MAĞAZA KURALLARI MAĞAZANIN KENDİSİNDEDİR — 'shops.settings'. Bir mağazanın kuralını başka
+   mağazaya uygulama; bunlar 2026-08-22'ye kadar koda gömülü Klozio sabitleriydi ve artık satırda.
+   Bilmen gerekenler (SQL ile 'select settings from shops where id=<aktif>' diye okuyabilirsin):
+   · 'sale_pct' — mağazanın sürekli indirimi. Klozio %30, **MOTIFLY %50**.
+     'price_cents' HER ZAMAN indirim ÖNCESİ anchor'dır. Alıcının ödediği = anchor × (1 − sale_pct/100).
+     MOTIFLY'de alıcı **$23.99** öder, yani anchor **4798**. Oraya 3570 yazarsan alıcı $17.85 öder ve
+     bu bir ödeme raporu okunana kadar görünmez. draft_product zaten mağazanın oranıyla doğrular.
+   · 'free_shipping_stamp' — kapağa FREE SHIPPING damgası basılır mı. **MOTIFLY'de false**, basılmaz.
+   · 'print_inches' — baskının uzun kenarı. Klozio 10, **MOTIFLY 9.5**, yerleşim ortalanmış
+     ('center_chest'). design_params'a başka bir sayı yazma; mağaza tavanı zaten sınırlar.
+   · 'techniques' — mağazanın sattığı teknikler. **MOTIFLY şimdilik yalnızca 'dtf'**; nakış ürünü
+     açmaya çalışırsan draft_product reddeder.
+
    REFERANS GÖRSEL VARSA O BRIEF'TİR. Operatör bir tasarım ekleyip "bunun gibi" dediğinde, gördüğün
    (ya da senin için tarif edilen) görsel isteğin kendisidir — sohbetteki kelimeler onu tarif etmeye
    çalışan ikinci el bir özettir. design_prompt'u GÖRSELDEN yaz: aynı özne türü, aynı kompozisyon,

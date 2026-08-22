@@ -113,12 +113,16 @@ def as_params(raw) -> dict:
     return {}
 
 
-def print_placement(params) -> dict:
+def print_placement(params, shop_max_in: float | None = None) -> dict:
     """Resolve a product's stored placement into inches and position fractions.
 
     design_params may carry `placement` (a PRINT_SPOTS key) and `print_inches` (the LONGER side, in
     inches). Either may be missing, in which case the style's own scale decides, and failing that the
     full-front print the shop has always sold.
+
+    `shop_max_in` is the SHOP's ceiling, from shops.settings.print_inches. Klozio prints ten inches and
+    that number was the module's constant; MOTIFLY prints 9.5 (operator, 2026-08-22). Passing it here
+    keeps one shop's physical limit from silently becoming every shop's.
     """
     p = as_params(params)
     style_spot, style_in = STYLE_SPOT.get(str(p.get("style") or ""), (DEFAULT_SPOT, None))
@@ -128,6 +132,11 @@ def print_placement(params) -> dict:
     spot = PRINT_SPOTS[spot_key]
     if p.get("print_inches") is None and p.get("placement") is None and style_in:
         p = {**p, "print_inches": style_in}
+    # No stored size and no style opinion: print at the shop's own standard rather than the spot's
+    # generic one. The operator asked for MOTIFLY's prints to be "standart 9.5 inch", which is a size,
+    # not just a ceiling.
+    if p.get("print_inches") is None and shop_max_in:
+        p = {**p, "print_inches": float(shop_max_in)}
     inches = p.get("print_inches")
     try:
         inches = float(inches) if inches is not None else float(spot["inches"])
@@ -135,7 +144,7 @@ def print_placement(params) -> dict:
         inches = float(spot["inches"])
     # The physical print area caps it; anything larger cannot be produced whatever the row says. The label
     # reports the capped value, not the request — a badge reading 99" on a 10" print is a lie in the gallery.
-    inches = min(inches, PRINT_INCHES)
+    inches = min(inches, float(shop_max_in or PRINT_INCHES))
     # A left-chest print is a small patch by definition. `placement=left_chest` with `print_inches=10` was
     # accepted in silence and composited 10 inches wide at x=0.78 — off the shoulder and off the garment.
     # The pair is incoherent, so the placement wins and the size is corrected out loud rather than shipped.
@@ -349,7 +358,16 @@ def main() -> None:
             params = json.loads(params)
         except ValueError:
             params = {}
-    place = print_placement(params)
+    # The shop's own print standard, not the module default: MOTIFLY prints 9.5 inches, Klozio 10.
+    shop_in = None
+    try:
+        cur.execute("SELECT s.settings->>'print_inches' FROM products p JOIN shops s ON s.id = p.shop_id "
+                    "WHERE p.id = %s", (pid,))
+        got = cur.fetchone()
+        shop_in = float(got[0]) if got and got[0] else None
+    except Exception:
+        shop_in = None
+    place = print_placement(params, shop_in)
     if place["inches"] != PRINT_INCHES or place["x"] is not None:
         print(f"yerlesim: {place['label']}", file=sys.stderr)
     chosen = next((n for n in MODELS if blanks.get(n, {}).get("colorway") == want), None)

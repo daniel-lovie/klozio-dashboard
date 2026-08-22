@@ -22,9 +22,34 @@ export type ShopCtx = {
   shopifyDomain: string;
   shopifyClientId: string;
   shopifyClientSecret: string;
+  /** Anchor price of the Digital PNG variation, before the shop's standing sale. Per shop because the
+   *  sale rate is: 1714 is $12.00 at Klozio's 30%, and would be $8.57 at MOTIFLY's 50%. */
+  digitalAnchorCents: number;
 };
 
 const als = new AsyncLocalStorage<ShopCtx>();
+
+/** Klozio's number, kept as the fallback so shop 1 and any shop without settings behave as before. */
+const DIGITAL_ANCHOR_FALLBACK = 1714;
+
+/**
+ * What the Digital PNG variation is anchored at for this shop.
+ *
+ * Stated as what the BUYER pays, because that is the number the operator decides and the anchor is a
+ * consequence of the sale rate. MOTIFLY sells the file at $9.99 under a 50% sale, so 1998; Klozio sells
+ * it at $12.00 under 30%, so 1714. The same constant in both places would have charged MOTIFLY buyers
+ * $8.57 and nobody would have seen it until a payout.
+ */
+function digitalAnchor(st: any): number {
+  const explicit = Number(st?.digital_anchor_cents ?? 0);
+  if (explicit > 0) return Math.round(explicit);
+  const buyer = Number(st?.digital_buyer_price_usd ?? 0);
+  const salePct = Number(st?.sale_pct ?? 0);
+  if (buyer > 0 && salePct >= 0 && salePct < 100) {
+    return Math.round((buyer / (1 - salePct / 100)) * 100);
+  }
+  return DIGITAL_ANCHOR_FALLBACK;
+}
 
 function envCtx(): ShopCtx {
   return {
@@ -42,6 +67,7 @@ function envCtx(): ShopCtx {
     shopifyDomain: process.env.SHOPIFY_STORE_DOMAIN || "",
     shopifyClientId: process.env.SHOPIFY_CLIENT_ID || "",
     shopifyClientSecret: process.env.SHOPIFY_CLIENT_SECRET || "",
+    digitalAnchorCents: DIGITAL_ANCHOR_FALLBACK,
   };
 }
 
@@ -63,8 +89,10 @@ export function shopCtx(): ShopCtx {
 
 export async function runWithShop<T>(dbShopId: number, fn: () => Promise<T>): Promise<T> {
   if (dbShopId === 1) return als.run(envCtx(), fn);
-  const rows = await q<{ creds: any }>(`SELECT creds FROM shops WHERE id=$1`, [dbShopId]);
+  const rows = await q<{ creds: any; settings: any }>(
+    `SELECT creds, settings FROM shops WHERE id=$1`, [dbShopId]);
   const c = rows[0]?.creds ?? {};
+  const st = rows[0]?.settings ?? {};
   const keystring = c.etsy_api_key ?? "";
   const ctx: ShopCtx = {
     dbShopId,
@@ -83,6 +111,7 @@ export async function runWithShop<T>(dbShopId: number, fn: () => Promise<T>): Pr
     shopifyDomain: c.shopify_domain || "",
     shopifyClientId: c.shopify_client_id || "",
     shopifyClientSecret: c.shopify_client_secret || "",
+    digitalAnchorCents: digitalAnchor(st),
   };
   // Deliberately NOT a precondition. A new shop should be able to hold products, generate designs,
   // build listing images and fulfil orders before anyone has an Etsy developer account — Etsy is one

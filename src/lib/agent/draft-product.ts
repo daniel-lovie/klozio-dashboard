@@ -34,7 +34,7 @@ export const DEFAULT_SIZES = ["S", "M", "L", "XL", "2X", "3X", "4X", "Digital PN
 const FALLBACK = { sale_pct: 30, buyer_price_usd: 24.99, print_inches: 10.0 };
 
 type ShopRules = { salePct: number; buyerPrice: number; anchorCents: number; printInches: number;
-                   techniques: string[] };
+                   techniques: string[]; digitalPng: boolean };
 
 async function shopRules(shopId: number): Promise<ShopRules> {
   const row = await one<{ settings: any }>(`SELECT settings FROM shops WHERE id=$1`, [shopId]);
@@ -45,6 +45,7 @@ async function shopRules(shopId: number): Promise<ShopRules> {
     salePct, buyerPrice,
     anchorCents: Math.round((buyerPrice / (1 - salePct / 100)) * 100),
     printInches: Number(st.print_inches ?? FALLBACK.print_inches),
+    digitalPng: st.digital_png !== false,
     techniques: Array.isArray(st.techniques) && st.techniques.length ? st.techniques : ["dtf", "embroidery"],
   };
 }
@@ -355,7 +356,16 @@ export async function draftProduct(input: DraftInput, shopId: number) {
 
   const designModel = String(input.design_model ?? "gpt_image_2").trim() || "gpt_image_2";
   const colorways = input.colorways?.length ? input.colorways : DEFAULT_COLORWAYS;
-  const sizes = input.sizes?.length ? input.sizes : DEFAULT_SIZES;
+  // The Digital PNG option rides on the sizes array, so whether a shop sells the file is decided by
+  // whether the row carries it. It was arriving only because it happens to sit in DEFAULT_SIZES, which
+  // makes "every product gets one" true by accident and false the moment somebody passes sizes
+  // explicitly. The shop's setting decides now, in both directions.
+  let sizes = input.sizes?.length ? [...input.sizes] : [...DEFAULT_SIZES];
+  const hasDigital = sizes.some((z) => String(z).trim().toLowerCase() === "digital png");
+  if (rules.digitalPng && !hasDigital) sizes.push("Digital PNG");
+  if (!rules.digitalPng && hasDigital) {
+    sizes = sizes.filter((z) => String(z).trim().toLowerCase() !== "digital png");
+  }
   const hero = String(input.hero_colorway ?? "Pepper").trim();
 
   let scheduledAt: Date | null = null;
@@ -416,7 +426,8 @@ export async function draftProduct(input: DraftInput, shopId: number) {
 
     return {
       id, slug, technique, title_len: title.length, title_fixed: titleNote, tags: tags.length,
-      buyer_price: `$${buyer.toFixed(2)} (${rules.salePct}% sale)`, scheduled: r.scheduled > 0 ? scheduledAt!.toISOString() : null,
+      buyer_price: `$${buyer.toFixed(2)} (${rules.salePct}% sale)`,
+      digital_png: rules.digitalPng, scheduled: r.scheduled > 0 ? scheduledAt!.toISOString() : null,
       queue: technique === "dtf"
         ? "the producer loop takes one product every 90s; report progress with production_status"
         : "embroidery: separate production flow",

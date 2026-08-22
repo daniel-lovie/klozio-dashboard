@@ -176,8 +176,12 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
      MOTIFLY'de alıcı **$23.99** öder, yani anchor **4798**. Oraya 3570 yazarsan alıcı $17.85 öder ve
      bu bir ödeme raporu okunana kadar görünmez. draft_product zaten mağazanın oranıyla doğrular.
    · 'free_shipping_stamp' — kapağa FREE SHIPPING damgası basılır mı. **MOTIFLY'de false**, basılmaz.
-   · 'print_inches' — baskının uzun kenarı. Klozio 10, **MOTIFLY 9.5**, yerleşim ortalanmış
+   · 'print_inches' — baskının uzun kenarı. Klozio 10, **MOTIFLY 10**, yerleşim ortalanmış
      ('center_chest'). design_params'a başka bir sayı yazma; mağaza tavanı zaten sınırlar.
+   · 'digital_png' — her ürüne Digital PNG varyasyonu eklenir mi. MOTIFLY'de **true**: baskı dosyası
+     her üründe satılır. Fiyatı 'digital_buyer_price_usd' — MOTIFLY'de alıcıya **$9.99** (anchor 1998),
+     Klozio'da $12.00 (anchor 1714). Bu varyasyon sizes dizisinde taşınır; draft_product mağazanın
+     ayarına göre ekler ya da çıkarır, sen elle uğraşma.
    · 'techniques' — mağazanın sattığı teknikler. **MOTIFLY şimdilik yalnızca 'dtf'**; nakış ürünü
      açmaya çalışırsan draft_product reddeder.
 

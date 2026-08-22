@@ -42,7 +42,12 @@ from joblog import Job                                         # noqa: E402
 import typeset                                                 # noqa: E402
 import design_feedback                                        # noqa: E402
 import design_score                                           # noqa: E402
+import plate_check                                            # noqa: E402
 import produce_images as pi_mod                               # noqa: E402
+
+# What a backing plate costs a candidate. A quarter of the scale: decisive between two draws of the
+# same concept, never enough to make a plated design lose to nothing.
+PLATE_PENALTY = 25.0
 
 # How many candidates to draw before choosing. 1 keeps the old behaviour and the old bill.
 BEST_OF = max(1, int(os.environ.get("DESIGN_BEST_OF", "1")))
@@ -756,7 +761,28 @@ def produce(pid: int, redo: bool = False, stage: str = "all") -> dict:
                         raw.unlink(missing_ok=True)
                         continue
                     pts, parts = design_score.score_file(cand.read_bytes(), want_in)
-                    print(f"  aday a{attempt}: {pts}/100 {parts}", file=sys.stderr)
+                    # The backing plate, judged rather than measured. Three colour statistics failed to
+                    # separate a plate from this shop's own flat-colour style (all three recorded in
+                    # docs/dgx-backlog.md); a vision model reads figure against ground and got six of
+                    # six real designs right, including a cream disc behind a dog that every statistic
+                    # had scored clean and which was one approval from shipping.
+                    #
+                    # A PREFERENCE, not a gate. It costs a candidate 25 points, so a plated draw loses
+                    # to any clean sibling and still wins over nothing at all — because refusing every
+                    # candidate would stop production for a judgement call, and an unreachable model
+                    # (None) must change nothing.
+                    plate = plate_check.has_plate(cand.read_bytes())
+                    if plate:
+                        pts = max(0.0, pts - PLATE_PENALTY)
+                        parts = {**parts, "plate": -PLATE_PENALTY}
+                        design_feedback.record_quietly(
+                            product_id=p["id"], shop_id=p.get("shop_id"), source="pipeline",
+                            verdict="rejected", reason="plate arka plaka tespit edildi (gorsel model)",
+                            metrics={"plate": 1}, prompt=(p.get("design_prompt") or "")[:8000],
+                            design_model=br.DEFAULT_MODEL, attempt=attempt)
+                    print(f"  aday a{attempt}: {pts}/100 {parts}"
+                          f"{' · PLAKA' if plate else (' · plaka yok' if plate is False else '')}",
+                          file=sys.stderr)
                     if pts > best[0]:
                         best = (pts, cand, parts)
                 if best[1] is None:

@@ -220,9 +220,15 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    recraft_v4_1 52/16 (%31). nano_banana_pro'yu bilerek seçme: tasarımın çevresine die-cut sticker taban
    plakası çiziyor (opak alanın %53.8'i), koyu kumaşta krem levha olarak basıyor ve prompta yasak eklemek
    bunu DEĞİŞTİRMEDİ (ölçüldü, 2026-08-12). Ayrıca kredi başına 4.00 vs 0.75.
-   hook KOLONU = TİŞÖRTE DİZİLECEK SLOGAN. VARSAYILAN BOŞ. (Operatör talimatı, 2026-08-20.)
-   · Slogan YALNIZCA operatör açıkça yazı istediyse yazılır ("üstünde şu yazsın", "şöyle bir slogan
-     olsun"). İstemediyse hook'u BOŞ BIRAK; tasarım yazısız çıkar ve bu doğrudur.
+   hook KOLONU = TİŞÖRTE DİZİLECEK SLOGAN. Yaklaşık 10 üründen 6'sında yazı OLSUN, 4'ünde OLMASIN
+   (operatör talimatı, 2026-08-22; 2026-08-20'deki "hep yazısız" kuralının yerini aldı).
+   · Ölçüt: SATIR YERİNİ HAK ETSİN. Zaten kendini anlatan bir tasarıma (kitabın üstünde bir güve,
+     tek bir monstera yaprağı) yazı eklemek dekorasyondur, tasarım değil — onları boş bırak.
+     Aynı nişteki HER tişörte yazılabilecek bir cümle ise sessizlikten kötüdür.
+   · İyi satır KENDİ görselindeki bir şeyi adlandırır: "BAG'S BEEN IN THE CAR SINCE MARCH" (spor
+     çantası), "MY BOOKMARK HAS OPINIONS" (kitabın üstünde kedi), "FABRIC SCISSORS. DO NOT TOUCH."
+     (makas). Ölçüm: uydurulmuş jenerik satır "CHERRY ANIME" hiçbir şey ifade etmedi ve şablon gibi
+     durdu — zorunlu alan modeli tam olarak buna iter, o yüzden zorunlu değil.
      Zorunlu bir alan modeli slogan uydurmaya iter: anime portresi "CHERRY ANIME" başlığıyla çıktı —
      hiçbir şey ifade etmiyor ve şablon gibi duruyor. Konuyu title ve tag'ler anlatır, tişört anlatmaz.
    · Yazı istendiyse: kısa, çoğunlukla büyük harf (ör. 'STILL WAITING (FOR TOMATOES)'). Tarif cümlesi

@@ -5,14 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 
 // Grouped, because seven links in one flat row is a graveyard: the operator cannot tell which of them
 // is today's work. Production is what the shop does daily; the rest is where you go to check on it.
+// /plan and /usage still exist and still work; they are off the bar because the operator does not use
+// them (2026-08-22). Removing the routes would break links already sent and saved.
 const LINKS = [
   { href: "/", label: "Takvim", group: "uretim" },
-  { href: "/plan", label: "Plan", group: "uretim" },
   { href: "/chat", label: "Agent", group: "uretim" },
   { href: "/portfolio", label: "Portföy", group: "kayit" },
   { href: "/orders", label: "Siparişler", group: "kayit" },
   { href: "/analytics", label: "Analytics", group: "kayit" },
-  { href: "/usage", label: "Kullanım", group: "kayit" },
 ];
 
 type ShopOption = { id: number; name: string };
@@ -41,6 +41,7 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
   async function switchShop(v: string) {
     if (v === "__none__") return;
     if (v === "__new__") { router.push("/shops/new"); return; }
+    if (v === "__settings__") { router.push("/shops/settings"); return; }
     setBusy(true);
     const res = await fetch("/api/shops/switch", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -89,6 +90,7 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
           <option value="__new__">＋ Yeni mağaza…</option>
+          {shops.length > 0 && <option value="__settings__">⚙ Mağaza ayarları…</option>}
         </select>
 
         <div className="hidden items-center gap-0.5 md:flex">

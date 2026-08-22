@@ -12,6 +12,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   const { id } = await ctx.params;
   const creds = await getShopCreds(Number(id));
   const clientId = creds.etsy_api_key || process.env.ETSY_API_KEY || "";
+  // Without a keystring the redirect goes to Etsy with client_id= empty, and Etsy answers with its own
+  // error page that says nothing about which side is wrong. MOTIFLY hit exactly this: the shop was
+  // created before its Etsy app existed, so "connect" bounced to an Etsy error and looked like our bug.
+  if (!clientId) {
+    return NextResponse.json(
+      { error: "Bu magazanin Etsy uygulama anahtari yok. Once keystring ve shared secret girin, "
+             + "sonra baglanin." }, { status: 400 });
+  }
   const verifier = crypto.randomBytes(32).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
   const state = `${id}.${crypto.randomBytes(8).toString("hex")}`;

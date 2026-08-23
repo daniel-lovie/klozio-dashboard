@@ -529,8 +529,24 @@ def set_type(p: dict, art_path: Path, work: Path) -> Path:
         c = conn(); k = c.cursor()
         k.execute("UPDATE products SET hero_colorway=%s WHERE id=%s", (garment, p["id"]))
         c.commit(); c.close()
-        print(f"  yazisiz tasarim · garment {garment} secildi", file=sys.stderr)
-        return art_path
+
+        # Still go through compose, with no words.
+        #
+        # Returning the raw cutout here left the print file at whatever the subject's bounding box
+        # happened to be — 19 of MOTIFLY's first 72 came out between 1957 and 2999 px while every
+        # typeset design was exactly 3000, because compose() puts the artwork on the print canvas and
+        # this path skipped it. The row still recorded print_dpi 300 for a 10 inch print, which a
+        # 1957 px file cannot deliver: the same false record as the 2048 px typeset canvas fixed on
+        # 2026-08-19, arriving from the opposite direction.
+        #
+        # compose() already handles the no-text case by scaling the art to fit and centring it, so this
+        # is the existing tested path rather than a second implementation of it.
+        out = work / f"{p['slug']}-sized.png"
+        canvas, _drawn, _mask = typeset.compose(Image.open(art_path), None, size=PRINT_PX)
+        canvas.save(out)
+        print(f"  yazisiz tasarim · garment {garment} secildi · {PRINT_PX}px tuvale oturtuldu",
+              file=sys.stderr)
+        return out
     hook = fill_placeholders(hook)
     style = (p.get("design_params") or {}).get("style") if isinstance(p.get("design_params"), dict) else None
 

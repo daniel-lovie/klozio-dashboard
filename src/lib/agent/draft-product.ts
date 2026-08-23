@@ -341,7 +341,13 @@ export async function draftProduct(input: DraftInput, shopId: number) {
        + "disc, panel, frame or banner behind it.");
   }
 
-  const ip = IP_WORDS.filter((w) => `${designPrompt} ${title} ${hook}`.toLowerCase().includes(w));
+  // Word boundaries, not substrings. "sunflower" contains "nfl" and was refused as a league mark, which
+  // is the guard blocking legitimate work — the failure mode that makes people switch a guard off.
+  // Multi-word entries keep plain matching: a phrase already has its own boundaries.
+  const haystack = `${designPrompt} ${title} ${hook}`.toLowerCase();
+  const ip = IP_WORDS.filter((w) => w.includes(" ")
+    ? haystack.includes(w)
+    : new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(haystack));
   if (ip.length) fail(`a brand or character name appears: ${ip.join(", ")}. Nothing but original work is drawn.`);
 
   const priceCents = Math.round(Number(input.price_cents ?? rules.anchorCents));

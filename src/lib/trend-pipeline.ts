@@ -76,6 +76,38 @@ const CATEGORY: { test: RegExp; niche: string; draws: { subject: string; palette
 ];
 
 /**
+ * Write everything this scan saw, then never touch first_seen again.
+ *
+ * The feed has no history — ten items per geo, all published within the same half hour, and asking for
+ * 96 hours returns those same ten (measured 2026-08-24). So our own table IS the history, and a trend
+ * that reappears tomorrow must keep today's age or the widened window would never really reach back.
+ */
+async function remember(trends: Trend[]): Promise<void> {
+  for (const t of trends) {
+    await q(
+      `INSERT INTO trend_seen (geo, term, verdict, reason, headlines, traffic)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (geo, term) DO UPDATE SET verdict = EXCLUDED.verdict, reason = EXCLUDED.reason`,
+      [t.geo, t.term, t.verdict, t.reason, t.news.map((n) => n.title).join(" · "), t.traffic]);
+  }
+}
+
+/** Drawable trends first seen within `hours`, oldest window included, never one we already drew. */
+async function usableWithin(hours: number): Promise<Trend[]> {
+  const rows = await q<{ geo: string; term: string; headlines: string; traffic: string }>(
+    `SELECT geo, term, coalesce(headlines,'') AS headlines, coalesce(traffic,'') AS traffic
+       FROM trend_seen
+      WHERE verdict = 'USABLE' AND used_at IS NULL
+        AND first_seen > now() - ($1 || ' hours')::interval
+      ORDER BY first_seen DESC`, [String(hours)]);
+  return rows.map((r) => ({
+    geo: r.geo, term: r.term, traffic: r.traffic, published: "", picture: "",
+    verdict: "USABLE" as const, reason: "",
+    news: r.headlines ? r.headlines.split(" · ").map((title) => ({ title, source: "", url: "" })) : [],
+  }));
+}
+
+/**
  * Turn a usable trend into a brief, or nothing if it maps to no category we draw.
  *
  * `variant` picks which of the category's two drawings to ask for. On most days exactly one trend is
@@ -160,10 +192,27 @@ export async function runTrendRound(
   shopIds: number[],
   opts: { perDay?: number; geos?: string } = {},
 ) {
-  const target = opts.perDay ?? 2;
+  const fullTarget = opts.perDay ?? 2;
+
+  // Always scan, always remember — even on a night we end up drawing from history, today's trends have
+  // to be recorded or tomorrow's widened window has nothing to widen into.
   const trends = await scanTrends(opts.geos ?? "US,GB,CA");
-  const usable = trends.filter((t) => t.verdict === "USABLE");
+  await remember(trends);
   const review = trends.filter((t) => t.verdict === "REVIEW");
+
+  // 24 first. Only if the day is empty do we reach back — 48, then 72, then 96 — and a night that has
+  // to reach back draws ONE, not two. Yesterday's leftovers are staler and thinner than today's news;
+  // taking two of them would dress up a quiet day as a normal one.
+  const WINDOWS = [24, 48, 72, 96];
+  let usable: Trend[] = [];
+  let hours = WINDOWS[0];
+  for (const h of WINDOWS) {
+    usable = await usableWithin(h);
+    hours = h;
+    if (usable.length) break;
+  }
+  const widened = hours > WINDOWS[0];
+  const target = widened ? 1 : fullTarget;
 
   // Variant 1 of every usable trend first, then variant 2 of each. A second trend beats a second drawing
   // of the first one, but a second drawing beats an empty slot.
@@ -184,6 +233,11 @@ export async function runTrendRound(
       continue;
     }
 
+    // The thing we are actually avoiding is two listings with the same title chasing the same query, so
+    // check that, not a proxy for it. Niche-and-date nearly caught it: a fresh scan re-ran astronomy on a
+    // day one already existed, different slug, identical title.
+    const plannedTitle = titleFor(KW[b.niche], w.variant);
+
     let target_shop: number | null = null;
     for (let i = 0; i < shopIds.length; i++) {
       const id = shopIds[(turn + i) % shopIds.length];
@@ -194,9 +248,10 @@ export async function runTrendRound(
         `SELECT 1 FROM products
           WHERE shop_id = $1
             AND (slug = $2
+                 OR title = $4
                  OR (niche = $3 AND slug LIKE 'trend-%'
                      AND created_at < date_trunc('day', now() AT TIME ZONE 'America/Chicago')))
-          LIMIT 1`, [id, b.slug, b.niche]);
+          LIMIT 1`, [id, b.slug, b.niche, plannedTitle]);
       if (dup.length) continue;
       target_shop = id;
       break;
@@ -214,25 +269,30 @@ export async function runTrendRound(
       when.setUTCHours(15, 0, 0, 0);
       const out = await draftProduct({
         slug: b.slug, niche: b.niche, technique: "dtf",
-        title: titleFor(KW[b.niche], w.variant), description: AI_NOTE + BODY, tags: KW[b.niche],
+        title: plannedTitle, description: AI_NOTE + BODY, tags: KW[b.niche],
         design_prompt: b.prompt, scheduled_at: when.toISOString(),
       }, target_shop);
       // The plan page groups by slot; without one these products used to be invisible on the only screen
       // built for approving them. TR is their own bucket.
       await q(`UPDATE products SET slot = 'TR' WHERE id = $1`, [out.id]);
+      // Spent. Without this the same stored trend would come back through every widened window until it
+      // finally aged out four days later.
+      await q(`UPDATE trend_seen SET used_at = now() WHERE geo = $1 AND term = $2`, [w.t.geo, w.t.term]);
       made.push({ shopId: target_shop, slug: out.slug, niche: b.niche, term: w.t.term });
     } catch (e: any) {
       skipped.push({ term: w.t.term, why: String(e.message).slice(0, 90) });
     }
   }
 
+  const window = widened ? ` · ${hours}s penceresine genisletildi, bu yuzden hedef 1` : "";
   const short = made.length < target
     ? ` · HEDEFIN ${target - made.length} ALTINDA (cizilebilir trend yok)` : "";
   await logEvent("trend_run", {
-    detail: `${trends.length} trend · ${usable.length} cizilebilir · ${made.length}/${target} urun · `
-          + `${shopIds.length} magaza · ${review.length} insan bakmali${short}`,
+    detail: `${trends.length} trend · ${usable.length} cizilebilir (${hours}s) · ${made.length}/${target} urun · `
+          + `${shopIds.length} magaza · ${review.length} insan bakmali${window}${short}`,
   });
-  return { scanned: trends.length, usable: usable.length, target, shops: shopIds, made, skipped,
+  return { scanned: trends.length, usable: usable.length, hours, widened, target, shops: shopIds,
+           made, skipped,
            review: review.map((t) => ({ term: t.term, geo: t.geo, headline: t.news[0]?.title ?? "" })) };
 }
 

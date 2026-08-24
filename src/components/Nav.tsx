@@ -68,7 +68,11 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
   // pick. The placeholder holds the slot instead, so choosing "new" is a real change.
   const value = shops.some((s) => s.id === active) ? active : (shops[0]?.id ?? "__none__");
 
-  const links = isAdmin ? [...LINKS, { href: "/users", label: "Kullanıcılar", group: "kayit" }] : LINKS;
+  const links = isAdmin
+    ? [...LINKS,
+       { href: "/resources", label: "Kaynaklar", group: "kayit" },
+       { href: "/users", label: "Kullanıcılar", group: "kayit" }]
+    : LINKS;
 
   return (
     <nav className="sticky top-0 z-40 border-b border-line bg-raised/85 backdrop-blur-md">

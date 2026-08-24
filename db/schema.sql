@@ -533,3 +533,27 @@ CREATE TABLE IF NOT EXISTS local_engine_config (
   note           TEXT,
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- Every trend we have ever scanned, with the verdict it got.
+--
+-- This exists because the Google Trends RSS feed has NO history: measured 2026-08-24, it returns ten
+-- items per geo whose pubDate all sit inside the same half hour, and asking it for 96 hours returns
+-- exactly the same ten. So "widen the window to 48, then 72, then 96 hours" cannot be a parameter on
+-- the fetch — it can only be a lookback over what we ourselves stored on previous evenings.
+--
+-- first_seen is never updated. A trend that keeps reappearing in the feed must keep its original age,
+-- or the widened window would always find it "fresh" and the escalation would never actually reach back.
+CREATE TABLE IF NOT EXISTS trend_seen (
+  id         BIGSERIAL PRIMARY KEY,
+  geo        TEXT NOT NULL,
+  term       TEXT NOT NULL,
+  verdict    TEXT NOT NULL,
+  reason     TEXT,
+  headlines  TEXT,
+  traffic    TEXT,
+  first_seen TIMESTAMPTZ NOT NULL DEFAULT now(),
+  used_at    TIMESTAMPTZ,
+  UNIQUE (geo, term)
+);
+CREATE INDEX IF NOT EXISTS trend_seen_lookback ON trend_seen (verdict, first_seen DESC);

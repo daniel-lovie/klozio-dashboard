@@ -15,7 +15,7 @@
  * It does NOT touch Etsy. Live listings still show what went up the day they were published until
  * scripts/resync_etsy_images.py runs, which is a separate and much heavier operation.
  */
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
 import { pool } from "../src/lib/db";
 
 const APPLY = process.argv.includes("--apply");
@@ -41,25 +41,39 @@ if (!APPLY) {
   await c.end(); process.exit(0);
 }
 
-let done = 0, failed = 0;
-for (const r of rows) {
-  await c.query(
-    `UPDATE products SET design_params = (design_params::jsonb
-        || '{"placement":"center_chest","print_inches":10.0}'::jsonb)::text,
-        updated_at = now()
-      WHERE id = $1`, [r.id]);
-  try {
-    execFileSync("python3", ["scripts/produce_images.py", String(r.id)],
-                 { stdio: "pipe", timeout: 8 * 60_000 });
-    done++;
-  } catch (e: any) {
-    failed++;
-    console.log(`  HATA ${r.slug}: ${String(e.stderr ?? e.message).slice(-140)}`);
-  }
-  if ((done + failed) % 10 === 0) {
-    console.log(`  ${done + failed}/${rows.length} · ${done} tamam · ${failed} hata`);
+// One rebuild is 74 seconds, almost all of it single-threaded PIL work, so 192 of them serially is
+// four hours of a mostly idle machine. Four at a time is the same work in about one — the ceiling is
+// memory, since each process decodes the mockup blanks for itself.
+const LANES = 4;
+let done = 0, failed = 0, next = 0;
+
+async function lane(): Promise<void> {
+  for (;;) {
+    const i = next++;
+    if (i >= rows.length) return;
+    const r = rows[i];
+    await c.query(
+      `UPDATE products SET design_params = (design_params::jsonb
+          || '{"placement":"center_chest","print_inches":10.0}'::jsonb)::text,
+          updated_at = now()
+        WHERE id = $1`, [r.id]);
+    try {
+      await new Promise<void>((res, rej) => {
+        execFile("python3", ["scripts/produce_images.py", String(r.id)],
+                 { timeout: 8 * 60_000, maxBuffer: 1 << 24 },
+                 (err) => (err ? rej(err) : res()));
+      });
+      done++;
+    } catch (e: any) {
+      failed++;
+      console.log(`  HATA ${r.slug}: ${String(e.message).slice(-120)}`);
+    }
+    if ((done + failed) % 10 === 0) {
+      console.log(`  ${done + failed}/${rows.length} · ${done} tamam · ${failed} hata`);
+    }
   }
 }
+await Promise.all(Array.from({ length: LANES }, () => lane()));
 console.log(`\n${done} urun yeniden kuruldu · ${failed} hata`);
 console.log(`${live} canli ilan hala eski gorseli gosteriyor — resync_etsy_images.py ayri bir adim.`);
 await c.end();

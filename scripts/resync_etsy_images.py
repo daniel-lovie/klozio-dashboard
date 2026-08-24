@@ -121,6 +121,8 @@ def main() -> None:
     # a change nobody asked for on a shop with 95 live listings.
     ap.add_argument("--shop", type=int, help="sadece bu shop_id")
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--all-covers", action="store_true",
+                    help="HillsByElgin'in eski kapak-ismi filtresini atla")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
 
@@ -145,10 +147,16 @@ def main() -> None:
               -- shop and skipped for any other, because applied to Klozio it matches nothing and the
               -- script would report "0 listings" rather than saying the filter excluded them.
               {cover_filter}"""
+    # The cover-name filter is a snapshot of a convention, and conventions move. After the chest prints
+    # were recentred on 2026-08-24 the contrast rule picked a darker garment for 25 of HillsByElgin's
+    # listings, so their rank-1 file became "-pepper-model.jpg" and this filter would have excluded
+    # exactly the listings the rebuild was for. --all-covers turns it off, deliberately and out loud,
+    # rather than the filter being quietly deleted for everyone.
+    use_cover_filter = shop == 2 and not a.all_covers
     q = q.replace("{cover_filter}", """AND EXISTS (SELECT 1 FROM product_images x
                            WHERE x.product_id=p.id AND x.rank=1
                              AND (x.filename LIKE '%%-ivory-model.jpg'
-                                  OR x.filename LIKE '%%-left-model.jpg'))""" if shop == 2 else "")
+                                  OR x.filename LIKE '%%-left-model.jpg'))""" if use_cover_filter else "")
     params: list = [shop]
     if a.only:
         q += " AND p.slug=%s"

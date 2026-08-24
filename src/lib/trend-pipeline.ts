@@ -112,22 +112,54 @@ function titleFor(kw: string[]): string {
   return t;
 }
 
-/** One run. Returns what it made and what it skipped, both with reasons. */
-export async function runTrendDay(shopId: number, opts: { max?: number; geos?: string } = {}) {
-  const max = opts.max ?? 2;
+/**
+ * One round across every enabled shop. Scans once, then hands each trend to ONE shop.
+ *
+ * The rotation is the point. The category map is shop-agnostic, so letting every shop draft the same
+ * trend would put the same illustration under the same title in two of our own Etsy shops, splitting
+ * one query between two of our listings. A trend belongs to a single shop; the next one starts from the
+ * next shop in the ring.
+ *
+ * The duplicate check is on NICHE, not just slug, for the same reason: two different astronomy trends
+ * produce the same title and the same thirteen tags, so a second one in the same shop would compete
+ * with the first.
+ */
+export async function runTrendRound(
+  shopIds: number[],
+  opts: { max?: number; geos?: string } = {},
+) {
+  const maxPerShop = opts.max ?? 2;
   const trends = await scanTrends(opts.geos ?? "US,GB,CA");
   const usable = trends.filter((t) => t.verdict === "USABLE");
   const review = trends.filter((t) => t.verdict === "REVIEW");
 
-  const made: string[] = [];
+  const made: { shopId: number; slug: string; term: string }[] = [];
   const skipped: { term: string; why: string }[] = [];
+  const drawn = new Map<number, number>(shopIds.map((id) => [id, 0]));
+  let turn = 0;
 
   for (const t of usable) {
-    if (made.length >= max) break;
     const b = briefFor(t);
     if (!b) { skipped.push({ term: t.term, why: "cizdigimiz bir kategoriye oturmadi" }); continue; }
-    const dup = await q(`SELECT 1 FROM products WHERE slug=$1 AND shop_id=$2`, [b.slug, shopId]);
-    if (dup.length) { skipped.push({ term: t.term, why: "bu trend zaten islenmis" }); continue; }
+
+    let target: number | null = null;
+    for (let i = 0; i < shopIds.length; i++) {
+      const id = shopIds[(turn + i) % shopIds.length];
+      if ((drawn.get(id) ?? 0) >= maxPerShop) continue;
+      const dup = await q(
+        `SELECT 1 FROM products
+          WHERE shop_id = $1 AND (slug = $2 OR (niche = $3 AND slug LIKE 'trend-%'))
+          LIMIT 1`, [id, b.slug, b.niche]);
+      if (dup.length) continue;
+      target = id;
+      break;
+    }
+    if (target === null) {
+      skipped.push({ term: t.term, why: "bu kategori acik magazalarda zaten var" });
+      continue;
+    }
+    turn = (shopIds.indexOf(target) + 1) % shopIds.length;
+
     try {
       // Tomorrow, not today: the design has to be drawn before anyone can look at it, and a slot that
       // has already passed makes the operator approve something they have not seen.
@@ -137,8 +169,9 @@ export async function runTrendDay(shopId: number, opts: { max?: number; geos?: s
         slug: b.slug, niche: b.niche, technique: "dtf",
         title: titleFor(KW[b.niche]), description: AI_NOTE + BODY, tags: KW[b.niche],
         design_prompt: b.prompt, scheduled_at: when.toISOString(),
-      }, shopId);
-      made.push(`${out.slug} (${t.term})`);
+      }, target);
+      made.push({ shopId: target, slug: out.slug, term: t.term });
+      drawn.set(target, (drawn.get(target) ?? 0) + 1);
     } catch (e: any) {
       skipped.push({ term: t.term, why: String(e.message).slice(0, 90) });
     }
@@ -146,8 +179,20 @@ export async function runTrendDay(shopId: number, opts: { max?: number; geos?: s
 
   await logEvent("trend_run", {
     detail: `${trends.length} trend · ${usable.length} cizilebilir · ${made.length} urun · `
-          + `${review.length} insan bakmali`,
+          + `${shopIds.length} magaza · ${review.length} insan bakmali`,
   });
-  return { scanned: trends.length, usable: usable.length, made, skipped,
+  return { scanned: trends.length, usable: usable.length, shops: shopIds, made, skipped,
            review: review.map((t) => ({ term: t.term, geo: t.geo, headline: t.news[0]?.title ?? "" })) };
+}
+
+/** Shops that asked for the daily run. Opt-in, so a new shop never wakes up to a batch it didn't order. */
+export async function trendShops(): Promise<number[]> {
+  const rows = await q<{ id: number }>(
+    `SELECT id FROM shops WHERE coalesce(settings->>'trend_daily','') = 'true' ORDER BY id`);
+  return rows.map((r) => r.id);
+}
+
+/** One shop, on demand — the manual entry point behind /api/cron/trends?shop=N. */
+export async function runTrendDay(shopId: number, opts: { max?: number; geos?: string } = {}) {
+  return runTrendRound([shopId], opts);
 }

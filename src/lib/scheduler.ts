@@ -9,7 +9,7 @@ import { pollOrders } from "./orders";
 import { snapshotAllShops } from "./analytics";
 import { adInsights } from "./meta";
 import { guardInventory } from "./inventory-guard";
-import { runTrendDay } from "./trend-pipeline";
+import { runTrendRound, trendShops } from "./trend-pipeline";
 import { q } from "./db";
 
 declare global {
@@ -196,13 +196,12 @@ export function startScheduler() {
         [`gunluk trend taramasi`]);
       if (!claim.length) return;
 
-      const shops = await q<{ id: number }>(
-        `SELECT id FROM shops WHERE coalesce(settings->>'trend_daily','') = 'true' ORDER BY id`);
-      for (const s of shops) {
-        const out = await runTrendDay(s.id, { max: Number(process.env.TREND_MAX_PER_DAY || 2) });
-        console.log(`[trends] shop ${s.id}:`, JSON.stringify({
-          scanned: out.scanned, usable: out.usable, made: out.made, review: out.review.length }));
-      }
+      const shops = await trendShops();
+      if (!shops.length) return;
+      // One scan for all of them, and each trend goes to a single shop — see runTrendRound.
+      const out = await runTrendRound(shops, { max: Number(process.env.TREND_MAX_PER_DAY || 2) });
+      console.log("[trends]", JSON.stringify({
+        scanned: out.scanned, usable: out.usable, shops, made: out.made, review: out.review.length }));
     } catch (e) {
       console.error("[trends] run failed:", String(e).slice(0, 200));
     }

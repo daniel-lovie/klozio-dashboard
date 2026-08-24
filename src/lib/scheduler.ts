@@ -166,42 +166,52 @@ export function startScheduler() {
   global.__klozioMetaTicker.unref?.();
   console.log(`[meta] insights sync every ${metaInterval}ms`);
 
-  // Daily trend run: read yesterday's trending searches, draft the ones that can legally become a
-  // design, and leave them for the operator to approve. Nothing here publishes — every product it
-  // makes lands on a `pending` schedule row, which is rule 1 of this project and also the only thing
-  // separating an automated pipeline from an automated mistake.
+  // Daily trend run at 19:00 America/Chicago: read the day's trending searches, draft the ones that can
+  // legally and decently become a design, and leave them ready for the operator to approve. Nothing here
+  // publishes — every product lands on a `pending` schedule row, which is rule 1 of this project and also
+  // the only thing separating an automated pipeline from an automated mistake.
   //
-  // The yield is deliberately small. Measured over US/GB/CA, roughly one trend in thirty survives:
-  // the rest are athletes, celebrities, clubs, leagues and companies, and drawing those would be
-  // manufacturing infringements on a schedule. TREND_MAX_PER_DAY caps it further.
+  // The hour is read in Chicago time rather than as a fixed UTC offset, so 19:00 stays 19:00 across the
+  // March and November DST changes instead of drifting an hour twice a year. The day is claimed by its
+  // CHICAGO date for the same reason: 19:00 local is already tomorrow in UTC for half the year, so a
+  // UTC-keyed claim would let one calendar day run twice.
   //
-  // Opt-in per shop (`shops.settings.trend_daily = true`) rather than global, so turning it on for a
-  // second shop is a settings edit and never a surprise.
+  // Yield is deliberately small. Measured across US/GB/CA, most days produce one drawable trend and some
+  // produce none — the rest are athletes, celebrities, clubs, leagues, companies, and disasters. The
+  // two-a-day quota is filled with a second drawing from the same category, never by relaxing a filter.
   const trendInterval = Number(process.env.TREND_INTERVAL_MS || 30 * 60 * 1000);
-  const trendHour = Number(process.env.TREND_HOUR_UTC || 6);
+  const trendHour = Number(process.env.TREND_HOUR_LOCAL || 19);
+  const TREND_TZ = process.env.TREND_TZ || "America/Chicago";
+  const chicago = (part: "hour" | "day") => {
+    const f = new Intl.DateTimeFormat("en-CA", {
+      timeZone: TREND_TZ, hour12: false,
+      year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit",
+    }).formatToParts(new Date());
+    const get = (t: string) => f.find((x) => x.type === t)?.value ?? "";
+    return part === "hour" ? get("hour") : `${get("year")}-${get("month")}-${get("day")}`;
+  };
   const trendTick = async () => {
     try {
-      if (new Date().getUTCHours() < trendHour) return;
-      // Claim the day before doing any work. `web` and `agent` both run this scheduler, and the
-      // advisory lock makes the check-then-insert one atomic step, so the loser of the race exits
-      // here instead of drafting a second copy of every design.
+      if (Number(chicago("hour")) < trendHour) return;
+      const day = chicago("day");
+      // Claim the day before doing any work. `web` and `agent` both run this scheduler, and the advisory
+      // lock makes the check-then-insert one atomic step, so the loser of the race exits here instead of
+      // drafting a second copy of everything.
       const claim = await q(
         `INSERT INTO events (kind, detail)
          SELECT 'trend_claim', $1
           WHERE pg_try_advisory_xact_lock(9182731)
-            AND NOT EXISTS (SELECT 1 FROM events
-                             WHERE kind = 'trend_claim'
-                               AND created_at >= date_trunc('day', now() AT TIME ZONE 'UTC'))
-         RETURNING id`,
-        [`gunluk trend taramasi`]);
+            AND NOT EXISTS (SELECT 1 FROM events WHERE kind = 'trend_claim' AND detail = $1)
+         RETURNING id`, [`trend gunu ${day} (${TREND_TZ})`]);
       if (!claim.length) return;
 
       const shops = await trendShops();
       if (!shops.length) return;
-      // One scan for all of them, and each trend goes to a single shop — see runTrendRound.
-      const out = await runTrendRound(shops, { max: Number(process.env.TREND_MAX_PER_DAY || 2) });
+      // One scan for all of them, and each drawing goes to a single shop — see runTrendRound.
+      const out = await runTrendRound(shops, { perDay: Number(process.env.TREND_PER_DAY || 2) });
       console.log("[trends]", JSON.stringify({
-        scanned: out.scanned, usable: out.usable, shops, made: out.made, review: out.review.length }));
+        day, scanned: out.scanned, usable: out.usable, target: out.target,
+        shops, made: out.made, review: out.review.length }));
     } catch (e) {
       console.error("[trends] run failed:", String(e).slice(0, 200));
     }
@@ -209,5 +219,5 @@ export function startScheduler() {
   setTimeout(trendTick, 180_000).unref?.();   // one attempt after boot; the claim row makes it idempotent
   global.__klozioTrendTicker = setInterval(trendTick, trendInterval);
   global.__klozioTrendTicker.unref?.();
-  console.log(`[trends] daily scan after ${trendHour}:00 UTC, checked every ${trendInterval}ms`);
+  console.log(`[trends] daily at ${trendHour}:00 ${TREND_TZ}, checked every ${trendInterval}ms`);
 }

@@ -20,9 +20,12 @@ export async function POST(req: Request) {
       { error: "pass slot or date — refusing to change all 200 at once" }, { status: 400 });
   }
 
-  const clauses = ["slot IS NOT NULL"];
+  // Same reason as the plan page: a slotless product is a product, and bulk approve has to reach the
+  // same rows the operator can now see. The `slot or date required` guard above is what stops a
+  // change-everything-at-once, not this filter.
+  const clauses = ["true"];
   const params: any[] = [status];
-  if (body.slot) { params.push(String(body.slot)); clauses.push(`slot = $${params.length}`); }
+  if (body.slot) { params.push(String(body.slot)); clauses.push(`coalesce(slot,'—') = $${params.length}`); }
   if (body.date) {
     params.push(String(body.date));
     clauses.push(`id IN (SELECT product_id FROM schedule

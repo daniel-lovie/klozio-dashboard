@@ -25,7 +25,11 @@ export default async function PlanPage({
   if (!(await isLoggedIn())) redirect("/login");
   const sp = await searchParams;
 
-  const where: string[] = ["p.slot IS NOT NULL"];
+  // A missing slot is a bucket, not a reason to hide the row. This page filtered on `p.slot IS NOT NULL`
+  // and slot is only set by the older batch scripts, so everything drafted since — 134 products waiting
+  // for approval, including every trend product — existed in the database and appeared nowhere on the one
+  // page built for approving them. The operator's word for it was "hani nerede".
+  const where: string[] = ["true"];
   const params: any[] = [];
   if (sp.slot) { params.push(sp.slot); where.push(`p.slot = $${params.length}`); }
   if (sp.status) { params.push(sp.status); where.push(`p.content_status = $${params.length}`); }
@@ -36,7 +40,7 @@ export default async function PlanPage({
   const dayCounts = await q<{ day: string; n: number }>(
     `SELECT (s.scheduled_at AT TIME ZONE 'America/Chicago')::date::text AS day, count(*)::int AS n
        FROM schedule s JOIN products p ON p.id = s.product_id
-      WHERE p.shop_id = ${shopId} AND p.slot IS NOT NULL
+      WHERE p.shop_id = ${shopId}
       GROUP BY 1 ORDER BY 1`);
   const today = new Date();
   const weeks = buildWeeks(dayCounts, today);
@@ -52,7 +56,7 @@ export default async function PlanPage({
   }
 
   const rows = await q<Row>(
-    `SELECT p.id AS pid, p.slug, p.slot, p.tree, p.niche, p.concept_no, p.variant,
+    `SELECT p.id AS pid, p.slug, coalesce(p.slot,'—') AS slot, p.tree, p.niche, p.concept_no, p.variant,
             p.title, p.tags, p.description, p.hook, p.visual_idea, p.personalised,
             p.design_prompt, p.design_model, p.mockup_prompt, p.hero_colorway,
             p.mockup_prompt_hanging, p.mockup_prompt_model,
@@ -62,15 +66,15 @@ export default async function PlanPage({
               WHERE i.product_id = p.id AND coalesce(i.role,'') <> 'cover_unstamped') AS image_count
        FROM products p JOIN schedule s ON s.product_id = p.id
       WHERE p.shop_id=${shopId} AND ${where.join(" AND ")}
-      ORDER BY s.scheduled_at, p.slot, p.concept_no, p.variant`, params);
+      ORDER BY s.scheduled_at, coalesce(p.slot,'—'), p.concept_no, p.variant`, params);
 
   const totals = await q<{ content_status: string; n: number }>(
-    `SELECT content_status, count(*)::int AS n FROM products WHERE slot IS NOT NULL AND shop_id=${shopId} GROUP BY 1`);
+    `SELECT content_status, count(*)::int AS n FROM products WHERE shop_id=${shopId} GROUP BY 1`);
   const slots = await q<{ slot: string; niche: string; n: number; ok: number }>(
-    `SELECT slot, min(niche) AS niche, count(*)::int AS n,
+    `SELECT coalesce(slot,'—') AS slot, min(niche) AS niche, count(*)::int AS n,
             count(*) FILTER (WHERE content_status='approved')::int AS ok
-       FROM products WHERE slot IS NOT NULL AND shop_id=${shopId} GROUP BY slot
-      ORDER BY left(slot,1), length(slot), slot`);
+       FROM products WHERE shop_id=${shopId} GROUP BY coalesce(slot,'—')
+      ORDER BY left(coalesce(slot,'—'),1), length(coalesce(slot,'—')), coalesce(slot,'—')`);
 
   const tally = Object.fromEntries(totals.map((t) => [t.content_status, t.n]));
   const days = [...new Set(rows.map((r) => dayKeyTZ(r.scheduled_at)))];

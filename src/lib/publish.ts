@@ -68,17 +68,49 @@ function lateNoticeMs() {
   return Number(process.env.PUBLISH_LATE_NOTICE_MINUTES || 180) * 60 * 1000;
 }
 
+/**
+ * "Exceeded daily rate limit" is not a failed publish. It is a closed door.
+ *
+ * Etsy's daily quota is per app, and the publisher treated the 429 like any other error: revert to
+ * approved, retry on the next 60-second tick, three times, then mark the product FAILED forever. Six
+ * approved products have died this way already — four on 20 Aug and two tonight — each burning three
+ * more requests against the very quota that was exhausted, which is the worst possible response to
+ * running out of quota.
+ *
+ * So a daily 429 now closes the shop until the quota resets, and does not spend an attempt: the product
+ * never got a turn, so it must not be charged for one.
+ */
+function isDailyRateLimit(err: string): boolean {
+  return /\(429\)/.test(err) && /daily rate limit/i.test(err);
+}
+
+/** Etsy's daily counters reset at midnight UTC, so that is when the door opens again. */
+function nextQuotaResetISO(): string {
+  const d = new Date();
+  d.setUTCHours(24, 0, 0, 0);
+  return d.toISOString();
+}
+
 /** Claim due rows atomically so concurrent tickers don't collide. */
 export async function claimDue(limit = 5): Promise<DueRow[]> {
   const rows = await q<DueRow>(
     `UPDATE schedule s
         SET status = 'publishing', locked_at = now(), attempts = s.attempts + 1
       WHERE s.id IN (
-        SELECT id FROM schedule
-         WHERE status = 'approved'
-           AND scheduled_at <= now()
-           AND (locked_at IS NULL OR locked_at < now() - INTERVAL '15 minutes')
-         ORDER BY scheduled_at
+        SELECT sc.id FROM schedule sc
+          JOIN products p ON p.id = sc.product_id
+         WHERE sc.status = 'approved'
+           AND sc.scheduled_at <= now()
+           AND (sc.locked_at IS NULL OR sc.locked_at < now() - INTERVAL '15 minutes')
+           -- Skip any shop whose daily quota is spent. Trying anyway cannot succeed and each attempt
+           -- digs the hole deeper.
+           AND NOT EXISTS (
+             SELECT 1 FROM events e
+              WHERE e.kind = 'etsy_quota_spent'
+                AND e.detail = 'shop ' || p.shop_id::text
+                AND e.created_at > date_trunc('day', now() AT TIME ZONE 'UTC')
+           )
+         ORDER BY sc.scheduled_at
          LIMIT $1
          FOR UPDATE SKIP LOCKED
       )
@@ -266,6 +298,25 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
     return { ok: true, listingId };
   } catch (e: any) {
     const err = String(e?.message ?? e).slice(0, 2000);
+
+    if (isDailyRateLimit(err)) {
+      // Hand the turn back, unspent, and close the shop until the counters roll over.
+      const shop = await q<{ shop_id: number }>(`SELECT shop_id FROM products WHERE id = $1`, [product_id]);
+      const shopId = shop[0]?.shop_id;
+      await q(`UPDATE schedule SET status='approved', attempts = greatest(attempts - 1, 0),
+                                   last_error=$2, locked_at=NULL WHERE id=$1`, [schedule_id, err]);
+      if (shopId != null) {
+        await q(`INSERT INTO events (kind, detail) SELECT 'etsy_quota_spent', $1
+                  WHERE NOT EXISTS (SELECT 1 FROM events
+                                     WHERE kind='etsy_quota_spent' AND detail=$1
+                                       AND created_at > date_trunc('day', now() AT TIME ZONE 'UTC'))`,
+                [`shop ${shopId}`]);
+      }
+      await logEvent("etsy_quota_wait", { scheduleId: schedule_id, productId: product_id,
+        detail: `gunluk Etsy kotasi doldu — ${nextQuotaResetISO()} (UTC gece yarisi) sonrasi devam` });
+      return { ok: false, error: err };
+    }
+
     // give up after 3 attempts so we don't hammer the API
     const status = row.attempts >= 3 ? "failed" : "approved";
     await q(`UPDATE schedule SET status=$2, last_error=$3, locked_at=NULL WHERE id=$1`, [schedule_id, status, err]);

@@ -39,6 +39,13 @@ export default async function TrendsPage() {
                coalesce(volume,0) DESC, first_seen DESC
       LIMIT 200`);
 
+  // What the paid plan has actually cost this month. A quota that runs out mid-month would silently
+  // turn the system back into the free feed, so it is on screen rather than in a log.
+  const paid = await q<{ n: number }>(
+    `SELECT count(*)::int n FROM events
+      WHERE kind = 'serpapi_call' AND created_at >= date_trunc('month', now())`);
+  const budget = Number(process.env.SERPAPI_MAX_PER_MONTH || 900);
+
   const tally = await q<{ verdict: string; n: number }>(
     `SELECT verdict, count(*)::int n FROM trend_seen
       WHERE first_seen > now() - interval '96 hours' GROUP BY 1`);
@@ -77,6 +84,11 @@ export default async function TrendsPage() {
         <span className="rounded-md border border-line-strong px-2.5 py-1 text-xs">
           keşif: {hasSerpApi() ? "SerpApi" : "RSS (ücretsiz, geo başına 10 kayıt, geçmiş yok)"}
         </span>
+        {hasSerpApi() && (
+          <span className="rounded-md border border-line-strong px-2.5 py-1 text-xs tabular-nums">
+            bu ay SerpApi: {paid[0]?.n ?? 0} / {budget}
+          </span>
+        )}
         <span className="rounded-md border border-line-strong px-2.5 py-1 text-xs">
           tohumlu: {hasDataForSeo() ? "DataForSEO — çizdiğimiz niche'lerde yükselen sorgular" : "kapalı"}
         </span>

@@ -127,7 +127,9 @@ async function rss(geo: string): Promise<RawTrend[]> {
  * a billing problem, and a billing problem should cost us resolution, not the whole run. The result
  * says which provider answered so the run can report it instead of quietly looking healthy.
  */
-export async function scan(geos: string[], hours = 24): Promise<ScanResult> {
+export async function scan(
+  geos: string[], hours = 24, opts: { allowPaid?: boolean } = {},
+): Promise<ScanResult> {
   // The seeded lane runs alongside whichever discovery lane is available, never instead of it. Its
   // candidates arrive already inside a niche we draw, which is why it survives the filters at a rate
   // the discovery feed cannot approach — but it can only find what we thought to seed, so dropping
@@ -138,7 +140,7 @@ export async function scan(geos: string[], hours = 24): Promise<ScanResult> {
     ? { ...r, trends: [...r.trends, ...rising], note: `${r.note} + dataforseo ${rising.length} yukselen` }
     : r;
 
-  if (hasSerpApi()) {
+  if (hasSerpApi() && opts.allowPaid !== false) {
     try {
       const all = (await Promise.all(geos.map((g) => serpapi(g, hours)))).flat();
       return withRising({ trends: all, source: "serpapi", usedFallback: false,
@@ -151,5 +153,6 @@ export async function scan(geos: string[], hours = 24): Promise<ScanResult> {
   }
   const all = (await Promise.all(geos.map(rss))).flat();
   return withRising({ trends: all, source: "rss", usedFallback: false,
-           note: "SERPAPI_KEY yok — RSS (geo basina 10 kayit, gecmis yok)" });
+           note: hasSerpApi() ? "RSS (ucretsiz tik — SerpApi butcesi korunuyor)"
+                              : "SERPAPI_KEY yok — RSS (geo basina 10 kayit, gecmis yok)" });
 }

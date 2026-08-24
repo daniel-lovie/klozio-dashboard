@@ -5,9 +5,9 @@ import { useState } from "react";
  * The decision this store actually has to make, made arithmetic.
  *
  * Heckman's leaky bucket assumes the unit economics already work — his own brand runs ~40% product
- * and shipping cost against a $50 order. Klozio does not start there: $24.99 against $15.00 landed is
- * 60% cost, and 60% cost means breakeven ROAS 2.50, which is above the ceiling of the band he calls
- * "scaling". No amount of conversion-rate work fixes that, so the price and the basket have to move
+ * and shipping cost against a $50 order. Klozio does not start there: $24.99 against $15.00 landed
+ * plus card fees is 64% cost, which puts breakeven ROAS at 2.79 — well above the ceiling of the band
+ * he calls "scaling". No amount of conversion-rate work fixes that, so the price and the basket have to move
  * before a single dollar of ad spend is sensible.
  *
  * Everything here is derived, nothing hardcoded: change price, cost or items per order and the
@@ -136,8 +136,8 @@ export function UnitEconomics() {
 
           <p className="rounded-lg border border-line bg-sunken px-4 py-3 text-xs leading-relaxed text-ink-soft">
             Heckman&apos;ın kendi markası %40 maliyetle çalışıyor ve başabaşı 1.67. Klozio bugün $24.99&apos;a
-            $15.00 inen maliyetle satıyor — yani <strong>%60 maliyet ve 2.50 başabaş</strong>. Dönüşüm
-            optimizasyonu bu farkı kapatmaz; fiyat ve sepet büyüklüğü kapatır.
+            $15.00 inen maliyetle satıyor; kart komisyonu da eklenince <strong>%64 maliyet ve 2.79
+            başabaş</strong>. Dönüşüm optimizasyonu bu farkı kapatmaz; fiyat ve sepet büyüklüğü kapatır.
           </p>
         </div>
       </div>

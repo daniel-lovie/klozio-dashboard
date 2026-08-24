@@ -71,6 +71,7 @@ export function Nav({ shops, active, isAdmin = false, clerk = false }:
 
   const links = isAdmin
     ? [...LINKS,
+       { href: "/gtm", label: "GTM", group: "kayit" },
        { href: "/resources", label: "Kaynaklar", group: "kayit" },
        { href: "/users", label: "Kullanıcılar", group: "kayit" }]
     : LINKS;

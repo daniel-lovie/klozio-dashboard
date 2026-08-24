@@ -51,6 +51,43 @@ function titleFor(keywords: string[], variant = 0): string {
 }
 
 /**
+ * A paid call is worth roughly forty free ones, and there are only so many.
+ *
+ * The Starter plan is 1,000 searches a month. The 30-minute cadence this pipeline runs at would spend
+ * 1,440 on its own — but that cadence exists ONLY to compensate for the free feed, which shows ten items
+ * on a rolling window and rotated 5 of 30 terms in a single minute. SerpApi returns the whole 24-hour
+ * window in one call, with volumes, so reading it every four hours misses nothing that reading it every
+ * thirty minutes would have caught. Six paid calls a day is 180 a month; the free feed keeps filling the
+ * gaps in between at no cost.
+ *
+ * The budget is a hard stop, not a target. Running out mid-month would silently turn the system back
+ * into the thing we replaced, so the count is checked before every paid call and the run says which
+ * provider actually answered.
+ */
+const PAID_INTERVAL_MS = () => Number(process.env.SERPAPI_INTERVAL_MS || 4 * 3600 * 1000);
+const PAID_BUDGET = () => Number(process.env.SERPAPI_MAX_PER_MONTH || 900);
+
+async function paidCallsThisMonth(): Promise<number> {
+  const r = await q<{ n: number }>(
+    `SELECT count(*)::int n FROM events
+      WHERE kind = 'serpapi_call' AND created_at >= date_trunc('month', now())`);
+  return r[0]?.n ?? 0;
+}
+
+/** May this tick spend a search? Interval first, then budget — both have to say yes. */
+async function mayPay(): Promise<{ ok: boolean; why: string }> {
+  if (!hasSerpApi()) return { ok: false, why: "anahtar yok" };
+  const last = await q<{ at: string }>(
+    `SELECT created_at at FROM events WHERE kind = 'serpapi_call' ORDER BY id DESC LIMIT 1`);
+  if (last.length && Date.now() - new Date(last[0].at).getTime() < PAID_INTERVAL_MS()) {
+    return { ok: false, why: "aralik dolmadi" };
+  }
+  const spent = await paidCallsThisMonth();
+  if (spent >= PAID_BUDGET()) return { ok: false, why: `aylik butce doldu (${spent}/${PAID_BUDGET()})` };
+  return { ok: true, why: `${spent + 1}/${PAID_BUDGET()}` };
+}
+
+/**
  * Look, judge, remember. Safe to call as often as the scheduler ticks.
  *
  * `first_seen` is never moved on conflict — a trend that keeps reappearing must keep its original age,
@@ -58,7 +95,11 @@ function titleFor(keywords: string[], variant = 0): string {
  * `last_seen` moves instead, which is what tells us a trend is still running.
  */
 export async function recordScan(hours = 24): Promise<{ seen: number; fresh: number; source: string; note: string }> {
-  const res = await scan(GEOS(), hours);
+  const pay = await mayPay();
+  const res = await scan(GEOS(), hours, { allowPaid: pay.ok });
+  // Logged only when SerpApi actually answered: a call that fell back to RSS cost nothing and must not
+  // be charged against a budget it never touched.
+  if (res.source === "serpapi") await logEvent("serpapi_call", { detail: `${hours}s · ${pay.why}` });
   const judged = await judge(res.trends, { useModel: process.env.TREND_MODEL_JUDGE !== "false" });
   let fresh = 0;
   for (const t of judged) {
@@ -190,6 +231,8 @@ export async function runTrendRound(shopIds: number[], opts: { perDay?: number }
     if (usable.length) break;
     // A paid provider can be asked for the wider window directly; the free one cannot, and re-reading
     // it would return the same ten rows for the same cost in time.
+    // The widened window is worth a paid call when there is budget for it; mayPay() inside recordScan
+    // decides, and on a no it simply re-reads the store, which is what the free path did anyway.
     if (hasSerpApi()) await recordScan(h);
     usable = await drawable(h);
     hours = h;

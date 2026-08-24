@@ -21,6 +21,8 @@ import type { Judged } from "./classify";
 export type Category = {
   test: RegExp;
   niche: string;
+  /** What to ask a seeded provider about. DataForSEO takes keywords, not "what is trending". */
+  seeds: string[];
   tags: string[];               // exactly 13, each ≤20 chars, multi-word
   palettes: string[];
   draws: string[];
@@ -29,6 +31,7 @@ export type Category = {
 export const CATEGORIES: Category[] = [
   { test: /eclipse|moon|lunar|meteor|perseid|aurora|comet|solstice|equinox|night sky|stargaz|planet|nasa|telescope/i,
     niche: "astronomy",
+    seeds: ["meteor shower", "moon phase"],
     tags: ["astronomy lover tee", "star gazer gift", "moon lover shirt", "night sky tee",
       "space nerd gift", "celestial gift tee", "eclipse lover tee", "cosmos gift shirt",
       "lunar lover tee", "stargazing gift", "sky watcher tee", "moon phase gift", "astro fan tee"],
@@ -39,6 +42,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /hurricane|storm|blizzard|snow|frost|heat wave|drought|wildfire|rain|thunder|forecast/i,
     niche: "weather humour",
+    seeds: ["first frost", "storm season"],
     tags: ["weather lover tee", "storm chaser gift", "rainy day shirt", "cloud lover tee",
       "weather nerd gift", "forecast humor tee", "thunder lover tee", "cozy rain shirt",
       "storm humor gift", "weather fan tee", "rain lover gift", "grey sky tee", "wet weather tee"],
@@ -49,6 +53,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /recipe|sourdough|baking|bread|pizza|coffee|matcha|barbecue|harvest|chef|cooking|brunch/i,
     niche: "food humour",
+    seeds: ["sourdough starter", "comfort food"],
     tags: ["food lover tee", "baking gift shirt", "home cook gift", "kitchen humor tee",
       "bread lover tee", "foodie gift shirt", "cooking lover tee", "baker gift tee",
       "sourdough lover", "kitchen lover tee", "recipe lover gift", "comfort food tee", "food humor gift"],
@@ -59,6 +64,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /garden|planting|seed|bloom|wildflower|pollinator|bee\b|houseplant|greenhouse/i,
     niche: "garden humour",
+    seeds: ["fall garden", "houseplant care"],
     tags: ["garden lover tee", "plant parent gift", "gardening gift tee", "green thumb shirt",
       "seedling lover tee", "garden humor tee", "plant lover gift", "grow your own",
       "potting shed tee", "gardener gift tee", "spring garden tee", "veg patch gift", "garden life tee"],
@@ -69,6 +75,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /whale|migration|bird|owl|fox|bear|deer|turtle|meerkat|otter|wildlife|shark|wolf|bison/i,
     niche: "wildlife",
+    seeds: ["bird migration", "wildlife photography"],
     tags: ["wildlife lover tee", "animal lover gift", "nature lover tee", "wild animal shirt",
       "conservation gift", "bird lover gift", "woodland gift tee", "animal fan tee",
       "wildlife fan gift", "outdoor lover tee", "nature nerd tee", "creature lover", "wild life gift"],
@@ -79,6 +86,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /back to school|semester|exam|graduation|teacher|classroom|kindergarten/i,
     niche: "school humour",
+    seeds: ["back to school", "teacher appreciation"],
     tags: ["teacher gift tee", "school humor shirt", "classroom gift tee", "educator gift",
       "back to school tee", "study life shirt", "student gift tee", "school year tee",
       "teacher life gift", "learning gift tee", "classroom humor", "school days tee", "teach love tee"],
@@ -89,6 +97,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /fishing|angler|bass\b|trout|kayak|canoe|lake|river|boating/i,
     niche: "fishing",
+    seeds: ["bass fishing", "fly fishing"],
     tags: ["fishing lover tee", "angler gift shirt", "fisherman gift tee", "lake life shirt",
       "fishing humor tee", "bass fishing gift", "fly fishing tee", "weekend angler",
       "fishing dad gift", "river life tee", "catch and release", "tackle box gift", "fish lover tee"],
@@ -99,6 +108,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /camping|hiking|trail|backpack|national park|campfire|mountain|summit|tent/i,
     niche: "outdoors",
+    seeds: ["fall hiking", "national park"],
     tags: ["hiking lover tee", "camping gift shirt", "trail lover tee", "outdoor gift tee",
       "mountain lover tee", "campfire gift tee", "national park tee", "wanderer gift tee",
       "backpacker gift", "adventure gift tee", "trail life shirt", "camp life tee", "hike more tee"],
@@ -109,6 +119,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /\bdog\b|puppy|golden retriever|labrador|rescue dog|shelter dog/i,
     niche: "dog lovers",
+    seeds: ["dog mom", "rescue dog"],
     tags: ["dog lover tee", "dog mom gift tee", "dog dad gift tee", "rescue dog shirt",
       "puppy lover gift", "dog humor tee", "fur parent gift", "dog owner tee",
       "adopt dont shop", "dog walker gift", "good boy tee", "dog people tee", "paw lover tee"],
@@ -119,6 +130,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /\bcat\b|kitten|feline|tabby/i,
     niche: "cat lovers",
+    seeds: ["cat mom", "kitten care"],
     tags: ["cat lover tee", "cat mom gift tee", "cat dad gift tee", "kitten lover tee",
       "cat humor shirt", "crazy cat gift", "rescue cat tee", "feline lover tee",
       "cat owner gift", "cat people tee", "purr lover tee", "cat nap shirt", "whisker gift tee"],
@@ -129,6 +141,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /book|reading|library|novel|author|literature|bookstore/i,
     niche: "book lovers",
+    seeds: ["book club", "fall reading"],
     tags: ["book lover tee", "bookish gift tee", "reader gift shirt", "library lover tee",
       "book nerd gift", "reading lover tee", "bookworm gift tee", "novel lover tee",
       "just one chapter", "book club gift", "story lover tee", "shelf life tee", "read more tee"],
@@ -139,6 +152,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /running|marathon|5k|10k|cycling|gym|workout|yoga|fitness|pilates/i,
     niche: "fitness humour",
+    seeds: ["marathon training", "gym routine"],
     tags: ["runner gift tee", "running lover tee", "marathon gift tee", "gym humor shirt",
       "workout gift tee", "yoga lover tee", "cycling gift tee", "fitness gift tee",
       "run more tee", "training day tee", "sweat life shirt", "cardio humor tee", "move more tee"],
@@ -149,6 +163,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /coffee|espresso|latte|barista|cafe/i,
     niche: "coffee humour",
+    seeds: ["pumpkin spice", "iced coffee"],
     tags: ["coffee lover tee", "caffeine gift tee", "espresso lover tee", "coffee humor tee",
       "barista gift shirt", "morning coffee tee", "coffee addict gift", "latte lover tee",
       "but first coffee", "coffee people tee", "brew lover tee", "coffee mom gift", "bean lover tee"],
@@ -159,6 +174,7 @@ export const CATEGORIES: Category[] = [
 
   { test: /music|guitar|vinyl|record player|concert|festival|drum|piano/i,
     niche: "music lovers",
+    seeds: ["vinyl records", "music festival"],
     tags: ["music lover tee", "vinyl lover tee", "guitar gift shirt", "record lover tee",
       "music nerd gift", "band shirt gift", "melody lover tee", "vinyl nerd tee",
       "play louder tee", "music fan gift", "sound lover tee", "studio life tee", "groove lover tee"],

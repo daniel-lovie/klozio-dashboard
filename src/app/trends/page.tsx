@@ -4,6 +4,7 @@ import { q } from "@/lib/db";
 import { currentShopId } from "@/lib/shops";
 import { TrendDraw } from "@/components/TrendDraw";
 import { hasSerpApi } from "@/lib/trends/sources";
+import { hasDataForSeo } from "@/lib/trends/rising";
 
 export const dynamic = "force-dynamic";
 
@@ -74,7 +75,10 @@ export default async function TrendsPage() {
           </span>
         ))}
         <span className="rounded-md border border-line-strong px-2.5 py-1 text-xs">
-          kaynak: {hasSerpApi() ? "SerpApi" : "RSS (ücretsiz, geo başına 10 kayıt, geçmiş yok)"}
+          keşif: {hasSerpApi() ? "SerpApi" : "RSS (ücretsiz, geo başına 10 kayıt, geçmiş yok)"}
+        </span>
+        <span className="rounded-md border border-line-strong px-2.5 py-1 text-xs">
+          tohumlu: {hasDataForSeo() ? "DataForSEO — çizdiğimiz niche'lerde yükselen sorgular" : "kapalı"}
         </span>
       </div>
 

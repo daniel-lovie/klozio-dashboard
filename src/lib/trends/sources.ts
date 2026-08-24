@@ -128,18 +128,28 @@ async function rss(geo: string): Promise<RawTrend[]> {
  * says which provider answered so the run can report it instead of quietly looking healthy.
  */
 export async function scan(geos: string[], hours = 24): Promise<ScanResult> {
+  // The seeded lane runs alongside whichever discovery lane is available, never instead of it. Its
+  // candidates arrive already inside a niche we draw, which is why it survives the filters at a rate
+  // the discovery feed cannot approach — but it can only find what we thought to seed, so dropping
+  // discovery would trade a 95% reject rate for a blind spot.
+  const { risingTrends, hasDataForSeo } = await import("./rising");
+  const rising = hasDataForSeo() ? await risingTrends().catch(() => []) : [];
+  const withRising = (r: ScanResult): ScanResult => rising.length
+    ? { ...r, trends: [...r.trends, ...rising], note: `${r.note} + dataforseo ${rising.length} yukselen` }
+    : r;
+
   if (hasSerpApi()) {
     try {
       const all = (await Promise.all(geos.map((g) => serpapi(g, hours)))).flat();
-      return { trends: all, source: "serpapi", usedFallback: false,
-               note: `serpapi · ${geos.length} geo · ${hours}s` };
+      return withRising({ trends: all, source: "serpapi", usedFallback: false,
+               note: `serpapi · ${geos.length} geo · ${hours}s` });
     } catch (e: any) {
       const all = (await Promise.all(geos.map(rss))).flat();
-      return { trends: all, source: "rss", usedFallback: true,
-               note: `serpapi basarisiz (${String(e.message).slice(0, 70)}) — RSS'e dusuldu` };
+      return withRising({ trends: all, source: "rss", usedFallback: true,
+               note: `serpapi basarisiz (${String(e.message).slice(0, 70)}) — RSS'e dusuldu` });
     }
   }
   const all = (await Promise.all(geos.map(rss))).flat();
-  return { trends: all, source: "rss", usedFallback: false,
-           note: "SERPAPI_KEY yok — RSS (geo basina 10 kayit, gecmis yok)" };
+  return withRising({ trends: all, source: "rss", usedFallback: false,
+           note: "SERPAPI_KEY yok — RSS (geo basina 10 kayit, gecmis yok)" });
 }

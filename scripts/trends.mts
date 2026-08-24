@@ -6,10 +6,19 @@
  */
 import { recordScan, runTrendRound, trendShops } from "../src/lib/trend-pipeline";
 import { hasSerpApi } from "../src/lib/trends/sources";
+import { risingTrends, hasDataForSeo } from "../src/lib/trends/rising";
 import { q } from "../src/lib/db";
 
 const draw = process.argv.includes("--draw");
-console.log(`kaynak: ${hasSerpApi() ? "SerpApi" : "RSS (ucretsiz)"}`);
+console.log(`kesif: ${hasSerpApi() ? "SerpApi" : "RSS (ucretsiz)"} · tohumlu: ${hasDataForSeo() ? "DataForSEO" : "kapali"}`);
+
+if (process.argv.includes("--rising")) {
+  if (!hasDataForSeo()) { console.log("DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD tanimli degil"); process.exit(1); }
+  const r = await risingTrends();
+  console.log(`${r.length} yukselen sorgu`);
+  for (const t of r.slice(0, 40)) console.log(`  ${String(t.increasePct ?? "").padStart(5)}  ${t.categories[0] ?? "-"}  ${t.term}`);
+  process.exit(0);
+}
 
 if (draw) {
   const shops = await trendShops();

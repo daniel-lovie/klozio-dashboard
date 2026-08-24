@@ -7,9 +7,9 @@
  *
  * Safety rules baked in:
  *   - only rows with status='approved' are ever published
- *   - a row scheduled further in the past than PUBLISH_GRACE_MINUTES is NOT auto-published;
- *     it goes to 'failed' with a clear reason, so a sleeping worker can't wake up and dump
- *     a month of backdated launches onto the shop at once
+ *   - an overdue row still publishes. Approval IS the decision to publish, and a clock that ran out
+ *     while nobody was looking does not withdraw it (operator, 2026-08-24). The refusal this replaces
+ *     turned "the scheduler was asleep" into a failed launch the operator had to find and re-approve
  *   - a crude DB lock (locked_at) stops two tickers double-publishing the same row
  */
 import fs from "fs";
@@ -51,8 +51,21 @@ export type DueRow = {
 
 
 
-function graceMs() {
-  return Number(process.env.PUBLISH_GRACE_MINUTES || 180) * 60 * 1000;
+/**
+ * How late is late enough to say something about it.
+ *
+ * This used to be a REFUSAL: past the window a due row went to 'failed' and stayed there until a human
+ * re-approved it. The reasoning was that a scheduler asleep for a month must not wake up and dump every
+ * backdated launch at once — a real risk, but the wrong lever. The rate is already bounded (5 rows a
+ * tick from the scheduler, 10 from the cron endpoint), and the cost of the refusal fell entirely on the
+ * ordinary case: a launch approved for 15:00 and reached at 18:30 failed, and the operator had to go
+ * find out why.
+ *
+ * So it is a log line now, not a gate. Being late is worth noticing; it is not worth cancelling a
+ * decision a human already made.
+ */
+function lateNoticeMs() {
+  return Number(process.env.PUBLISH_LATE_NOTICE_MINUTES || 180) * 60 * 1000;
 }
 
 /** Claim due rows atomically so concurrent tickers don't collide. */
@@ -92,14 +105,14 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
   const { schedule_id, product_id } = row;
   await logEvent("publish_start", { scheduleId: schedule_id, productId: product_id });
 
-  // Safety: refuse to publish something long overdue without a human looking at it.
+  // Late is reported, not refused. See lateNoticeMs().
   const overdueBy = Date.now() - new Date(row.scheduled_at).getTime();
-  if (overdueBy > graceMs()) {
+  if (overdueBy > lateNoticeMs()) {
     const mins = Math.round(overdueBy / 60000);
-    const err = `Refused: scheduled ${mins} min ago, beyond the ${process.env.PUBLISH_GRACE_MINUTES || 180} min grace window. Re-approve or reschedule to publish.`;
-    await q(`UPDATE schedule SET status='failed', last_error=$2, locked_at=NULL WHERE id=$1`, [schedule_id, err]);
-    await logEvent("publish_fail", { scheduleId: schedule_id, productId: product_id, detail: err });
-    return { ok: false, error: err };
+    await logEvent("publish_late", {
+      scheduleId: schedule_id, productId: product_id,
+      detail: `${mins} dk gecikmeli yayinlaniyor — onay verilmisti, saat kacirildi`,
+    });
   }
 
   try {

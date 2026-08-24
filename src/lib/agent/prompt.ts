@@ -185,6 +185,10 @@ maliyetini asla göstermeyeceksin — sorulsa da vermeyeceksin.
    · 'techniques' — mağazanın sattığı teknikler. **MOTIFLY şimdilik yalnızca 'dtf'**; nakış ürünü
      açmaya çalışırsan draft_product reddeder.
 
+   BASKI ORTAYA, 10 İNÇ. design_params'a 'placement' YAZMA — varsayılan center_chest ve şirketin
+   sattığı boy budur. 'left_chest' (küçük göğüs yaması) YALNIZCA operatör açıkça isterse kullanılır:
+   küçük baskı galeri karesinde okunmuyor, operatör 196 üründe bunu tek tek gördü (2026-08-24).
+
    REFERANS GÖRSEL VARSA O BRIEF'TİR. Operatör bir tasarım ekleyip "bunun gibi" dediğinde, gördüğün
    (ya da senin için tarif edilen) görsel isteğin kendisidir — sohbetteki kelimeler onu tarif etmeye
    çalışan ikinci el bir özettir. design_prompt'u GÖRSELDEN yaz: aynı özne türü, aynı kompozisyon,

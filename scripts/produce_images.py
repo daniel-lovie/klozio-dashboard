@@ -126,6 +126,12 @@ def print_placement(params, shop_max_in: float | None = None) -> dict:
     """
     p = as_params(params)
     style_spot, style_in = STYLE_SPOT.get(str(p.get("style") or ""), (DEFAULT_SPOT, None))
+    # A STYLE never chooses left_chest any more. Small chest prints do not read in the gallery grid —
+    # the operator went through 196 of them and could not see the design (2026-08-24) — so the patch is
+    # opt-in: it happens when the row explicitly says placement=left_chest, never because an engraving
+    # or a crest style implied it.
+    if style_spot == "left_chest" and not p.get("placement"):
+        style_spot, style_in = DEFAULT_SPOT, None
     spot_key = str(p.get("placement") or style_spot)
     if spot_key not in PRINT_SPOTS:
         spot_key = DEFAULT_SPOT

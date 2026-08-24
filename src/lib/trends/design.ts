@@ -242,10 +242,26 @@ export async function subjectFor(
   return { subject: line, from: "model" };
 }
 
-/** The finished prompt. The palette is ours, never the model's — draft-product.ts requires one. */
-export function promptFrom(subject: string, cat: Category, variant: number): string {
+/**
+ * The finished prompt. The palette is ours, never the model's — draft-product.ts requires one.
+ *
+ * `styleLine` is what the winners in this niche have in common, read off their covers by the vision
+ * model and written as execution instructions. When it is present it REPLACES our house defaults for
+ * line weight and flatness, because those defaults are a guess and this is a measurement. When it is
+ * absent — EverBee down, or a read the filters rejected — the defaults stand and nothing changes.
+ */
+export function promptFrom(
+  subject: string, cat: Category, variant: number, styleLine?: string | null,
+): string {
   const palette = cat.palettes[variant % cat.palettes.length];
-  return `${subject}, drawn in ${palette}, thick confident outlines and flat colour blocks, `
-       + "no gradients, no shading, bold high-contrast illustration, the subject fills the frame, "
+  // The tail already says "no gradients" and "centred composition", and the read almost always says
+  // both too — merged naively the prompt repeated itself three times in one sentence. Duplicated
+  // clauses are dropped from the read, not from ours, since ours are the ones the print requires.
+  const OURS = /\b(centred|centered) composition\b|\bno gradients?\b|\bfills the frame\b|\btransparent background\b/i;
+  const execution = styleLine
+    ? styleLine.toLowerCase().split(/[,;]/).map((c) => c.trim())
+        .filter((c) => c && !OURS.test(c)).join(", ") + ", no gradients"
+    : "thick confident outlines and flat colour blocks, no gradients, no shading, bold high-contrast illustration";
+  return `${subject}, drawn in ${palette}, ${execution}, the subject fills the frame, `
        + "centred composition sized for a chest print, transparent background.";
 }

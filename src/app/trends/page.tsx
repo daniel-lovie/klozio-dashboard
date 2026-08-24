@@ -5,6 +5,9 @@ import { currentShopId } from "@/lib/shops";
 import { TrendDraw } from "@/components/TrendDraw";
 import { hasSerpApi } from "@/lib/trends/sources";
 import { hasDataForSeo } from "@/lib/trends/rising";
+import { CATEGORIES } from "@/lib/trends/design";
+import { StyleResearch } from "@/components/StyleResearch";
+import { hasEverBee } from "@/lib/trends/everbee";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +96,10 @@ export default async function TrendsPage() {
           tohumlu: {hasDataForSeo() ? "DataForSEO — çizdiğimiz niche'lerde yükselen sorgular" : "kapalı"}
         </span>
       </div>
+
+      {hasEverBee() && (
+        <StyleResearch presets={CATEGORIES.slice(0, 8).map((c) => `${c.niche.split(" ")[0]} shirt`)} />
+      )}
 
       {perf.length > 0 && (
         <section className="mb-6 overflow-x-auto rounded border border-line-strong">

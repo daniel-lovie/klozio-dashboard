@@ -21,6 +21,7 @@ import { q, logEvent } from "./db";
 import { scan, hasSerpApi, type RawTrend } from "./trends/sources";
 import { judge, type Judged } from "./trends/classify";
 import { CATEGORIES, categoryFor, subjectFor, promptFrom } from "./trends/design";
+import { readStyle } from "./trends/style";
 
 const GEOS = () => (process.env.TREND_GEOS || "US").split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -203,6 +204,12 @@ async function draftOne(
 
   const { subject, from } = await subjectFor(req.trend, cat, req.variant,
     { useModel: process.env.TREND_MODEL_SUBJECT !== "false" });
+
+  // What is already winning this niche on Etsy, read as a style instruction rather than copied as
+  // pixels. Never fatal: EverBee down, or a read the filters reject, and we draw exactly as before.
+  const research = process.env.TREND_STYLE_RESEARCH === "false"
+    ? null
+    : await readStyle(`${cat.niche.split(" ")[0]} shirt`, { winners: 3 }).catch(() => null);
   const title = titleFor(cat.tags, req.variant);
   const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   // Named after what we are DRAWING, never after the trend: putting a town's or a person's name in the
@@ -239,8 +246,26 @@ async function draftOne(
       const out = await draftProduct({
         slug, niche: cat.niche, technique: "dtf", title,
         description: AI_NOTE + BODY, tags: cat.tags,
-        design_prompt: promptFrom(subject, cat, req.variant), scheduled_at: when.toISOString(),
+        design_prompt: promptFrom(subject, cat, req.variant, research?.styleLine ?? null),
+        scheduled_at: when.toISOString(),
       }, id);
+      // Everything the research contributed, on the row: the demand numbers that justified the niche,
+      // the style line that went into the prompt, and the exact listings whose covers were looked at.
+      // Rule 4 wants provable authorship, and "what we looked at" is part of that proof — a claim that
+      // we took only the style is worth more when the archive shows what was on the table.
+      if (research) {
+        await q(`UPDATE products SET design_params = coalesce(design_params,'{}'::jsonb) || $2::jsonb
+                  WHERE id = $1`,
+          [out.id, JSON.stringify({
+            everbee: {
+              phrase: research.phrase, demand: research.demand,
+              style_line: research.styleLine,
+              looked_at: research.winners.map((w) => ({
+                listing: w.listingId, url: w.url, image: w.image, sales: w.sales, shop: w.shop })),
+              read_at: new Date().toISOString(),
+            },
+          })]);
+      }
       // The plan page groups by slot; without one these products were invisible on the only screen
       // built for approving them. TR is their own bucket.
       await q(`UPDATE products SET slot = 'TR' WHERE id = $1`, [out.id]);

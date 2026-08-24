@@ -438,3 +438,42 @@ export async function askLocalJSON<T = any>(
     return null;
   }
 }
+
+/**
+ * Describe a picture that lives at a URL.
+ *
+ * The private `describeImage` above takes base64 out of a chat message; this is the same eye pointed at
+ * the open web, which is what style research needs. It returns null rather than throwing, because every
+ * caller has something sensible to do without it and a slow vision model must not fail a nightly run.
+ */
+export async function describeImageUrl(url: string, brief?: string): Promise<string | null> {
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 30_000);
+    let b64: string;
+    try {
+      const r = await fetch(url, { signal: c.signal, headers: { "user-agent": "klozio-research/1.0" } });
+      if (!r.ok) return null;
+      b64 = Buffer.from(await r.arrayBuffer()).toString("base64");
+    } finally { clearTimeout(t); }
+
+    const c2 = new AbortController();
+    const t2 = setTimeout(() => c2.abort(), 180_000);
+    try {
+      const res = await fetch(`${OLLAMA}/api/chat`, {
+        method: "POST", signal: c2.signal,
+        headers: ollamaHeaders({ "content-type": "application/json" }),
+        body: JSON.stringify({
+          model: VISION_MODEL, stream: false, keep_alive: "5m",
+          options: { temperature: 0.2, num_predict: 220 },
+          messages: [{ role: "user", content: brief ?? VISION_BRIEF, images: [b64] }],
+        }),
+      });
+      if (!res.ok) return null;
+      const j = await res.json();
+      return String(j?.message?.content ?? "").trim() || null;
+    } finally { clearTimeout(t2); }
+  } catch {
+    return null;
+  }
+}

@@ -91,8 +91,33 @@ export function Audit() {
               "Tişört: $9.50 blank + $5.50 etiket = $15.00 inen maliyet"],
             ["Dashboard bağlantısı", "shops ve products tabloları",
               "shop 8 “Klozio Shopify”: 0 ürün, boş ayarlar · shop_daily_stats tamamen boş"],
+            ["Kurulu tek piksel kimin", "webPixelsConfigList içeriği",
+              "Printful — ama sipariş karşılayan Printinly. Piksel yanlışlıkla duruyor, kaldırılmalı"],
           ]}
         />
+
+        <Rule tone="danger">
+          <strong>Tedarik netleşti: tüm siparişleri Printinly karşılıyor, şimdilik elle.</strong> Bu,
+          mağazada kurulu tek web pikselinin — Printful&apos;ın — orada <em>yanlışlıkla</em> durduğu anlamına
+          geliyor. Kullanmadığınız bir tedarikçiye her sayfa görüntülemesini ve satın almayı gönderiyor.
+          Kaldırılması gereken bir ayar, öncelikli. Ayrıca maliyet modeli doğrulandı: $9.50 blank +
+          $5.50 etiket = $15.00 — yukarıdaki bütün hesap bu rakamlar üstüne kurulu.
+        </Rule>
+
+        <Sub title="Elle karşılamanın getirdiği tavan">
+          <p>
+            Heckman kâr eden bir kampanyanın bütçesini 2–3 günde bir %15–20 artırıyor. Elle karşılanan
+            bir operasyonda bu artışın bir tavanı var: reklamı ölçeklemeden önce günde kaç siparişi
+            rahatça çıkarabileceğinizi bilmeniz gerekiyor. Yol haritasına bunu ayrı bir geçiş şartı
+            olarak ekledim — kapasiteyi bilmeden ölçeklemek, kazanan kampanyayı teslimat gecikmesiyle
+            boğmanın en hızlı yolu.
+          </p>
+          <p>
+            İkinci sonuç: Etsy tarafında kargo etiketi Etsy arayüzünden alınıyor. Shopify&apos;da bu akış
+            farklı — etiket Shopify Shipping&apos;ten veya Printinly tarafından alınacak. Faz 0&apos;da netleşmesi
+            gereken operasyonel bir ayrıntı.
+          </p>
+        </Sub>
 
         <Sub title="Doğrulayamadıklarım">
           <p>

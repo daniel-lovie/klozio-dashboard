@@ -3,9 +3,11 @@ import { Section, Sub, Rule, Table, Note, Checklist } from "../resources/parts";
 const PHASES = [
   {
     w: "Faz 0", d: "24–30 Ağustos", t: "Ölçüm ve karar",
-    items: ["Piksel + CAPI kur, test siparişiyle doğrula", "Katalog beslemesini yayınla",
-            "Fiyat kararını ver ($29.99 + kargo eşiği)", "Niş kararını ver"],
-    gate: "Events Manager'da dört olay da düşüyor ve fiyat kurgusu yayında",
+    items: ["Yeni reklam hesabını ve Business Manager'ı kur", "klozio.io alan adını doğrula",
+            "Piksel + CAPI kur, test siparişiyle doğrula", "Printful pikselini kaldır",
+            "Katalog beslemesini yayınla (nakış/şapka hariç)", "Fiyatı $29.99 + kargo eşiğine geçir",
+            "Printinly ile günlük sipariş kapasitesini yaz"],
+    gate: "Dört olay da düşüyor · fiyat yayında · günlük kapasite rakamı belli",
   },
   {
     w: "Faz 1", d: "31 Ağustos – 6 Eylül", t: "Mağaza düzeltmeleri",
@@ -94,6 +96,30 @@ export function Plan() {
       </Section>
 
       <Section
+        id="hesap"
+        kicker="Kurulum"
+        title="Yeni reklam hesabı — sıfırdan doğru kurmak"
+        lede={<>Ayrı hesap açma kararınız doğru: mevcut “Omer-US” hesabında hukuk bürosu kampanyaları ve
+          HillsByElgin geçmişi var, bunlar raporlamayı ve öğrenmeyi kirletiyor. Sıra önemli — piksel ve
+          alan adı doğrulaması reklamdan önce gelmeli.</>}
+      >
+        <Checklist items={[
+          ["Business Manager altında yeni reklam hesabı aç", "Adı markayla aynı olsun. Para birimi USD, saat dilimi mağazanın saat dilimiyle aynı — sonradan değiştirilemiyor."],
+          ["klozio.io alan adını doğrula", "Domain verification olmadan Aggregated Event Measurement'ta olay önceliklendiremezsiniz ve iOS trafiğinde ölçüm kaybı büyür."],
+          ["Yeni piksel oluştur, Shopify'a bağla", "Etsy tarafındaki eski pikselle karıştırmayın. Tek mağaza, tek piksel."],
+          ["Conversions API'yi aç", "Tarayıcı tarafı tek başına yetmiyor. Shopify'ın Facebook kanalı ikisini birlikte kuruyor."],
+          ["Olay önceliklendirmesini ayarla", "Purchase en üstte; sonra InitiateCheckout, AddToCart, ViewContent."],
+          ["Ödeme yöntemi ve harcama limiti tanımla", "Günlük değil hesap seviyesinde limit; kontrolü kaybetmemek için."],
+          ["Kampanya adlandırmasını sabitle", "KLZ | niş | hedef | ay — böylece HillsByElgin ve eski kampanyalarla asla karışmaz."],
+          ["Katalog beslemesini bu hesaba bağla", "Nakış ve şapkalar beslemenin dışında kalsın; farklı maliyet ve teslim süresi TBM'yi bozuyor."],
+        ]} />
+        <Note>
+          Eski hesabı kapatmayın — ömürlük harcama geçmişi ve ödeme itibarı orada duruyor. Sadece Klozio
+          kampanyalarını yeni hesapta çalıştırın.
+        </Note>
+      </Section>
+
+      <Section
         id="gtm"
         kicker="GTM"
         title="Pazara çıkış planı"
@@ -144,6 +170,7 @@ export function Plan() {
               ["Ödemeye ulaşma", "%5 altı", "Sepet çekmecesine bak"],
               ["Ödemeyi tamamlama", "%2.5 altı", "Kargo profili ve checkout'a bak"],
               ["Tekil reklam", "$10 harcama, sinyal yok", "Durdur — pahalı değil, sadece işe yaramıyor"],
+              ["Günlük sipariş", "Printinly kapasitesinin %80'i", "Bütçe artışını durdur — teslimat gecikmesi yorumları öldürür"],
             ]}
           />
         </Sub>
@@ -181,25 +208,33 @@ export function Plan() {
       <Section
         id="kararlar"
         kicker="Sıradaki"
-        title="Sizden gereken kararlar"
-        lede="Bunlar cevaplanmadan Faz 0 kapanmıyor. Hiçbirini sizin adınıza varsaymadım."
+        title="Kararlar"
+        lede="Dördü verildi, dördü açık. Verilenleri plana işledim."
       >
+        <Table
+          head={["Karar", "Cevap", "Plana etkisi"]}
+          rows={[
+            ["Niş", "Oyun — TTRPG mızrağın ucu",
+              "Katalog, koleksiyon adı ve besleme buna göre kuruluyor; anime ayrı tutuluyor"],
+            ["Tedarik", "Printinly, şimdilik elle",
+              "Maliyet modeli doğrulandı · Printful pikseli kaldırılıyor · kapasite geçiş şartı eklendi"],
+            ["Nakış ve şapkalar", "Sitede kalıyor",
+              "Kalıyor ama reklam katalog beslemesinin dışında"],
+            ["Reklam hesabı", "Yeni hesap açılacak",
+              "Faz 0'a temiz kurulum listesi eklendi"],
+          ]}
+        />
+
         <div className="space-y-2.5">
           {[
-            ["Niş", "A (oyun/RPG), B (statement) veya C (nakış) — hangisi? Önerim A.",
-             "Katalog, koleksiyon adı ve reklam beslemesi buna göre kuruluyor."],
-            ["Fiyat", "Tişört $24.99 → $29.99 ve $75 üstü ücretsiz kargo, altı $4.87. Onaylıyor musunuz?",
-             "Onaysız reklam matematiği kurulmuyor. Etsy tarafı bundan etkilenmiyor."],
-            ["Tedarik", "Shopify siparişlerini kim karşılıyor — Printful mü, Printinly mi?",
-             "Mağazada Printful pikseli kurulu ama veritabanı 'printinly' diyor. Maliyet modeli buna göre değişiyor."],
-            ["Nakış ve şapkalar", "Shopify'da kalsın mı, yoksa reklam kataloğu dışına mı alınsın?",
-             "Farklı maliyet ve teslim süresi; aynı kampanyada TBM'yi bozuyorlar. Önerim: sitede kalsın, katalog beslemesinden çıksın."],
-            ["Mockup", "Beğendiğiniz Meta reklam örneklerini gönderecek misiniz?",
-             "Gönderirseniz spesifikasyonu onlara göre kilitlerim; göndermezseniz kurallardan üretirim."],
-            ["Reklam hesabı", "Klozio için ayrı bir reklam hesabı mı, mevcut 'Omer-US' mu?",
-             "Aynı hesap çalışır; adlandırma ayrımı yeterli. Ayrı hesap raporlamayı temizler."],
+            ["Fiyat", "Tişört $24.99 → $29.99, $75 üstü ücretsiz kargo, altı $4.87. Onaylıyor musunuz?",
+             "Açık kalan tek P0 karar. Onaysız reklam matematiği kurulmuyor; Etsy tarafı etkilenmiyor."],
             ["compare_at", "Kalıcı indirim görüntüsü kalsın mı?",
              "Hesaplanmış çapa fiyatlar ($35.70) güven ve reklam uyumu açısından riskli. Önerim: kaldır veya gerçek dönemsel indirime çevir."],
+            ["Kapasite", "Printinly ile günde kaç sipariş rahat çıkar?",
+             "Elle karşılamada bu rakam ölçekleme tavanı. Bilinmeden bütçe artırılmaz."],
+            ["İcra", "Hangi fazdan başlayalım?",
+             "Onay verdiğiniz fazı uygulayıp doğrulamasını da yaparım. Canlı mağazaya henüz dokunmadım."],
           ].map(([t, q, why]) => (
             <div key={t} className="rounded-lg border border-line bg-raised p-4 shadow-sm">
               <div className="flex flex-wrap items-baseline gap-2">

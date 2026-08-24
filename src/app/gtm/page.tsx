@@ -28,6 +28,7 @@ const NAV = [
   { id: "mockup",        label: "Mockup spesi",       group: "Düzeltme" },
   { id: "olcum-kurulum", label: "Ölçüm kurulumu",     group: "Düzeltme" },
   { id: "takvim",        label: "Faz planı",          group: "Plan" },
+  { id: "hesap",         label: "Reklam hesabı",      group: "Plan" },
   { id: "gtm",           label: "GTM planı",          group: "Plan" },
   { id: "q4",            label: "Q4 takvimi",         group: "Plan" },
   { id: "kararlar",      label: "Sizden gerekenler",  group: "Plan" },

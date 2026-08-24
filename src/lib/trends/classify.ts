@@ -27,7 +27,7 @@ export type Judged = RawTrend & { verdict: Verdict; reason: string; judgedBy: "r
 // Sportif" as football, and a stadium sponsor's name carried the word "coffee".
 const TEAM = /\bvs\.?\b|\bv\b\s|\b\d{1,2}\s*[-–]\s*\d{1,2}\b|\b(fc|cf|sc|afc|sk|united|city|rovers|county|athletic)\b|\w+spor\b|\b(lig|liga|ligi|maci|maç[ıi]|stadyum|stadium|taraftar|derbi|derby|fixture|kickoff|half[- ]time|full[- ]time)\b|\b(football|soccer|basketball|baseball|hockey|scores?|match|matchday|league|tournament|playoffs?|cup final|transfer news|nfl|nba|nhl|mlb|mls|ufc|wwe|ncaa|premier league|super lig|süper lig|la liga|serie a|bundesliga|ligue 1|champions league|world cup|super bowl|olympics|formula 1|f1)\b/i;
 
-const BRAND = /\b(honda|toyota|ford|tesla|bmw|apple|google|amazon|meta|microsoft|samsung|nike|adidas|outage|recall|stock|earnings|ipo|layoffs|visa|airlines)\b/i;
+const BRAND = /\b(honda|toyota|ford|tesla|bmw|apple|google|amazon|meta|microsoft|samsung|nike|adidas|outage|recall\w*|stock|earnings|ipo|layoffs|visa|airlines|lawsuit)\b/i;
 
 const PROPERTY = /\b(season \d|episode|trailer|premiere|box office|netflix|disney|hbo|marvel|dc |star wars|pokemon|nintendo|playstation|xbox|taylor swift|album|tour dates|movie|film|series)\b/i;
 
@@ -52,7 +52,18 @@ const GENERIC = /\b(eclipse|meteor|perseid|aurora|solstice|equinox|full moon|com
 const CATEGORY_BLOCK = /^(sports|entertainment|politics|business|law and government|health)$/i;
 const CATEGORY_SAFE = /^(science|nature|food and drink|hobbies and leisure|travel|weather|pets and animals|beauty and fashion)$/i;
 
-/** Two or three lowercase words the news writes as capitalised — a person, most of the time. */
+// A named storm is a disaster with a first name, and the generic list contains "hurricane" because
+// hurricanes make good seasonal designs. "hurricane andrew" scored USABLE on exactly that gap.
+const NAMED_EVENT = /\b(hurricane|storm|typhoon|cyclone|tropical storm|wildfire|fire)\s+[a-z]{3,}\b/i;
+
+/**
+ * Two or three lowercase words the news writes as capitalised — a person, most of the time.
+ *
+ * DEAD ON SERPAPI DATA, and worth saying so: it works by finding the term capitalised in surrounding
+ * news text, and the paid source returns no news text at all. "usain bolt" sailed through it and was
+ * promoted by a Google category of "Science". The model is what covers this now, which is why it is run
+ * over USABLE rows and not only over REVIEW ones.
+ */
 function looksLikeName(term: string, blob: string): boolean {
   const words = term.toLowerCase().split(/[^a-z']+/).filter(Boolean);
   if (words.length < 2 || words.length > 3) return false;
@@ -67,6 +78,7 @@ export function ruleVerdict(t: RawTrend): { verdict: Verdict; reason: string } {
   if (HARM.test(blob)) return { verdict: "BLOCKED", reason: "afet / insan zarari — tisort konusu degil" };
   if (t.categories.some((c) => CATEGORY_BLOCK.test(c)))
     return { verdict: "BLOCKED", reason: `Google kategorisi: ${t.categories.join(", ")}` };
+  if (NAMED_EVENT.test(blob)) return { verdict: "BLOCKED", reason: "adi konmus afet" };
   if (BRAND.test(blob)) return { verdict: "BLOCKED", reason: "sirket / urun markasi" };
   if (TEAM.test(blob)) return { verdict: "BLOCKED", reason: "kulup / lig markasi" };
   if (PROPERTY.test(blob)) return { verdict: "BLOCKED", reason: "telifli yapim ya da marka" };
@@ -114,12 +126,32 @@ const FACT_SYSTEM =
 type Facts = { names_a_person: boolean; names_an_organisation: boolean;
                names_a_fictional_work_or_character: boolean; what_it_is: string };
 
-export async function judge(trends: RawTrend[], opts: { useModel?: boolean } = {}): Promise<Judged[]> {
+export async function judge(
+  trends: RawTrend[], opts: { useModel?: boolean; maxCalls?: number } = {},
+): Promise<Judged[]> {
   const out: Judged[] = trends.map((t) => ({ ...t, ...ruleVerdict(t), judgedBy: "rule" as const }));
   if (opts.useModel === false) return out;
 
-  for (const t of out) {
-    if (t.verdict !== "REVIEW") continue;
+  // USABLE is checked too, not just REVIEW. On the paid source there are no headlines, so the
+  // capitalisation heuristic that catches personal names cannot fire — a Google category of "Science"
+  // was enough to promote "usain bolt" to drawable. The model only ever downgrades, so running it over
+  // the promoted rows can cost a design and cannot cost the shop.
+  //
+  // Capped and ordered by volume: 526 trends produced 88 unresolved rows in one scan, and adjudicating
+  // every one of them serially would put minutes between the scan and the drawing for rows nobody is
+  // searching anyway.
+  // EVERY promoted row is checked, without exception and regardless of volume. Ordering the whole queue
+  // by volume put "usain bolt" (100 searches) outside the top sixty and left a named athlete sitting in
+  // USABLE. A row the rules already rejected costs nothing if it stays rejected; a row they promoted is
+  // the one that can reach a listing. Volume decides only how the LEFTOVER budget is spent on REVIEW.
+  const budget = opts.maxCalls ?? Number(process.env.TREND_MODEL_MAX_CALLS || 60);
+  const promoted = out.filter((t) => t.verdict === "USABLE");
+  const unresolved = out.filter((t) => t.verdict === "REVIEW")
+    .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))
+    .slice(0, Math.max(0, budget - promoted.length));
+  const queue = [...promoted, ...unresolved];
+
+  for (const t of queue) {
     const ctx = [t.term, ...t.headlines.slice(0, 2), ...t.breakdown.slice(0, 4)].join(" | ");
     const f = await askLocalJSON<Facts>(`Search term and context: ${ctx}`, FACTS as unknown as object,
       { system: FACT_SYSTEM, maxTokens: 160 });

@@ -1,5 +1,20 @@
 import { Section, Sub, Rule, Table, Note, Checklist, DoDont } from "../resources/parts";
 
+const YT = {
+  scale:   "https://www.youtube.com/watch?v=BYtlQ0AqcVQ",
+  review2: "https://www.youtube.com/watch?v=AAvz7DOqpgA",
+  build:   "https://www.youtube.com/watch?v=HmNgM84crpQ",
+} as const;
+
+function At({ v, t, s }: { v: keyof typeof YT; t: string; s: number }) {
+  return (
+    <a href={`${YT[v]}&t=${s}s`} target="_blank" rel="noreferrer"
+       className="whitespace-nowrap font-semibold text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent">
+      {t}
+    </a>
+  );
+}
+
 export function Fixes() {
   return (
     <>
@@ -104,13 +119,44 @@ export function Fixes() {
           ))}
         </div>
 
-        <Rule>
-          Önerim <strong>A — oyun ve masaüstü RPG</strong>. Sebebi duygusal değil yapısal: Heckman&apos;ın
+        <Rule tone="ok">
+          <strong>Karar verildi: A — oyun.</strong> Tek bir daraltma öneriyorum: mızrağın ucu
+          <strong> masaüstü rol yapma (TTRPG)</strong> olsun, geniş anlamda &quot;oyun&quot; değil. Gerekçe
+          aşağıda; FPS ve MMORPG açılış hamlesi olarak en zayıf dilim.
+        </Rule>
+
+        <Sub title="Neden TTRPG önce — ve dürüst çekincelerim">
+          <p>
+            <strong>Lehine:</strong> Katalogun ağırlık merkezi zaten burada — etiketlerde
+            &quot;nerdy gift&quot; 20, &quot;gamer gift for him&quot; 15, &quot;gaming shirt&quot; 14 ürün. Heckman&apos;ın motoru
+            iç şaka yoğunluğu: masaüstü kültürünün ortak kelime dağarcığı çok geniş (zar, parti, seans,
+            oyun gecesi) ve bu dil <em>tek bir yayıncıya ait değil</em>. Mizahı sözel olduğu için
+            onun en iyi performans veren şekli olan tipografi-öncelikli tasarıma doğal oturuyor. Hediye
+            niyeti de yüksek: masaüstünde hediyeyi alan kişi çoğu zaman oyun arkadaşı veya eş — yani
+            reklamla ulaşılabilir ayrı bir alıcı.
+          </p>
+          <p>
+            <strong>Çekincelerim, saklamadan:</strong> Birincisi, grafik tişört talebi genel olarak
+            kadın ağırlıklı, oyun ise erkek ağırlıklı. Heckman&apos;ın kazanan örnekleri (hemşirelik, inanç,
+            annelik, köpek, balıkçılık, ekşi maya) çoğunlukla kadın veya karma kitle. Dönüşüm ve sepetin
+            bandın alt ucunda oturmasını beklemek gerçekçi — Klozio&apos;nun ekonomisi zaten dar olduğu için
+            bu önemli. İkincisi, FPS ve MMORPG dilimleri hem ince (6&apos;şar ürün) hem de mizahı tek bir
+            oyuna bağlı; o oyunu oynamayan kişiye hiçbir şey ifade etmiyor. Üçüncüsü, oyun görselleri
+            tanınabilir karakter ve logolara ekşi mayadan çok daha kolay kayıyor — mevcut görsel QA
+            kuralımız (üretilen işte logo, marka işareti, karakter olmayacak) burada daha çok iş yapacak.
+          </p>
+          <p>
+            <strong>Sonuç:</strong> TTRPG ile aç, kâr eden bir TBM yakaladıktan sonra &quot;genel oyuncu
+            hayatı&quot;na yatay genişle. Anime&apos;yi (13 ürün) ayrı tut — farklı alıcı, farklı sanat dili.
+          </p>
+        </Sub>
+
+        <Note>
+          Eski öneri gerekçesi aynen geçerli: Heckman&apos;ın
           modeli “nişin içinden biri olmak”la çalışıyor, oyun nişinde iç şaka üretmek en kolay ve
           yorum/paylaşım en yüksek. B bir format, niş değil; C ise farklı bir iş modeli ve bu playbook&apos;a
-          oturmuyor. C&apos;yi kapatmaya gerek yok — Etsy tarafında yaşamaya devam etsin, Shopify reklamının
-          konusu olmasın.
-        </Rule>
+          oturmuyor. C&apos;yi kapatmaya gerek yok — sitede kalmaya devam etsin, Shopify reklamının konusu olmasın.
+        </Note>
 
         <Sub title="Niş seçildikten sonra katalogda ne olur">
           <ul className="ml-4 list-disc space-y-1">
@@ -152,11 +198,51 @@ export function Fixes() {
         ]}
         />
 
+        <Sub title="Chris'in beğendiği mockup'lar — gidip bakabileceğiniz kaynaklar">
+          <p>
+            Aşağıdaki dört mağazayı yayında tek tek açıp mockup&apos;ını övdü. Bağlantılar videonun tam
+            saniyesine gidiyor; mağaza adreslerini de ekran görüntülerinden aldım.
+          </p>
+          <Table
+            head={["Mağaza", "Niş", "Dakika", "Ne dediği"]}
+            rows={[
+              [<a key="a" href="https://pulseprintstees.com" target="_blank" rel="noreferrer"
+                  className="font-semibold text-accent underline decoration-accent/30 underline-offset-2">pulseprintstees.com</a>,
+               "Hemşirelik",
+               <At key="a2" v="scale" t="13:30 – 15:30" s={810} />,
+               "En detaylı anlatım. Kenarlara değme, üç kademeli kontrast ve objelerin neden sadece altta durması gerektiğini burada tek tek açıklıyor."],
+              [<a key="b" href="https://throttlejunkies.store" target="_blank" rel="noreferrer"
+                  className="font-semibold text-accent underline decoration-accent/30 underline-offset-2">throttlejunkies.store</a>,
+               "Motokros",
+               <At key="b2" v="review2" t="2:34:00 – 2:36:00" s={9240} />,
+               "“Ders kitabı gibi” dediği örnek. Mockup'ı fark etmemiş olması onun için en iyi işaret."],
+              [<a key="c" href="https://knotoriousanglers.com" target="_blank" rel="noreferrer"
+                  className="font-semibold text-accent underline decoration-accent/30 underline-offset-2">knotoriousanglers.com</a>,
+               "Balıkçılık",
+               <At key="c2" v="review2" t="1:11:30" s={4290} />,
+               "$0.37 TBM'li mağaza — “çok temiz mockup”. Ucuz tıklamanın mockup'la ilişkisini en net gösteren örnek."],
+              ["Chalk and Chapel", "Tebeşir/inanç",
+               <At key="d2" v="build" t="1:38:00 ve 2:29:00" s={5880} />,
+               "“Mockup çok temiz.” Tişört kenarlara değiyor; tek düzeltmesi köşedeki kalemlerin alta alınması."],
+              [<a key="e" href="https://lotlegends.shop" target="_blank" rel="noreferrer"
+                  className="font-semibold text-accent underline decoration-accent/30 underline-offset-2">lotlegends.shop</a>,
+               "Taylgeyt",
+               <At key="e2" v="review2" t="11:00 – 16:40" s={660} />,
+               "Karışık örnek: asfalt zeminli olanı beğendi ama üç farklı mockup kullanmasını ve toptaki lig logosunu eleştirdi."],
+            ]}
+          />
+          <p>
+            Kendi markaları da referans: <strong>Sloth Hiking Club</strong> ve <strong>History Tees</strong>
+            (<At v="build" t="2:17:30" s={8250} />). Bunlar onun kendi işlettiği mağazalar, yani kurallarını
+            kendi üstünde uyguladığı yerler.
+          </p>
+        </Sub>
+
         <Rule tone="ok">
-          Evet, güzel mockup örnekleri gönderin — işim kolaylaşır. En faydalısı: <strong>Meta akışında
-          reklam olarak gördüğünüz</strong>, sizin de “bu iyi” dediğiniz 3–5 kare. Etsy&apos;de beğendiğiniz
-          kapaklar değil; ikisinin fiziği farklı. Gönderirseniz her birini yukarıdaki altı kurala göre
-          puanlar, hangisinin kopyalanacağını netleştiririm.
+          Örnekleri siz göndereceksiniz — süper. — işim kolaylaşır. En faydalısı: <strong>Meta akışında
+          reklam olarak gördüğünüz</strong> kareler ve/veya yukarıdaki mağazalardan beğendikleriniz.
+          Etsy&apos;de beğendiğiniz kapaklar işe yaramaz; ikisinin fiziği farklı. Gönderdiğinizde her birini
+          altı kurala göre puanlar, hangisini kopyalayacağımızı netleştiririm.
         </Rule>
 
         <Note>

@@ -73,7 +73,11 @@ export const CATEGORIES: Category[] = [
             "a watering can tipped forward with four falling drops beneath it",
             "a row of three potted plants of different heights on a shelf"] },
 
-  { test: /whale|migration|bird|owl|fox|bear|deer|turtle|meerkat|otter|wildlife|shark|wolf|bison/i,
+  // Widened after a live scan: "wild horses" and "oakland zoo crimson mountain lion" both cleared every
+  // filter at real volume and then fell out because the category list had no horse and no big cat. The
+  // category gate is the last thing standing between a cleared trend and a product, so a gap here reads
+  // as "nothing was trending" when what happened is we could not draw what was.
+  { test: /whale|migration|bird|owl|fox|bear|deer|turtle|meerkat|otter|wildlife|shark|wolf|bison|horses?|lion|tiger|elephant|eagle|hawk|falcon|rabbit|squirrel|moose|elk|coyote|raccoon|penguin|dolphin|octopus|zoo\b|sanctuary|herd|stallion|mustangs?/i,
     niche: "wildlife",
     seeds: ["bird migration", "wildlife photography"],
     tags: ["wildlife lover tee", "animal lover gift", "nature lover tee", "wild animal shirt",

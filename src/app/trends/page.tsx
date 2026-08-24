@@ -44,7 +44,7 @@ export default async function TrendsPage() {
   const paid = await q<{ n: number }>(
     `SELECT count(*)::int n FROM events
       WHERE kind = 'serpapi_call' AND created_at >= date_trunc('month', now())`);
-  const budget = Number(process.env.SERPAPI_MAX_PER_MONTH || 900);
+  const budget = Number(process.env.SERPAPI_MAX_PER_MONTH || 220);
 
   const tally = await q<{ verdict: string; n: number }>(
     `SELECT verdict, count(*)::int n FROM trend_seen

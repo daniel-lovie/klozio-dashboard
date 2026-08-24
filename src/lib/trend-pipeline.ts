@@ -64,8 +64,38 @@ function titleFor(keywords: string[], variant = 0): string {
  * into the thing we replaced, so the count is checked before every paid call and the run says which
  * provider actually answered.
  */
-const PAID_INTERVAL_MS = () => Number(process.env.SERPAPI_INTERVAL_MS || 4 * 3600 * 1000);
-const PAID_BUDGET = () => Number(process.env.SERPAPI_MAX_PER_MONTH || 900);
+const PAID_BUDGET = () => Number(process.env.SERPAPI_MAX_PER_MONTH || 220);
+
+/**
+ * ONE KNOB: the monthly quota. Everything else follows from it.
+ *
+ * Setting a cadence by hand and a budget by hand is two numbers that have to agree, and the day they
+ * stop agreeing the quota runs out mid-month and the system quietly becomes the free feed again. So the
+ * cadence is derived instead.
+ *
+ * Of each day's allowance, FOUR are reserved: one for the call taken immediately before the nightly
+ * draw — the only call whose freshness actually decides anything — and three for the widened-window
+ * reads on a night that finds nothing. Whatever is left is spread across the day as background reads
+ * that keep /trends current. When nothing is left, background reads simply use the free feed.
+ *
+ *   Free plan, 250/month  → set 220 → 7 a day → 1 forced + 3 escalation + 3 background, every 8h
+ *   Starter,  1000/month  → set 900 → 29 a day → hourly background
+ *
+ * Free is genuinely enough. The call that matters is the one before the draw, and a single SerpApi read
+ * returns the whole 24-hour window with volumes — the half-hourly cadence only ever existed to work
+ * around the free feed showing ten items at a time.
+ */
+const RESERVED_PER_DAY = 4;
+
+function dailyAllowance(): number { return Math.floor(PAID_BUDGET() / 31); }
+
+function backgroundIntervalMs(): number {
+  const explicit = Number(process.env.SERPAPI_INTERVAL_MS || 0);
+  if (explicit > 0) return explicit;
+  const spare = dailyAllowance() - RESERVED_PER_DAY;
+  if (spare < 1) return Number.MAX_SAFE_INTEGER;      // no budget for background reads; RSS covers them
+  return Math.ceil((24 / spare) * 3600 * 1000);
+}
 
 async function paidCallsThisMonth(): Promise<number> {
   const r = await q<{ n: number }>(
@@ -74,16 +104,23 @@ async function paidCallsThisMonth(): Promise<number> {
   return r[0]?.n ?? 0;
 }
 
-/** May this tick spend a search? Interval first, then budget — both have to say yes. */
-async function mayPay(): Promise<{ ok: boolean; why: string }> {
+/**
+ * May this call spend a search?
+ *
+ * `force` skips the interval but never the budget: the pre-draw read is the one worth paying for out of
+ * turn, and no read is worth going over quota for.
+ */
+async function mayPay(force = false): Promise<{ ok: boolean; why: string }> {
   if (!hasSerpApi()) return { ok: false, why: "anahtar yok" };
-  const last = await q<{ at: string }>(
-    `SELECT created_at at FROM events WHERE kind = 'serpapi_call' ORDER BY id DESC LIMIT 1`);
-  if (last.length && Date.now() - new Date(last[0].at).getTime() < PAID_INTERVAL_MS()) {
-    return { ok: false, why: "aralik dolmadi" };
-  }
   const spent = await paidCallsThisMonth();
   if (spent >= PAID_BUDGET()) return { ok: false, why: `aylik butce doldu (${spent}/${PAID_BUDGET()})` };
+  if (!force) {
+    const last = await q<{ at: string }>(
+      `SELECT created_at at FROM events WHERE kind = 'serpapi_call' ORDER BY id DESC LIMIT 1`);
+    if (last.length && Date.now() - new Date(last[0].at).getTime() < backgroundIntervalMs()) {
+      return { ok: false, why: "aralik dolmadi" };
+    }
+  }
   return { ok: true, why: `${spent + 1}/${PAID_BUDGET()}` };
 }
 
@@ -94,8 +131,10 @@ async function mayPay(): Promise<{ ok: boolean; why: string }> {
  * or a widened window would always find it "fresh" and the escalation would never really reach back.
  * `last_seen` moves instead, which is what tells us a trend is still running.
  */
-export async function recordScan(hours = 24): Promise<{ seen: number; fresh: number; source: string; note: string }> {
-  const pay = await mayPay();
+export async function recordScan(
+  hours = 24, opts: { force?: boolean } = {},
+): Promise<{ seen: number; fresh: number; source: string; note: string }> {
+  const pay = await mayPay(opts.force);
   const res = await scan(GEOS(), hours, { allowPaid: pay.ok });
   // Logged only when SerpApi actually answered: a call that fell back to RSS cost nothing and must not
   // be charged against a budget it never touched.
@@ -223,7 +262,9 @@ export async function runTrendRound(shopIds: number[], opts: { perDay?: number }
 
   // Always look and always record, even on a night we end up drawing from the store: today's trends
   // have to be written down or tomorrow's widened window has nothing to widen into.
-  const first = await recordScan(WINDOWS[0]);
+  // Forced: this is the read the night's decision rests on, so it jumps the background interval. The
+  // monthly budget still governs — over quota it falls back to the free feed like any other call.
+  const first = await recordScan(WINDOWS[0], { force: true });
 
   let usable = await drawable(WINDOWS[0]);
   let hours = WINDOWS[0];
@@ -233,7 +274,7 @@ export async function runTrendRound(shopIds: number[], opts: { perDay?: number }
     // it would return the same ten rows for the same cost in time.
     // The widened window is worth a paid call when there is budget for it; mayPay() inside recordScan
     // decides, and on a no it simply re-reads the store, which is what the free path did anyway.
-    if (hasSerpApi()) await recordScan(h);
+    if (hasSerpApi()) await recordScan(h, { force: true });
     usable = await drawable(h);
     hours = h;
   }

@@ -62,8 +62,11 @@ export function briefFor(t: Trend): { niche: string; prompt: string; slug: strin
   const blob = `${t.term} ${t.news.map((n) => n.title).join(" ")}`;
   const hit = CATEGORY.find((c) => c.test.test(blob));
   if (!hit) return null;
-  const slug = "trend-" + t.term.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 28)
-             + "-v1";
+  // Named after what we are DRAWING, never after the trend. The trend is only the reason we picked the
+  // category; putting its term in the slug drags a town, a person or a title into our own data (and into
+  // file names) for a design that has nothing to do with it.
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const slug = `trend-${hit.niche.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${day}`;
   return {
     niche: hit.niche, slug,
     prompt: `${hit.subject}, drawn in ${hit.palette}, thick confident outlines and flat colour blocks, `

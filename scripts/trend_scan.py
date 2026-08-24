@@ -60,6 +60,19 @@ PERSON_HINT = re.compile(
     r"\b(actor|actress|singer|rapper|player|coach|quarterback|striker|ceo|senator|governor"
     r"|died|dies|death|obituary|arrested|lawsuit|divorce|engaged|pregnant|wife|husband)\b", re.I)
 
+# Somebody is having the worst day of their life. Checked BEFORE the generic list on purpose: the
+# generic list contains "wildfire", "hurricane" and "blizzard" because those make good seasonal weather
+# designs — and on 2026-08-24 "velma" came through as a drawable weather trend when what had actually
+# happened was a town in Oklahoma evacuating ahead of a fire. Selling a rainy-day joke off an evacuation
+# is not a legal problem, it is a shop-ending one, and no amount of category abstraction fixes it.
+HARM = re.compile(
+    r"\b(evacuat\w*|evacuation|casualt\w*|fatalit\w*|killed|dead|deaths?|death toll|injur\w*"
+    r"|victims?|missing|manhunt|shooting|shot|stabbed|stabbing|gunman|hostage|kidnap\w*"
+    r"|crash|collision|derail\w*|collapse|quake|earthquake|tsunami|flooding|floods?|mudslide"
+    r"|landfall|storm surge|state of emergency|disaster|wreckage|rescue|survivors?"
+    r"|outbreak|epidemic|overdose|suicide|funeral|memorial|mourning|vigil"
+    r"|war|airstrike|bombing|shelling|invasion|refugee|protest|riot|unrest)\b", re.I)
+
 # Ours to draw: weather, sky, seasons, food, hobbies, plain nouns.
 GENERIC = re.compile(
     r"\b(eclipse|meteor|aurora|solstice|equinox|full moon|comet|hurricane|blizzard|heat wave"
@@ -108,6 +121,8 @@ def verdict(t: dict) -> tuple[str, str]:
         return "BLOCKED", "kulup / lig markasi"
     if PROPERTY.search(blob):
         return "BLOCKED", "telifli yapim ya da marka"
+    if HARM.search(blob):
+        return "BLOCKED", "afet / insan zarari — tisort konusu degil"
     if GENERIC.search(t["term"]) or GENERIC.search(blob):
         return "USABLE", "jenerik kavram — cizilebilir"
     if PERSON_HINT.search(blob) or looks_like_name(t["term"], blob):

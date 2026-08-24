@@ -214,8 +214,8 @@ export function Plan() {
         <Table
           head={["Karar", "Cevap", "Plana etkisi"]}
           rows={[
-            ["Niş", "Oyun — TTRPG mızrağın ucu",
-              "Katalog, koleksiyon adı ve besleme buna göre kuruluyor; anime ayrı tutuluyor"],
+            ["Niş", "Yeniden ölçüldü → bahçe / bitki (öneri)",
+              "Oyun ölçümde elendi: yüksek görünen temaların kazananları lisanssız hayran ürünü. Onayınız bekleniyor"],
             ["Tedarik", "Printinly, şimdilik elle",
               "Maliyet modeli doğrulandı · Printful pikseli kaldırılıyor · kapasite geçiş şartı eklendi"],
             ["Nakış ve şapkalar", "Sitede kalıyor",
@@ -227,6 +227,8 @@ export function Plan() {
 
         <div className="space-y-2.5">
           {[
+            ["Niş onayı", "Bahçe/bitki kümesi mi, yedek olarak faith mi?",
+             "Ölçüm bahçeyi işaret ediyor; kataloğun tamamı bu karara bağlı."],
             ["Fiyat", "Tişört $24.99 → $29.99, $75 üstü ücretsiz kargo, altı $4.87. Onaylıyor musunuz?",
              "Açık kalan tek P0 karar. Onaysız reklam matematiği kurulmuyor; Etsy tarafı etkilenmiyor."],
             ["compare_at", "Kalıcı indirim görüntüsü kalsın mı?",

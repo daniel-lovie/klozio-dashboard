@@ -67,103 +67,124 @@ export function Fixes() {
       <Section
         id="nis"
         kicker="Karar · P0"
-        title="Niş: verilmesi gereken tek stratejik karar"
-        lede={<>Katalog bugün altı ayrı kitleye aynı anda konuşuyor. Reklam bunu yapamaz — Heckman&apos;ın
-          deyişiyle mağaza bir kitleye ait hissettirmeli. Aşağıda üç yol var; üçü de savunulabilir ama
-          biri diğerlerinden hızlı.</>}
+        title="Niş — fikirle değil, ölçümle"
+        lede={<>&quot;Havalı olanı değil satacak olanı bulalım&quot; dediniz. Bunun için 46 aday temayı EverBee
+          üzerinden popülasyon ölçeğinde ölçtüm: her tema için Giyim kategorisindeki toplam ilan sayısı,
+          ayda 100+ satan &quot;kazanan&quot; ilan sayısı ve — belirleyici olan — bu kazananların kaçının
+          <strong> kişiselleştirmesiz</strong> olduğu. Sebebi şu: Shopify + Meta modelinde kişiselleştirme
+          operasyonumuz yok, dolayısıyla bizim için tek anlamlı soru &quot;düz grafik tişört burada kazanabiliyor
+          mu?&quot;</>}
       >
-        <div className="grid gap-3 lg:grid-cols-3">
-          {[
-            {
-              t: "A · Oyun & masaüstü RPG",
-              n: "33 ürün hazır",
-              pro: ["Katalogda zaten en tutarlı küme (RPG 12, TTRPG 9, FPS 6, MMORPG 6).",
-                    "Tutkulu, iç şakası bol, yorum bırakan kitle — Meta için ideal.",
-                    "Hediye niyeti yüksek, Q4'e uygun."],
-              con: ["100 tasarıma çıkmak için ~70 yeni tasarım gerekiyor.",
-                    "Marka/lisans ihlali riski yüksek; her tasarım taranmalı."],
-              rec: true,
-            },
-            {
-              t: "B · Statement / mizah tişörtleri",
-              n: "46 ürün hazır",
-              pro: ["En büyük hazır küme.",
-                    "Heckman'ın 'sonsuz ölçeklenebilir' dediği evergreen kalıplara en yakın alan."],
-              con: ["Niş değil, format. Kitle tanımı yok — bu tam da bugünkü sorun.",
-                    "Rekabet en yoğun ve en jenerik alan."],
-            },
-            {
-              t: "C · Nakış & kişiselleştirme",
-              n: "42 ürün hazır",
-              pro: ["Belirgin şekilde daha yüksek marj (%44–53 net).",
-                    "Farklılaşma kolay, kopyalanması zor."],
-              con: ["Heckman'ın modeli değil — üretim süresi uzun, iade riski yüksek.",
-                    "Katalog reklamı ve hızlı iterasyon mantığı burada çalışmıyor."],
-            },
-          ].map((o) => (
-            <div key={o.t} className={`rounded-lg border p-4 shadow-sm ${o.rec ? "border-accent/40 bg-accent-soft" : "border-line bg-raised"}`}>
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-sm font-semibold">{o.t}</h3>
-                {o.rec && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-ink">ÖNERİ</span>}
-              </div>
-              <p className="mt-0.5 text-[11px] uppercase tracking-wide text-ink-faint">{o.n}</p>
-              <ul className="mt-2 space-y-1">
-                {o.pro.map((x, i) => (
-                  <li key={i} className="flex gap-1.5 text-xs leading-relaxed text-ink"><span className="text-ok">+</span>{x}</li>
-                ))}
-                {o.con.map((x, i) => (
-                  <li key={i} className="flex gap-1.5 text-xs leading-relaxed text-ink-soft"><span className="text-danger">−</span>{x}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <Rule tone="ok">
-          <strong>Karar verildi: A — oyun.</strong> Tek bir daraltma öneriyorum: mızrağın ucu
-          <strong> masaüstü rol yapma (TTRPG)</strong> olsun, geniş anlamda &quot;oyun&quot; değil. Gerekçe
-          aşağıda; FPS ve MMORPG açılış hamlesi olarak en zayıf dilim.
+        <Rule tone="danger">
+          İlk sonuç bir tuzağı ortaya çıkardı. En yüksek kazanan yoğunluğuna sahip temalar —
+          <strong> dungeons (425/M), book, anime</strong> — kâğıt üstünde mükemmel görünüyor. Kazananlara
+          tek tek baktığımda hepsinin <em>lisanssız hayran ürünü</em> olduğunu gördüm: Dungeon Crawler Carl
+          karakterleri, Project Hail Mary, Murderbot, Spider-Man. Bunlar bize kapalı. Sadece sayılara
+          bakıp TTRPG&apos;ye girseydik, doğrudan bu duvara çarpardık — ki geçen mesajda önerdiğim yön buydu.
+          Ölçüm önerimi çürüttü.
         </Rule>
 
-        <Sub title="Neden TTRPG önce — ve dürüst çekincelerim">
-          <p>
-            <strong>Lehine:</strong> Katalogun ağırlık merkezi zaten burada — etiketlerde
-            &quot;nerdy gift&quot; 20, &quot;gamer gift for him&quot; 15, &quot;gaming shirt&quot; 14 ürün. Heckman&apos;ın motoru
-            iç şaka yoğunluğu: masaüstü kültürünün ortak kelime dağarcığı çok geniş (zar, parti, seans,
-            oyun gecesi) ve bu dil <em>tek bir yayıncıya ait değil</em>. Mizahı sözel olduğu için
-            onun en iyi performans veren şekli olan tipografi-öncelikli tasarıma doğal oturuyor. Hediye
-            niyeti de yüksek: masaüstünde hediyeyi alan kişi çoğu zaman oyun arkadaşı veya eş — yani
-            reklamla ulaşılabilir ayrı bir alıcı.
-          </p>
-          <p>
-            <strong>Çekincelerim, saklamadan:</strong> Birincisi, grafik tişört talebi genel olarak
-            kadın ağırlıklı, oyun ise erkek ağırlıklı. Heckman&apos;ın kazanan örnekleri (hemşirelik, inanç,
-            annelik, köpek, balıkçılık, ekşi maya) çoğunlukla kadın veya karma kitle. Dönüşüm ve sepetin
-            bandın alt ucunda oturmasını beklemek gerçekçi — Klozio&apos;nun ekonomisi zaten dar olduğu için
-            bu önemli. İkincisi, FPS ve MMORPG dilimleri hem ince (6&apos;şar ürün) hem de mizahı tek bir
-            oyuna bağlı; o oyunu oynamayan kişiye hiçbir şey ifade etmiyor. Üçüncüsü, oyun görselleri
-            tanınabilir karakter ve logolara ekşi mayadan çok daha kolay kayıyor — mevcut görsel QA
-            kuralımız (üretilen işte logo, marka işareti, karakter olmayacak) burada daha çok iş yapacak.
-          </p>
-          <p>
-            <strong>Sonuç:</strong> TTRPG ile aç, kâr eden bir TBM yakaladıktan sonra &quot;genel oyuncu
-            hayatı&quot;na yatay genişle. Anime&apos;yi (13 ürün) ayrı tut — farklı alıcı, farklı sanat dili.
+        <Sub title="Ölçüm sonuçları — kişiselleştirmesiz kazananlar">
+          <Table
+            head={["Tema", "Giyim ilanı", "Kazanan (100+/ay)", "Kişiselleştirmesiz", "Pay", "Bize uygun mu"]}
+            rows={[
+              ["teacher", "759.440", "51", "16", "%31",
+                <span key="a" className="text-warn">Derin ama en doymuş · sezonu Q4 değil</span>],
+              ["dungeons", "25.879", "11", "10", "%91",
+                <span key="b" className="font-semibold text-danger">Hayır — Dungeon Crawler Carl IP</span>],
+              ["book", "351.711", "10", "10", "%100",
+                <span key="c" className="font-semibold text-danger">Hayır — kitap fandom IP</span>],
+              ["anime", "676.316", "17", "9", "%53",
+                <span key="d" className="font-semibold text-danger">Hayır — karakter IP</span>],
+              ["faith", "350.177", "8", "8", "%100",
+                <span key="e" className="font-semibold text-ok">Evet — jenerik ifadeler, IP yok</span>],
+              ["botanical", "140.155", "9", "7", "%78",
+                <span key="f" className="font-semibold text-ok">Evet</span>],
+              ["cottagecore", "223.287", "8", "8", "%100",
+                <span key="g" className="font-semibold text-ok">Evet</span>],
+              ["garden", "139.871", "5", "4", "%80",
+                <span key="h" className="font-semibold text-ok">Evet</span>],
+              ["cat", "549.369", "13", "6", "%46",
+                <span key="i" className="text-warn">Kısmen</span>],
+              ["dad", "598.810", "54", "7", "%13",
+                <span key="j" className="text-warn">Kişiselleştirme baskın</span>],
+              ["dog", "671.095", "22", "3", "%14",
+                <span key="k" className="text-warn">Kişiselleştirme baskın</span>],
+              ["knitting", "305.803", "24", "1", "%4",
+                <span key="l" className="text-danger">Hayır — düz grafik kazanmıyor</span>],
+              ["coffee · gym · pickleball · autism", "—", "0", "0", "—",
+                <span key="m" className="text-danger">Hayır — hiç kazanan yok</span>],
+            ]}
+          />
+          <p className="text-xs text-ink-faint">
+            Kaynak: EverBee Research API, Giyim kategorisi, 24 Ağustos 2026. Satış rakamları EverBee
+            tahminidir; Etsy kesin veri yayınlamaz. Bu veri <em>tema talebini</em> ölçer, Meta reklam
+            performansını değil.
           </p>
         </Sub>
 
-        <Note>
-          Eski öneri gerekçesi aynen geçerli: Heckman&apos;ın
-          modeli “nişin içinden biri olmak”la çalışıyor, oyun nişinde iç şaka üretmek en kolay ve
-          yorum/paylaşım en yüksek. B bir format, niş değil; C ise farklı bir iş modeli ve bu playbook&apos;a
-          oturmuyor. C&apos;yi kapatmaya gerek yok — sitede kalmaya devam etsin, Shopify reklamının konusu olmasın.
-        </Note>
+        <Rule tone="ok">
+          <strong>Önerim: bahçe / bitki insanları — botanik estetiğe oturmuş, kuru mizahlı bir marka.</strong>
+          Test ettiğim temalar arasında kişiselleştirmesiz kazananların baskın olduğu <em>ve</em> IP
+          sorunu bulunmayan tek küme bu (garden + botanical + cottagecore birlikte 22 kazanan, 19&apos;u
+          kişiselleştirmesiz).
+        </Rule>
 
-        <Sub title="Niş seçildikten sonra katalogda ne olur">
+        <Sub title="Neden bu küme">
+          <ul className="ml-4 list-disc space-y-1.5">
+            <li><strong>Düz grafik tişört burada gerçekten kazanıyor.</strong> Cottagecore&apos;da kazananların
+              %100&apos;ü, botanikte %78&apos;i kişiselleştirmesiz. Bizim üretebildiğimiz şey tam olarak bu.</li>
+            <li><strong>IP yükü yok.</strong> Çiçek, bitki ve bahçe mizahı kimsenin mülkü değil. Oyun ve
+              kitap nişlerinde her tasarım bir hukuk riski taşıyor; burada taşımıyor.</li>
+            <li><strong>Kitle kadın ağırlıklı</strong> — grafik tişört talebinin gerçekte olduğu yer.
+              Geçen mesajda oyun için dile getirdiğim çekince burada tersine dönüyor.</li>
+            <li><strong>Comfort Colors zaten kategori standardı.</strong> Kazanan ilanların başlıklarında
+              tekrar tekrar geçiyor — mevcut blank&apos;imiz, baskı yöntemimiz ve mockup işimiz aynen geçerli.</li>
+            <li><strong>İki kanıtlanmış tasarım şekli var, ikisi de bizim elimizde:</strong> kuru mizah
+              tipografisi (en büyük kazanan tek ilan ayda 1.227 satışla bu şekilde — karanlık bir bahçe
+              şakası, $16.68, Comfort Colors) ve vintage botanik illüstrasyon. Heckman&apos;ın
+              tipografi / grafik / ikisi matrisine birebir oturuyor.</li>
+            <li><strong>Fiyat bandı bizi destekliyor:</strong> kazananlar $16–33 arasında, yani $29.99
+              hamlesi bandın içinde.</li>
+          </ul>
+        </Sub>
+
+        <Sub title="Çekincelerim — bunları da bilin">
+          <p>
+            <strong>Derinlik daha az.</strong> Bahçe kümesinde 22 kazanan var; teacher&apos;da 51, dad&apos;de 54.
+            Yani tavan muhtemelen daha düşük. Buna karşılık teacher&apos;ın sezonu ağustos ve mayıs — Q4 değil —
+            ve 759 bin ilanla en doymuş pazar. Q4&apos;e on hafta kala bu ikisi ciddi dezavantaj.
+          </p>
+          <p>
+            <strong>Estetik kalabalık.</strong> Cottagecore&apos;da 223 bin ilan var; botanik görünüm tek başına
+            ayırt edici değil. Farkı mizah yaratacak, çiçek çizimi değil.
+          </p>
+          <p>
+            <strong>Tek aykırı değere yaslanmayın.</strong> 1.227/ay tek bir ilan; kümenin ortalaması bu
+            değil.
+          </p>
+          <p>
+            <strong>Etsy verisi Meta değildir.</strong> Bu ölçüm temaya talep olduğunu kanıtlar, reklam
+            ekonomisini değil. TBM&apos;yi ancak kampanya açınca öğreneceğiz.
+          </p>
+        </Sub>
+
+        <Sub title="Yedek seçenek: faith">
+          <p>
+            İkinci sırada <strong>faith</strong> duruyor: 8 kazananın 8&apos;i de kişiselleştirmesiz, ifadeler
+            jenerik (mezmur alıntıları, kalıplaşmış cümleler), IP yükü yok ve Q4 hediye niyeti bahçeden
+            güçlü. Bahçeyi öne almamın sebebi mizah: Heckman&apos;ın motoru yorum ve paylaşım, o da şakayla
+            geliyor. Faith daha çok kimlik ve samimiyet üstünden çalışıyor — yorum üretme gücü daha
+            düşük ve ton hatasının bedeli ağır.
+          </p>
+        </Sub>
+
+        <Sub title="Kararın kataloğa etkisi">
           <ul className="ml-4 list-disc space-y-1">
-            <li>Seçilen nişin ürünleri tek ana koleksiyona toplanır ve koleksiyon nişin adını alır.</li>
-            <li>Diğerleri silinmez — sadece reklamın gördüğü katalog beslemesinden çıkarılır.</li>
-            <li>Katalog 100&apos;e tamamlanır; bölme matrisiyle üretilir (tipografi / grafik × mizah / nostalji / kimlik).</li>
-            <li>DB&apos;de duran ama Shopify&apos;a taşınmamış ~61 ürün gözden geçirilir, nişe uyanlar taşınır.</li>
+            <li>Mevcut 177 ürünün büyük kısmı bu nişe girmiyor — sitede kalabilir, reklam beslemesinin dışında.</li>
+            <li>Sıfırdan 100 tasarım gerekiyor; bölme matrisiyle üretilecek (tipografi / grafik × kuru mizah / estetik / kimlik).</li>
+            <li>Koleksiyon adı nişi söylemeli — &quot;Products&quot; ve &quot;Everything Else&quot; gidiyor.</li>
+            <li>Nakış ve şapkalar sitede kalır, beslemenin dışında (verdiğiniz karar).</li>
           </ul>
         </Sub>
       </Section>

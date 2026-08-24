@@ -207,7 +207,17 @@ async function draftOne(
   const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   // Named after what we are DRAWING, never after the trend: putting a town's or a person's name in the
   // slug drags it into our data and file names for a picture that has nothing to do with them.
-  const slug = `trend-${cat.niche.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${day}-v${req.variant + 1}`;
+  const base = `trend-${cat.niche.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${day}-v${req.variant + 1}`;
+  // products.slug is UNIQUE across ALL shops, not per shop — draftProduct's own duplicate check is
+  // per-shop, so the constraint fires as a raw Postgres error rather than a handled skip. Two different
+  // trends mapping to one niche on one day is normal ("wild horses" and a zoo story both landed in
+  // wildlife), and the second must not die for it. The name still describes the drawing and still
+  // carries no trend term.
+  const taken = await q<{ slug: string }>(
+    `SELECT slug FROM products WHERE slug = $1 OR slug LIKE $1 || '-%'`, [base]);
+  const used = new Set(taken.map((r) => r.slug));
+  let slug = base;
+  for (let n = 2; used.has(slug); n++) slug = `${base}-${n}`;
 
   for (let i = 0; i < shopIds.length; i++) {
     const id = shopIds[(turn + i) % shopIds.length];

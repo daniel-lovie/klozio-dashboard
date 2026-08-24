@@ -108,7 +108,7 @@ export async function claimDue(limit = 5): Promise<DueRow[]> {
              SELECT 1 FROM events e
               WHERE e.kind = 'etsy_quota_spent'
                 AND e.detail = 'shop ' || p.shop_id::text
-                AND e.created_at > date_trunc('day', now() AT TIME ZONE 'UTC')
+                AND e.created_at > (date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
            )
          ORDER BY sc.scheduled_at
          LIMIT $1
@@ -309,7 +309,7 @@ async function publishOneInner(row: DueRow): Promise<{ ok: boolean; listingId?: 
         await q(`INSERT INTO events (kind, detail) SELECT 'etsy_quota_spent', $1
                   WHERE NOT EXISTS (SELECT 1 FROM events
                                      WHERE kind='etsy_quota_spent' AND detail=$1
-                                       AND created_at > date_trunc('day', now() AT TIME ZONE 'UTC'))`,
+                                       AND created_at > (date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'))`,
                 [`shop ${shopId}`]);
       }
       await logEvent("etsy_quota_wait", { scheduleId: schedule_id, productId: product_id,

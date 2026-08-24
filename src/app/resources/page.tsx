@@ -65,12 +65,39 @@ export default async function ResourcesPage() {
           Marka kurma bölümü, üç canlı mağaza incelemesi ve Q4 verilerinin paylaşıldığı yayın. Sayılar
           ekranda gösterdiği gerçek hesap verilerinden alındı; her bölüm ilgili dakikaya bağlanıyor.
         </p>
+        <details className="mt-5 rounded-lg border border-line bg-raised px-4 py-3 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium">
+            Sözlük — sayfada geçen kısaltmalar
+          </summary>
+          <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            {[
+              ["TBM", "Tıklama başı maliyet. Reklama bir tıklama almanın maliyeti (cost per click)."],
+              ["ROAS", "Reklam harcamasının getirisi. 1 dolar harcayınca kaç dolar ciro döndüğü."],
+              ["Dönüşüm oranı", "Siteye gelen 100 kişiden kaçının satın aldığı."],
+              ["Sepet (AOV)", "Ortalama sipariş tutarı."],
+              ["Başabaş", "Kâr da zarar da etmediğin ROAS seviyesi. %40 maliyette 1.67."],
+              ["Huni (funnel)", "Ziyaret → sepete ekleme → ödemeye ulaşma → ödemeyi tamamlama zinciri."],
+              ["CRO", "Dönüşüm oranı optimizasyonu. Siteyi daha çok satacak hâle getirme işi."],
+              ["POD", "Print-on-demand. Siparişten sonra tek tek bastırılan, stoksuz üretim."],
+              ["Katalog reklamı", "Meta'nın ürün akışından kendi seçtiği ürünleri gösterdiği reklam tipi."],
+              ["Mockup", "Tasarımın giyilmiş/serilmiş tişört üzerinde göründüğü ürün görseli."],
+              ["Üst bant", "Sayfanın kaydırmadan görünen ilk ekranı (above the fold)."],
+              ["Flow", "E-posta otomasyonu. Sepet terk, hoş geldin gibi tetiklenen seriler."],
+            ].map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="w-28 shrink-0 text-sm font-semibold">{k}</dt>
+                <dd className="text-sm leading-relaxed text-ink-soft">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             ["Yayın", "5"],
             ["Kayıt", "8s 46dk"],
             ["İncelenen mağaza", "9"],
-            ["Model", "Shopify POD"],
+            ["Ekran görüntüsü", "29"],
           ].map(([k, v]) => (
             <div key={k} className="rounded-lg border border-line bg-raised px-4 py-3 shadow-sm">
               <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">{k}</dt>

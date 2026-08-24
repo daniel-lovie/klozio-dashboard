@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 const LINKS = [
   { href: "/", label: "Takvim", group: "uretim" },
   { href: "/chat", label: "Agent", group: "uretim" },
+  { href: "/trends", label: "Trendler", group: "uretim" },
   { href: "/portfolio", label: "Portföy", group: "kayit" },
   { href: "/orders", label: "Siparişler", group: "kayit" },
   { href: "/analytics", label: "Analytics", group: "kayit" },

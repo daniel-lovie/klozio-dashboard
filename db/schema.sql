@@ -557,3 +557,16 @@ CREATE TABLE IF NOT EXISTS trend_seen (
   UNIQUE (geo, term)
 );
 CREATE INDEX IF NOT EXISTS trend_seen_lookback ON trend_seen (verdict, first_seen DESC);
+
+-- Trend rows now carry what the paid provider gives us and the free feed cannot: how many people are
+-- searching, how fast it is growing, Google's own category tags, and which provider answered. Volume is
+-- what lets the drawing go to the biggest trend of the night instead of whichever came back first.
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS source       TEXT NOT NULL DEFAULT 'rss';
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS volume       BIGINT;
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS increase_pct INT;
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS categories   TEXT;
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS breakdown    TEXT;
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS judged_by    TEXT NOT NULL DEFAULT 'rule';
+ALTER TABLE trend_seen ADD COLUMN IF NOT EXISTS last_seen    TIMESTAMPTZ;
+-- Volume-first selection needs an index that survives the verdict filter.
+CREATE INDEX IF NOT EXISTS trend_seen_pick ON trend_seen (verdict, used_at, first_seen DESC, volume DESC);

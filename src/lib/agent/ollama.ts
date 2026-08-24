@@ -380,3 +380,61 @@ export async function ollamaReady(timeout = 3000): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * One question, one answer, no tools, no history — for the pipeline code that wants a sentence from
+ * the model rather than a conversation.
+ *
+ * Returns null instead of throwing, on every failure path including a cold load that runs long. Every
+ * caller here has a deterministic fallback, and a model that is busy drawing must never be the reason
+ * a nightly run fails. The timeout is generous for the same reason the chat path's is: this box serves
+ * one model at a time, so a text prompt arriving while ComfyUI holds the GPU waits for a real load.
+ */
+export async function askLocal(
+  prompt: string,
+  opts: { system?: string; timeoutMs?: number; maxTokens?: number; schema?: object } = {},
+): Promise<string | null> {
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), opts.timeoutMs ?? 240_000);
+  try {
+    const res = await fetch(`${OLLAMA}/api/chat`, {
+      method: "POST", signal: c.signal,
+      headers: ollamaHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({
+        model: MODEL, stream: false, keep_alive: "5m",
+        // Qwen3 reasons by default and puts that reasoning in a SEPARATE `thinking` field, so a short
+        // num_predict was spent entirely on it and `content` came back empty — every call here returned
+        // null and every caller silently took its fallback. Reasoning off, and the budget goes to the
+        // answer. With it off the model still preambles in prose, which is why `schema` matters below.
+        think: false,
+        ...(opts.schema ? { format: opts.schema } : {}),
+        options: { temperature: 0.2, num_predict: opts.maxTokens ?? 220 },
+        messages: [
+          ...(opts.system ? [{ role: "system", content: opts.system }] : []),
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const raw = String(j?.message?.content ?? "").trim();
+    return raw.replace(/<think>[\s\S]*?<\/think>/g, "").trim() || null;
+  } catch {
+    return null;
+  } finally { clearTimeout(t); }
+}
+
+/** askLocal with a JSON schema forced on the reply. Returns null on anything that will not parse. */
+export async function askLocalJSON<T = any>(
+  prompt: string,
+  schema: object,
+  opts: { system?: string; timeoutMs?: number; maxTokens?: number } = {},
+): Promise<T | null> {
+  const raw = await askLocal(prompt, { ...opts, schema });
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as T;
+  } catch {
+    return null;
+  }
+}

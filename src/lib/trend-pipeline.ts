@@ -1,157 +1,31 @@
 /**
- * The daily trend run: read what people searched yesterday, keep only what we may legally draw, and
- * leave finished products waiting for one click.
+ * The daily trend run: watch what people are searching all day, keep only what we may legally and
+ * decently draw, and leave finished products waiting for one click.
  *
- * The operator's requirement is that everything is ready and a user only approves — so this writes the
- * row, the copy and the design brief, and the producer draws it. What it deliberately does NOT do is
- * approve: the schedule row is 'pending' and Etsy is never touched. That is rule 1 and it is also the
- * only thing standing between an automated pipeline and an automated mistake.
+ * SEPARATE THE WATCHING FROM THE DRAWING. That split is the whole redesign. The old version scanned
+ * once a night, and the feed it scanned holds ten items per geo on a rolling window — two reads a
+ * MINUTE apart shared only 25 of 30 terms. One nightly read therefore saw a sliver of the day and had
+ * no way of knowing what it missed. Now `recordScan()` runs on every scheduler tick and writes what it
+ * sees; `runTrendRound()` runs once, at 19:00 America/Chicago, and draws from everything recorded.
  *
- * Why so few products come out of it: measured across US, GB and CA on 2026-08-24, 30 trends yielded
- * ONE that could become a design without using somebody's name, face or mark. The rest were athletes,
- * celebrities, clubs, leagues and companies. A trend run that produced six products a day would be
- * producing six infringements a day, so the honest output of a good day is one or two.
+ * What is taken from a trend is never its subject. No person, no character, no team, no mark. The
+ * category is taken and the drawing is written from the trend within that category — so a Perseid
+ * night draws meteors rather than the same ringed moon every astronomy day drew before.
  *
- * What is taken from a trend is the CATEGORY, never the subject. "Partial lunar eclipse this week"
- * becomes an astronomy design, not a picture of the eclipse coverage.
+ * Nothing here approves and nothing here touches Etsy: every product lands on a `pending` schedule
+ * row. That is rule 1 of this project, and the only thing between an automated pipeline and an
+ * automated mistake.
  */
-import { execFile } from "child_process";
-import { promisify } from "util";
 import { draftProduct } from "./agent/draft-product";
 import { q, logEvent } from "./db";
+import { scan, hasSerpApi, type RawTrend } from "./trends/sources";
+import { judge, type Judged } from "./trends/classify";
+import { CATEGORIES, categoryFor, subjectFor, promptFrom } from "./trends/design";
 
-const run = promisify(execFile);
+const GEOS = () => (process.env.TREND_GEOS || "US").split(",").map((s) => s.trim()).filter(Boolean);
 
-export type Trend = {
-  geo: string; term: string; traffic: string; published: string;
-  picture: string; verdict: "USABLE" | "REVIEW" | "BLOCKED"; reason: string;
-  news: { title: string; source: string; url: string }[];
-};
-
-export async function scanTrends(geos = "US,GB,CA", hours = 24): Promise<Trend[]> {
-  const { stdout } = await run("python3",
-    ["scripts/trend_scan.py", "--geo", geos, "--hours", String(hours), "--json"],
-    { timeout: 120_000, maxBuffer: 1 << 24 });
-  return JSON.parse(stdout);
-}
-
-/** Words that turn a headline into a subject we can draw, mapped to what to draw. */
-const CATEGORY: { test: RegExp; niche: string; draws: { subject: string; palette: string }[] }[] = [
-  { test: /eclipse|moon|lunar|meteor|aurora|comet|solstice|equinox|night sky|stargaz/i,
-    niche: "astronomy", draws: [
-      { subject: "a large ringed moon with three small stars scattered around it",
-        palette: "deep indigo, cream, mustard and dusty rose" },
-      { subject: "a row of five moon phases above a low mountain ridge",
-        palette: "charcoal, warm cream, burnt orange and pale blue" }] },
-  { test: /hurricane|storm|blizzard|snow|frost|heat wave|drought|wildfire/i,
-    niche: "weather humour", draws: [
-      { subject: "a heavy rain cloud with three lightning shapes below it",
-        palette: "charcoal, mustard, teal and cream" },
-      { subject: "a wide sun half hidden behind two flat cloud banks",
-        palette: "burnt orange, cream, deep teal and soft grey" }] },
-  { test: /recipe|sourdough|baking|bread|pizza|coffee|matcha|barbecue|harvest/i,
-    niche: "food humour", draws: [
-      { subject: "a round loaf of bread with a scored cross on top beside a jar",
-        palette: "warm tan, terracotta, sage green and cream" },
-      { subject: "a tall coffee cup with three steam curls rising from it",
-        palette: "deep brown, cream, mustard and dusty rose" }] },
-  { test: /garden|planting|seed|bloom|wildflower|pollinator|bee\b/i,
-    niche: "garden humour", draws: [
-      { subject: "a terracotta pot with three tall seedlings and one open bloom",
-        palette: "terracotta, sage green, mustard and cream" },
-      { subject: "a watering can tipped forward with four falling drops beneath it",
-        palette: "sage green, cream, warm tan and soft coral" }] },
-  { test: /whale|migration|bird|owl|fox|bear|deer|turtle|meerkat|otter/i,
-    niche: "wildlife", draws: [
-      { subject: "a single wild animal seen side on with its head turned to the viewer",
-        palette: "warm brown, sage green, cream and charcoal" },
-      { subject: "a wild animal curled asleep inside a ring of leaves",
-        palette: "deep teal, warm cream, rust and soft olive" }] },
-  { test: /back to school|semester|exam|graduation|teacher/i,
-    niche: "school humour", draws: [
-      { subject: "a stack of three books with a pencil resting across the top",
-        palette: "mustard, deep teal, coral and cream" },
-      { subject: "an open notebook with a coffee cup set on its corner",
-        palette: "cream, warm tan, deep navy and soft coral" }] },
-];
-
-/**
- * Write everything this scan saw, then never touch first_seen again.
- *
- * The feed has no history — ten items per geo, all published within the same half hour, and asking for
- * 96 hours returns those same ten (measured 2026-08-24). So our own table IS the history, and a trend
- * that reappears tomorrow must keep today's age or the widened window would never really reach back.
- */
-async function remember(trends: Trend[]): Promise<void> {
-  for (const t of trends) {
-    await q(
-      `INSERT INTO trend_seen (geo, term, verdict, reason, headlines, traffic)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (geo, term) DO UPDATE SET verdict = EXCLUDED.verdict, reason = EXCLUDED.reason`,
-      [t.geo, t.term, t.verdict, t.reason, t.news.map((n) => n.title).join(" · "), t.traffic]);
-  }
-}
-
-/** Drawable trends first seen within `hours`, oldest window included, never one we already drew. */
-async function usableWithin(hours: number): Promise<Trend[]> {
-  const rows = await q<{ geo: string; term: string; headlines: string; traffic: string }>(
-    `SELECT geo, term, coalesce(headlines,'') AS headlines, coalesce(traffic,'') AS traffic
-       FROM trend_seen
-      WHERE verdict = 'USABLE' AND used_at IS NULL
-        AND first_seen > now() - ($1 || ' hours')::interval
-      ORDER BY first_seen DESC`, [String(hours)]);
-  return rows.map((r) => ({
-    geo: r.geo, term: r.term, traffic: r.traffic, published: "", picture: "",
-    verdict: "USABLE" as const, reason: "",
-    news: r.headlines ? r.headlines.split(" · ").map((title) => ({ title, source: "", url: "" })) : [],
-  }));
-}
-
-/**
- * Turn a usable trend into a brief, or nothing if it maps to no category we draw.
- *
- * `variant` picks which of the category's two drawings to ask for. On most days exactly one trend is
- * drawable, so filling a two-a-day quota means two different pictures out of the same category rather
- * than the same picture twice.
- */
-export function briefFor(t: Trend, variant = 0): { niche: string; prompt: string; slug: string } | null {
-  const blob = `${t.term} ${t.news.map((n) => n.title).join(" ")}`;
-  const hit = CATEGORY.find((c) => c.test.test(blob));
-  if (!hit) return null;
-  const draw = hit.draws[variant % hit.draws.length];
-  // Named after what we are DRAWING, never after the trend. The trend is only the reason we picked the
-  // category; putting its term in the slug drags a town, a person or a title into our own data (and into
-  // file names) for a design that has nothing to do with it.
-  const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const slug = `trend-${hit.niche.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${day}-v${variant + 1}`;
-  return {
-    niche: hit.niche, slug,
-    prompt: `${draw.subject}, drawn in ${draw.palette}, thick confident outlines and flat colour blocks, `
-          + "no gradients, no shading, bold high-contrast illustration, the subject fills the frame, "
-          + "centred composition sized for a chest print, transparent background.",
-  };
-}
-
-const KW: Record<string, string[]> = {
-  astronomy: ["astronomy lover tee", "star gazer gift", "moon lover shirt", "night sky tee",
-    "space nerd gift", "celestial gift tee", "eclipse lover tee", "cosmos gift shirt",
-    "lunar lover tee", "stargazing gift", "sky watcher tee", "moon phase gift", "astro fan tee"],
-  "weather humour": ["weather lover tee", "storm chaser gift", "rainy day shirt", "cloud lover tee",
-    "weather nerd gift", "forecast humor tee", "thunder lover tee", "cozy rain shirt",
-    "storm humor gift", "weather fan tee", "rain lover gift", "grey sky tee", "wet weather tee"],
-  "food humour": ["food lover tee", "baking gift shirt", "home cook gift", "kitchen humor tee",
-    "bread lover tee", "foodie gift shirt", "cooking lover tee", "baker gift tee",
-    "sourdough lover", "kitchen lover tee", "recipe lover gift", "comfort food tee", "food humor gift"],
-  "garden humour": ["garden lover tee", "plant parent gift", "gardening gift tee", "green thumb shirt",
-    "seedling lover tee", "garden humor tee", "plant lover gift", "grow your own",
-    "potting shed tee", "gardener gift tee", "spring garden tee", "veg patch gift", "garden life tee"],
-  wildlife: ["wildlife lover tee", "animal lover gift", "nature lover tee", "wild animal shirt",
-    "conservation gift", "bird lover gift", "woodland gift tee", "animal fan tee",
-    "wildlife fan gift", "outdoor lover tee", "nature nerd tee", "creature lover", "wild life gift"],
-  "school humour": ["teacher gift tee", "school humor shirt", "classroom gift tee", "educator gift",
-    "back to school tee", "study life shirt", "student gift tee", "school year tee",
-    "teacher life gift", "learning gift tee", "classroom humor", "school days tee", "teach love tee"],
-};
+/** How long a niche is off-limits in a shop after it has been drawn there. */
+const COOLDOWN_DAYS = () => Number(process.env.TREND_NICHE_COOLDOWN_DAYS || 60);
 
 const AI_NOTE =
   "ABOUT THE DESIGN — This design was created by me using AI image-generation tools as part of my "
@@ -162,8 +36,8 @@ const BODY =
 
 function titleFor(keywords: string[], variant = 0): string {
   const cap = (s: string) => s.replace(/\b\w/g, (m) => m.toUpperCase());
-  // Rotate which keyword leads. Two variants in one shop under one niche would otherwise carry the same
-  // title and the same first-40-characters, which is two of our listings chasing one query.
+  // Rotate which keyword leads. Two variants under one niche would otherwise carry the same title and
+  // the same first forty characters, which is two of our listings chasing one query.
   const lead = variant % keywords.length;
   const kw = [...keywords.slice(lead), ...keywords.slice(0, lead)];
   let t = `${cap(kw[0])} Shirt`;
@@ -177,123 +51,50 @@ function titleFor(keywords: string[], variant = 0): string {
 }
 
 /**
- * One round across every enabled shop. Scans once, then fills the day's quota.
+ * Look, judge, remember. Safe to call as often as the scheduler ticks.
  *
- * The operator's requirement is two products a day, ready to go. Usable trends are scarcer than that —
- * most days exactly one survives the IP and harm filters — so the quota is filled by taking a SECOND
- * drawing from the same category rather than by loosening a filter. Two pictures, two lead keywords,
- * one trend. On a day where nothing survives, the honest output is fewer than two and the log says so.
- *
- * A trend-drawing goes to ONE shop and the next one starts from the next shop in the ring. The category
- * map is shop-agnostic, so letting every shop draft the same trend would put the same illustration under
- * the same title in two of our own Etsy shops, splitting one query between listings we both own.
+ * `first_seen` is never moved on conflict — a trend that keeps reappearing must keep its original age,
+ * or a widened window would always find it "fresh" and the escalation would never really reach back.
+ * `last_seen` moves instead, which is what tells us a trend is still running.
  */
-export async function runTrendRound(
-  shopIds: number[],
-  opts: { perDay?: number; geos?: string } = {},
-) {
-  const fullTarget = opts.perDay ?? 2;
-
-  // Always scan, always remember — even on a night we end up drawing from history, today's trends have
-  // to be recorded or tomorrow's widened window has nothing to widen into.
-  const trends = await scanTrends(opts.geos ?? "US,GB,CA");
-  await remember(trends);
-  const review = trends.filter((t) => t.verdict === "REVIEW");
-
-  // 24 first. Only if the day is empty do we reach back — 48, then 72, then 96 — and a night that has
-  // to reach back draws ONE, not two. Yesterday's leftovers are staler and thinner than today's news;
-  // taking two of them would dress up a quiet day as a normal one.
-  const WINDOWS = [24, 48, 72, 96];
-  let usable: Trend[] = [];
-  let hours = WINDOWS[0];
-  for (const h of WINDOWS) {
-    usable = await usableWithin(h);
-    hours = h;
-    if (usable.length) break;
+export async function recordScan(hours = 24): Promise<{ seen: number; fresh: number; source: string; note: string }> {
+  const res = await scan(GEOS(), hours);
+  const judged = await judge(res.trends, { useModel: process.env.TREND_MODEL_JUDGE !== "false" });
+  let fresh = 0;
+  for (const t of judged) {
+    const rows = await q<{ id: number }>(
+      `INSERT INTO trend_seen (geo, term, verdict, reason, headlines, traffic, source, volume,
+                               increase_pct, categories, breakdown, judged_by, last_seen)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
+       ON CONFLICT (geo, term) DO UPDATE
+         SET last_seen = now(),
+             volume    = greatest(coalesce(trend_seen.volume, 0), coalesce(EXCLUDED.volume, 0)),
+             verdict   = CASE WHEN trend_seen.judged_by = 'model' THEN trend_seen.verdict
+                              ELSE EXCLUDED.verdict END
+       RETURNING (xmax = 0) AS inserted, id`,
+      [t.geo, t.term, t.verdict, t.reason, t.headlines.join(" · "), t.volume ? String(t.volume) : "",
+       t.source, t.volume, t.increasePct, t.categories.join(", "), t.breakdown.join(" · "), t.judgedBy]);
+    if ((rows[0] as any)?.inserted) fresh++;
   }
-  const widened = hours > WINDOWS[0];
-  const target = widened ? 1 : fullTarget;
+  return { seen: judged.length, fresh, source: res.source, note: res.note };
+}
 
-  // Variant 1 of every usable trend first, then variant 2 of each. A second trend beats a second drawing
-  // of the first one, but a second drawing beats an empty slot.
-  const work: { t: Trend; variant: number }[] = [
-    ...usable.map((t) => ({ t, variant: 0 })),
-    ...usable.map((t) => ({ t, variant: 1 })),
-  ];
-
-  const made: { shopId: number; slug: string; niche: string; term: string }[] = [];
-  const skipped: { term: string; why: string }[] = [];
-  let turn = 0;
-
-  for (const w of work) {
-    if (made.length >= target) break;
-    const b = briefFor(w.t, w.variant);
-    if (!b) {
-      if (w.variant === 0) skipped.push({ term: w.t.term, why: "cizdigimiz bir kategoriye oturmadi" });
-      continue;
-    }
-
-    // The thing we are actually avoiding is two listings with the same title chasing the same query, so
-    // check that, not a proxy for it. Niche-and-date nearly caught it: a fresh scan re-ran astronomy on a
-    // day one already existed, different slug, identical title.
-    const plannedTitle = titleFor(KW[b.niche], w.variant);
-
-    let target_shop: number | null = null;
-    for (let i = 0; i < shopIds.length; i++) {
-      const id = shopIds[(turn + i) % shopIds.length];
-      // Same drawing twice is a duplicate; the same NICHE on an earlier day is self-competition, since
-      // two astronomy trends a fortnight apart produce the same thirteen tags. Today's own variants are
-      // allowed to share a niche — that is what makes two-a-day possible at all.
-      const dup = await q(
-        `SELECT 1 FROM products
-          WHERE shop_id = $1
-            AND (slug = $2
-                 OR title = $4
-                 OR (niche = $3 AND slug LIKE 'trend-%'
-                     AND created_at < date_trunc('day', now() AT TIME ZONE 'America/Chicago')))
-          LIMIT 1`, [id, b.slug, b.niche, plannedTitle]);
-      if (dup.length) continue;
-      target_shop = id;
-      break;
-    }
-    if (target_shop === null) {
-      skipped.push({ term: w.t.term, why: "bu kategori acik magazalarda zaten var" });
-      continue;
-    }
-    turn = (shopIds.indexOf(target_shop) + 1) % shopIds.length;
-
-    try {
-      // Tomorrow, not today: the design has to be drawn before anyone can look at it, and a slot that
-      // has already passed makes the operator approve something they have not seen.
-      const when = new Date(Date.now() + 24 * 3600_000);
-      when.setUTCHours(15, 0, 0, 0);
-      const out = await draftProduct({
-        slug: b.slug, niche: b.niche, technique: "dtf",
-        title: plannedTitle, description: AI_NOTE + BODY, tags: KW[b.niche],
-        design_prompt: b.prompt, scheduled_at: when.toISOString(),
-      }, target_shop);
-      // The plan page groups by slot; without one these products used to be invisible on the only screen
-      // built for approving them. TR is their own bucket.
-      await q(`UPDATE products SET slot = 'TR' WHERE id = $1`, [out.id]);
-      // Spent. Without this the same stored trend would come back through every widened window until it
-      // finally aged out four days later.
-      await q(`UPDATE trend_seen SET used_at = now() WHERE geo = $1 AND term = $2`, [w.t.geo, w.t.term]);
-      made.push({ shopId: target_shop, slug: out.slug, niche: b.niche, term: w.t.term });
-    } catch (e: any) {
-      skipped.push({ term: w.t.term, why: String(e.message).slice(0, 90) });
-    }
-  }
-
-  const window = widened ? ` · ${hours}s penceresine genisletildi, bu yuzden hedef 1` : "";
-  const short = made.length < target
-    ? ` · HEDEFIN ${target - made.length} ALTINDA (cizilebilir trend yok)` : "";
-  await logEvent("trend_run", {
-    detail: `${trends.length} trend · ${usable.length} cizilebilir (${hours}s) · ${made.length}/${target} urun · `
-          + `${shopIds.length} magaza · ${review.length} insan bakmali${window}${short}`,
-  });
-  return { scanned: trends.length, usable: usable.length, hours, widened, target, shops: shopIds,
-           made, skipped,
-           review: review.map((t) => ({ term: t.term, geo: t.geo, headline: t.news[0]?.title ?? "" })) };
+/** Stored trends we may still draw, biggest first, within a lookback window. */
+async function drawable(hours: number): Promise<Judged[]> {
+  const rows = await q<any>(
+    `SELECT geo, term, coalesce(headlines,'') headlines, coalesce(categories,'') categories,
+            coalesce(breakdown,'') breakdown, volume, increase_pct, source, reason
+       FROM trend_seen
+      WHERE verdict = 'USABLE' AND used_at IS NULL
+        AND first_seen > now() - ($1 || ' hours')::interval
+      ORDER BY coalesce(volume, 0) DESC, first_seen DESC`, [String(hours)]);
+  return rows.map((r) => ({
+    source: r.source, geo: r.geo, term: r.term, volume: r.volume, increasePct: r.increase_pct,
+    categories: r.categories ? r.categories.split(", ").filter(Boolean) : [],
+    breakdown: r.breakdown ? r.breakdown.split(" · ").filter(Boolean) : [],
+    headlines: r.headlines ? r.headlines.split(" · ").filter(Boolean) : [],
+    startedAt: null, verdict: "USABLE" as const, reason: r.reason ?? "", judgedBy: "rule" as const,
+  }));
 }
 
 /** Shops that asked for the daily run. Opt-in, so a new shop never wakes up to a batch it didn't order. */
@@ -303,7 +104,155 @@ export async function trendShops(): Promise<number[]> {
   return rows.map((r) => r.id);
 }
 
+export type DrawRequest = { trend: Judged; variant: number };
+
+/**
+ * Draft one product from one trend, into the first shop in the ring that can take it.
+ *
+ * Two things make a shop unable to take it: the same title already there — the actual harm being
+ * prevented is two of our own listings chasing one query — or the same niche drawn there inside the
+ * cooldown. The cooldown is a WINDOW, not "ever": blocking a niche forever gave the system a hard
+ * ceiling of one product per category per shop, after which it ran every night and produced nothing.
+ */
+async function draftOne(
+  req: DrawRequest, shopIds: number[], turn: number,
+): Promise<{ ok: true; shopId: number; slug: string; niche: string; from: string; turn: number }
+         | { ok: false; why: string }> {
+  const cat = categoryFor(req.trend);
+  if (!cat) return { ok: false, why: "cizdigimiz bir kategoriye oturmadi" };
+
+  const { subject, from } = await subjectFor(req.trend, cat, req.variant,
+    { useModel: process.env.TREND_MODEL_SUBJECT !== "false" });
+  const title = titleFor(cat.tags, req.variant);
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  // Named after what we are DRAWING, never after the trend: putting a town's or a person's name in the
+  // slug drags it into our data and file names for a picture that has nothing to do with them.
+  const slug = `trend-${cat.niche.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${day}-v${req.variant + 1}`;
+
+  for (let i = 0; i < shopIds.length; i++) {
+    const id = shopIds[(turn + i) % shopIds.length];
+    const dup = await q(
+      `SELECT 1 FROM products
+        WHERE shop_id = $1
+          AND (slug = $2 OR title = $3
+               OR (niche = $4 AND slug LIKE 'trend-%'
+                   AND created_at > now() - ($5 || ' days')::interval
+                   AND created_at < date_trunc('day', now() AT TIME ZONE 'America/Chicago')))
+        LIMIT 1`, [id, slug, title, cat.niche, String(COOLDOWN_DAYS())]);
+    if (dup.length) continue;
+
+    try {
+      // Tomorrow, not today: the design has to be drawn before anyone can look at it, and a slot that
+      // has already passed makes the operator approve something they have not seen.
+      const when = new Date(Date.now() + 24 * 3600_000);
+      when.setUTCHours(15, 0, 0, 0);
+      const out = await draftProduct({
+        slug, niche: cat.niche, technique: "dtf", title,
+        description: AI_NOTE + BODY, tags: cat.tags,
+        design_prompt: promptFrom(subject, cat, req.variant), scheduled_at: when.toISOString(),
+      }, id);
+      // The plan page groups by slot; without one these products were invisible on the only screen
+      // built for approving them. TR is their own bucket.
+      await q(`UPDATE products SET slot = 'TR' WHERE id = $1`, [out.id]);
+      await q(`UPDATE trend_seen SET used_at = now() WHERE geo = $1 AND term = $2`,
+              [req.trend.geo, req.trend.term]);
+      return { ok: true, shopId: id, slug: out.slug, niche: cat.niche, from,
+               turn: (shopIds.indexOf(id) + 1) % shopIds.length };
+    } catch (e: any) {
+      return { ok: false, why: String(e.message).slice(0, 90) };
+    }
+  }
+  return { ok: false, why: `bu kategori acik magazalarda ${COOLDOWN_DAYS()} gun icinde cizilmis` };
+}
+
+/**
+ * One night's drawing.
+ *
+ * The window escalates 24 → 48 → 72 → 96 only when the shorter one is empty, and a night that has to
+ * reach back draws ONE instead of two: yesterday's leftovers are staler and thinner than today's, and
+ * taking two of them would dress a quiet day up as a normal one.
+ *
+ * With a paid provider the escalation asks the SOURCE for the wider window as well as our own store,
+ * because the source actually has history. On the free feed only the store can answer, which is
+ * exactly why the store exists.
+ */
+export async function runTrendRound(shopIds: number[], opts: { perDay?: number } = {}) {
+  const fullTarget = opts.perDay ?? 2;
+  const WINDOWS = [24, 48, 72, 96];
+
+  // Always look and always record, even on a night we end up drawing from the store: today's trends
+  // have to be written down or tomorrow's widened window has nothing to widen into.
+  const first = await recordScan(WINDOWS[0]);
+
+  let usable = await drawable(WINDOWS[0]);
+  let hours = WINDOWS[0];
+  for (const h of WINDOWS.slice(1)) {
+    if (usable.length) break;
+    // A paid provider can be asked for the wider window directly; the free one cannot, and re-reading
+    // it would return the same ten rows for the same cost in time.
+    if (hasSerpApi()) await recordScan(h);
+    usable = await drawable(h);
+    hours = h;
+  }
+  const widened = hours > WINDOWS[0] && usable.length > 0;
+  const target = widened ? 1 : fullTarget;
+
+  // Variant 1 of every trend first, then variant 2 of each. A second trend beats a second drawing of
+  // the first one, but a second drawing beats an empty slot.
+  const work: DrawRequest[] = [
+    ...usable.map((trend) => ({ trend, variant: 0 })),
+    ...usable.map((trend) => ({ trend, variant: 1 })),
+  ];
+
+  const made: { shopId: number; slug: string; niche: string; term: string; from: string }[] = [];
+  const skipped: { term: string; why: string }[] = [];
+  let turn = 0;
+  for (const w of work) {
+    if (made.length >= target) break;
+    const r = await draftOne(w, shopIds, turn);
+    if (r.ok) { turn = r.turn; made.push({ ...r, term: w.trend.term }); }
+    else if (w.variant === 0) skipped.push({ term: w.trend.term, why: r.why });
+  }
+
+  const bits = [
+    `${first.seen} trend (${first.fresh} yeni)`,
+    `kaynak: ${first.source}`,
+    `${usable.length} cizilebilir (${hours}s)`,
+    `${made.length}/${target} urun`,
+    `${shopIds.length} magaza`,
+  ];
+  if (widened) bits.push(`${hours}s penceresine genisletildi, hedef 1`);
+  if (made.length < target) bits.push(`HEDEFIN ${target - made.length} ALTINDA`);
+  await logEvent("trend_run", { detail: bits.join(" · ") });
+
+  return { scanned: first.seen, fresh: first.fresh, source: first.source, note: first.note,
+           usable: usable.length, hours, widened, target, shops: shopIds, made, skipped };
+}
+
 /** One shop, on demand — the manual entry point behind /api/cron/trends?shop=N. */
-export async function runTrendDay(shopId: number, opts: { perDay?: number; geos?: string } = {}) {
+export async function runTrendDay(shopId: number, opts: { perDay?: number } = {}) {
   return runTrendRound([shopId], opts);
 }
+
+/** Draw a specific stored trend on the operator's say-so, from the review screen. */
+export async function drawTrend(trendId: number, shopId: number, variant = 0) {
+  const rows = await q<any>(
+    `SELECT geo, term, coalesce(headlines,'') headlines, coalesce(categories,'') categories,
+            coalesce(breakdown,'') breakdown, volume FROM trend_seen WHERE id = $1`, [trendId]);
+  if (!rows.length) throw new Error("trend bulunamadi");
+  const r = rows[0];
+  const trend: Judged = {
+    source: "rss", geo: r.geo, term: r.term, volume: r.volume, increasePct: null,
+    categories: r.categories ? r.categories.split(", ").filter(Boolean) : [],
+    breakdown: r.breakdown ? r.breakdown.split(" · ").filter(Boolean) : [],
+    headlines: r.headlines ? r.headlines.split(" · ").filter(Boolean) : [],
+    startedAt: null, verdict: "USABLE", reason: "operator", judgedBy: "rule",
+  };
+  const out = await draftOne({ trend, variant }, [shopId], 0);
+  if (!out.ok) throw new Error(out.why);
+  await q(`UPDATE trend_seen SET verdict='USABLE', used_at=now(), judged_by='operator' WHERE id=$1`, [trendId]);
+  return out;
+}
+
+export { CATEGORIES };
+export type { Judged, RawTrend };

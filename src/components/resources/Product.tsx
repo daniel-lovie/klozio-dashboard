@@ -1,4 +1,4 @@
-import { Section, Sub, Rule, Table, Note, Cite, DoDont, Checklist } from "./parts";
+import { Section, Sub, Rule, Table, Note, Cite, DoDont, Checklist, Figure, FigurePair } from "./parts";
 
 export function Product() {
   return (
@@ -76,6 +76,15 @@ export function Product() {
           </table>
         </div>
 
+        <Figure
+          src="bolme-matrisi.jpg"
+          alt="Beyaz tahtada tipografi ve grafik sütunlarına bölünmüş tasarım matrisi"
+          v="build" t="00:40:30"
+          look={<>Aynı matrisi yayında canlı çiziyor: üstte biçim sütunları (tipografi / grafik),
+            solda duygu satırları (mizah, nostalji…). &quot;100 tasarım&quot; böyle bölününce &quot;bu akşam 15
+            tipografi-mizah&quot;a dönüşüyor — hem yapılabilir hem de katalog kendiliğinden çeşitleniyor.</>}
+        />
+
         <Note>
           Meg&apos;in benzetmesi: besin piramidi. Amaç dengeli bir katalog — siteyi açan herkesin nişin içinde
           kendine bir şey bulması. Matris olmadan herkes kendi zevkine sıkışıyor ve aynı insan cebine
@@ -89,6 +98,17 @@ export function Product() {
             İki farklı zevk, aynı nişte, aynı tutkuyla — ikisini de kataloğa koymak zorundasın.
           </p>
         </Sub>
+
+        <Figure
+          src="arastirma-panosu.jpg"
+          alt="Miro panosunda toplanmış niş tasarım örnekleri"
+          v="ep3" t="00:02:45"
+          look={<>Tasarıma başlamadan önceki adım: nişte hâlihazırda satan işleri toplayıp tek panoda
+            yan yana dizmek. Amaç kopyalamak değil — hangi tipografi stilleri, hangi mizah tonu ve
+            hangi sözlerin karşılık bulduğunu görmek. Bu pano olmadan görsel üreticiye girmek, neyi
+            yargılayacağını bilmeden çıktı toplamak demek.</>}
+          tall
+        />
 
         <Sub title="Üretim akışı (yayında gösterdiği hâliyle)">
           <ol className="ml-4 list-decimal space-y-1.5">
@@ -141,6 +161,27 @@ export function Product() {
           </p>
         </Sub>
 
+        <Figure
+          src="mekanizma-cozumu.jpg"
+          alt="Yapay zekânın en çok satan tasarımın neden işe yaradığını çözümlediği ekran"
+          v="review2" t="02:17:00"
+          look={<>Doğru iterasyonun somut hâli. Kazanan tasarımın ekran görüntüsünü modele verip
+            &quot;insanlar bunu neden alıyor&quot; diye soruyor. Dönen cevap fontla ilgili değil: şakanın yapısı
+            <em> masum bir beklenti → ani bir kişilik kırılması</em>. Alt maddeler hangi psikolojik
+            tetikleyicilerin üst üste bindiğini sıralıyor. Çoğaltılacak şey bu tarif — tişörtün üstündeki
+            harfler değil.</>}
+        />
+
+        <Figure
+          src="ucuz-tbm-tasarimlar.jpg"
+          alt="37 sent tıklama maliyeti olan bir mağazanın en çok satan dört tasarımı"
+          v="review2" t="01:11:40"
+          look={<>&quot;Tasarımlarım iyi mi&quot; sorusunun tek objektif cevabı üstteki şerit: <strong>$0,37</strong>
+            TBM, hedef bandın bile altında. Dördü de aynı reçeteyi izliyor — kalın ve okunur tipografi,
+            az renk, nişin içindekilerin anlayacağı bir şaka. Bu tabloyu görünce tasarım tartışması
+            kapanıyor ve sorun başka yerde aranıyor.</>}
+        />
+
         <DoDont
           doTitle="Satan stil"
           dontTitle="Satmayan stil"
@@ -159,6 +200,25 @@ export function Product() {
             "Tasarımın içinde marka adı — ilk milyon dolara kadar sadece yer kaplıyor.",
           ]}
         />
+
+        <FigurePair>
+          <Figure
+            src="stil-iyi.jpg"
+            alt="Kumaşa gömülmüş, sade tipografili tişört tasarımları"
+            v="build" t="02:13:45"
+            look={<>Aradığı stil. Baskı kumaşın içine oturmuş, tek renk, bol negatif alan, tipografi
+              dengeli. &quot;Profesyonel duruyor&quot; dediği şey bu — ve bu mağazanın tasarımlarında hiç sorun
+              görmedi.</>}
+          />
+          <Figure
+            src="stil-kotu.jpg"
+            alt="Tişörtün üzerine yapıştırılmış gibi duran yoğun baskılı tasarımlar"
+            v="scale" t="00:51:20"
+            look={<>Aynı playbook&apos;un &quot;yapma&quot; tarafı. Konsept iyi, şaka nişe oturuyor — ama baskı
+              tişörtün <em>üstünde</em> duruyor: dolu mürekkep, yüksek doygunluk, negatif alan yok. Sadece
+              gür tasarım giyenlere satılıyor; sade giyen çok daha büyük kitle dışarıda kalıyor.</>}
+          />
+        </FigurePair>
 
         <Note>
           Basitleştirme testi: tasarımdan bir şey çıkarmaya devam et, artık anlamsız hissettiren noktaya
@@ -202,11 +262,39 @@ export function Product() {
           ["Koleksiyondaki renk = ürün sayfasındaki renk", "Koleksiyonda kahverengi tişörte tıklayıp siyah görmek küçük ama biriken bir uyumsuzluk."],
         ]} />
 
+        <Figure
+          src="mockup-analizi.jpg"
+          alt="Tek bir mockup üzerinde tıklama maliyeti bağlamında yapılan inceleme"
+          v="scale" t="00:13:40"
+          look={<>Mockup&apos;ı tek başına, üstünde o sayfanın metriğiyle birlikte inceliyor. Beğendiği
+            noktalar: tişört karenin kenarlarına değiyor, objeler yalnızca altta duruyor ve gözü yukarı
+            geri sektiriyor, zemin–tişört–tasarım arasında üç kademeli kontrast var.</>}
+        />
+
+        <Figure
+          src="mockup-ders-kitabi.jpg"
+          alt="Temiz bir mockup ve sade bir ürün sayfası"
+          v="review2" t="02:34:30"
+          look={<>&quot;Ders kitabı gibi&quot; dediği örnek: mockup dikkatini hiç çekmemiş, gözü doğrudan tasarıma
+            götürmüş. Sağ tarafta da istediği ürün sayfası duruyor — sepete ekle butonu ekranın üst
+            bandında ve tam genişlikte, altında üç rozet, sonra açılır başlıklar. Fazlalık yok.</>}
+        />
+
         <Rule tone="danger">
           Görsel modelle üretilen mockup&apos;larda tescilli marka riski gerçek ve yayında iki kez yakalandı.
           Modeller telifli görsellerle eğitildiği için topa, şişeye, forma logo koyabiliyorlar.
           Yayına almadan önce her mockup&apos;ı büyütüp kontrol et. <Cite v="review2" t="00:16:40" />
         </Rule>
+
+        <Figure
+          src="mockup-tescil-riski.jpg"
+          alt="Mockup içindeki futbol topunda tescilli lig logosunun işaretlenmesi"
+          v="review2" t="00:16:40"
+          look={<>Canlı yakaladığı olay: görsel model, mockup&apos;taki futbol topuna gerçek bir lig logosu
+            basmış (kırmızıyla işaretli). Mağaza sahibi bunu istememiş, fark da etmemiş — ama logo
+            kataloğun tamamına yayılmış durumda. Sağdaki Comfort Colors 1717 yaka etiketi ise doğru
+            yapılmış: görünür ve okunur.</>}
+        />
 
         <Note>
           İyi mockup&apos;ın işareti: fark edilmemesi. Bir mağazayı incelerken mockup dikkatini hiç çekmediyse

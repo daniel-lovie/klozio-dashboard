@@ -1,4 +1,4 @@
-import { Section, Sub, Rule, Table, Note, Cite, Checklist, DoDont, VIDEOS } from "./parts";
+import { Section, Sub, Rule, Table, Note, Cite, Checklist, DoDont, Figure, FigurePair, VIDEOS } from "./parts";
 
 export function Growth() {
   return (
@@ -47,6 +47,25 @@ export function Growth() {
           ))}
         </div>
 
+        <FigurePair>
+          <Figure
+            src="kampanya-yapisi.jpg"
+            alt="Beyaz tahtada iki kampanyadan oluşan reklam hesabı yapısı"
+            v="build" t="01:33:00"
+            look={<>Altı haneli aylık harcamayı yöneten yapının tamamı. Üst sıra her zaman açık kalan
+              katalog kampanyası: tek kampanya, tek reklam seti, tek katalog reklamı. Alt sıra ise
+              kazananları ayrıca beslediği tasarım test kampanyası.</>}
+          />
+          <Figure
+            src="reklam-seti.jpg"
+            alt="Tasarım test kampanyasının içindeki tekil reklamlar"
+            v="build" t="01:35:00"
+            look={<>Test kampanyasının içi: tek reklam setinde üç dört statik reklam. Katalogda ucuz
+              tıklama alan tasarımlar buraya taşınıyor, açık hedeflemeyle günlük 25 dolar veriliyor ve
+              24–48 saat izleniyor. Genelde biri tutuyor, gerisi sönüyor.</>}
+          />
+        </FigurePair>
+
         <Sub title="Ölçekleme karar ağacı">
           <ol className="ml-4 list-decimal space-y-1.5">
             <li>Katalogda 100+ tasarım var mı? Yoksa dur, reklamı kapat, tasarım yap.</li>
@@ -92,6 +111,16 @@ export function Growth() {
           zayıf. <Cite v="scale" t="01:00:00" />
         </Note>
 
+        <Figure
+          src="ads-library.jpg"
+          alt="Facebook reklam kütüphanesinde bir markanın aktif reklamları"
+          v="build" t="01:29:30"
+          look={<>Facebook Ads Library, gösterime göre sıralanmış. En çok gösterim alan reklam en çok
+            bütçe alan reklamdır — yani markanın kazananı. Burada hem hangi tasarımın taşıdığını hem de
+            reklam metninin kurgusunu (hitap, mağaza bağlantısı, garanti satırı) doğrudan görebiliyorsun.
+            Herhangi bir marka için çalışıyor.</>}
+        />
+
         <Sub title="Rakip reklamlarını görme">
           <p>
             Facebook Ads Library&apos;de marka adını ara, gösterime göre sırala. En çok gösterim alan reklam,
@@ -118,6 +147,15 @@ export function Growth() {
             ["Teslim edilen e-posta", "2,3M", "3,5M", "+%51"],
             ["Abonelikten çıkan", "17.434", "11.684", <span key="d" className="font-semibold text-ok">−%33</span>],
           ]}
+        />
+
+        <Figure
+          src="eposta-q3-q4.jpg"
+          alt="E-postanın çeyrekler arası karşılaştırması"
+          v="build" t="00:20:30"
+          look={<>Tablonun can alıcı satırı en altta ve kırmızıyla çevrelenmiş: gönderim %51 artarken
+            abonelikten çıkanlar <strong>üçte bir azalmış</strong>. &quot;Fazla e-posta insanları kaçırır&quot;
+            sezgisinin verilerle çeliştiği yer burası.</>}
         />
 
         <Rule tone="ok">
@@ -154,6 +192,16 @@ export function Growth() {
           </p>
         </Sub>
 
+        <Figure
+          src="eposta-ay-ay.jpg"
+          alt="Aylık kampanya sayısı ve kampanya cirosu grafikleri"
+          v="build" t="00:42:45"
+          look={<>Solda gönderilen kampanya sayısı, sağda getirdiği ciro. Eylülden aralığa gönderim
+            yaklaşık 1,6 kat artmış ama ciro <strong>4 kat</strong>. Yani kazancın çoğu &quot;daha çok
+            gönderdik&quot;ten değil, aynı gönderimin Q4&apos;te çok daha fazla karşılık bulmasından geliyor —
+            bu yüzden kasım başında başlamak gerekiyor.</>}
+        />
+
         <Rule>
           Birinci günden e-posta topla. Toplanan adreslerin %99&apos;u iki yerden geliyor: pop-up ve checkout.
         </Rule>
@@ -177,6 +225,15 @@ export function Growth() {
             ["İade oranı", "%1,4", "%1,5", "sabit"],
           ]}
         />
+        <Figure
+          src="q4-skorbord.jpg"
+          alt="Üçüncü ve dördüncü çeyreğin karşılaştırma tablosu"
+          v="build" t="00:11:00"
+          look={<>Kendi markasının çeyrek karşılaştırması. Sağ sütun kırmızıyla çevrelenmiş: ciro 2,5
+            kat, sipariş 2,6 kat, oturum yalnızca 2,1 kat. Trafik ile siparişin arasındaki fark
+            dönüşüm oranı — Q4&apos;te %2,12&apos;den %2,72&apos;ye çıkmış.</>}
+        />
+
         <Note>
           Oturum 2,1× arttı ama sipariş 2,6×. Aradaki fark dönüşüm oranı — yani site üzerinde yapılan
           işin tam olarak karşılığı. Q4&apos;e girerken CRO&apos;yu bitirmiş olmanın değeri burada görünüyor.
@@ -201,6 +258,15 @@ export function Growth() {
               </div>
             ))}
           </div>
+          <Figure
+            src="q4-takvim.jpg"
+            alt="Dördüncü çeyrek cirosunun dönemlere dağılımı"
+            v="build" t="00:12:15"
+            look={<>Aynı dağılımın orijinali. Kara Cuma haftası yalnızca %13; asıl zirve 1–15 Aralık
+              aralığında %31. Yeşil çubukların uzunluğu tek başına anlatıyor: hazırlığını sadece Kara
+              Cuma&apos;ya göre yapan biri çeyreğin sekizde birine hazırlanmış oluyor.</>}
+          />
+
           <p className="mt-3">
             Kara Cuma dört günlük bir olay değil; kasım başından aralık ortasına uzanan bir maraton.
             Sitesi ve e-postası sadece Kara Cuma&apos;ya hazır olan biri çeyreğin %13&apos;üne hazır demektir.
@@ -212,6 +278,25 @@ export function Growth() {
           Q4&apos;te üretilmişti. Q4 birimlerinin yalnızca <strong>%1,1&apos;i</strong> tatil temalı tasarımlardı.
           Q4 top 20&apos;nin 16&apos;sı zaten Q3 top 50 içindeydi.
         </Rule>
+
+        <FigurePair>
+          <Figure
+            src="q4-katalog.jpg"
+            alt="Dördüncü çeyrekte satan tasarımların yayın tarihine göre dağılımı"
+            v="build" t="00:15:00"
+            look={<>Q4&apos;te satan tasarımların %77&apos;si Q3&apos;ten önce yayına girmişti. Alt kutular daha da
+              çarpıcı: Q4 top 20&apos;nin 16&apos;sı zaten Q3 top 50 içindeydi ve birimlerin yalnızca %1,1&apos;i
+              tatil temalı tasarımlardan geldi.</>}
+          />
+          <Figure
+            src="q4-yeni-tasarimlar.jpg"
+            alt="Çeyreğin en çok satanları ve ilk satış tarihleri"
+            v="build" t="00:17:20"
+            look={<>Madalyonun diğer yüzü: 12 Kasım&apos;da yayına giren bir tasarım çeyreği üçüncü sırada
+              bitirmiş. Yani &quot;eski katalog satıyor&quot; demek &quot;Q4&apos;te üretmeyi bırak&quot; demek değil — ikisi
+              birden doğru.</>}
+          />
+        </FigurePair>
 
         <DoDont
           doTitle="Q4 hazırlığı"
@@ -229,6 +314,15 @@ export function Growth() {
             "'İnsanları e-postayla bunaltırım' diye göndermeyi azaltmak.",
             "Sezon bitince eski tasarımları koleksiyonun üstünde bırakmak.",
           ]}
+        />
+
+        <Figure
+          src="q4-tisort-orani.jpg"
+          alt="Aylara göre satılan birimlerde tişörtün payı"
+          v="build" t="00:18:30"
+          look={<>Kışın ortasında bile satılan birimlerin %94&apos;ü tişört. Sweatshirt ve crewneck birlikte
+            aralık birimlerinin yalnızca %2,3&apos;ü. Kazanan tasarımların sıcak varyantını sunmakta sakınca
+            yok, ama Q3&apos;ü kataloğu kışlık ürünler etrafında yeniden kurmaya harcamak boşa emek.</>}
         />
 
         <Note>
@@ -250,6 +344,16 @@ export function Growth() {
           Maraton antrenmanı ilk gün sonuç vermedi diye halter, bisiklet ve jimnastiğe başlamak gibi.
           Yarışları üst üste koymak şansını artırmıyor, iyi olman gereken şeylerin sayısını artırıyor.
         </Rule>
+
+        <Figure
+          src="etki-efor-matrisi.jpg"
+          alt="Etki ve efor eksenlerine yerleştirilmiş iş listesi"
+          v="build" t="01:21:30"
+          look={<>Bir mağazada ne yapacağına karar verirken kafasından geçen şey. Dikey eksen etki,
+            yatay eksen efor. Sol üst kutu — yüksek etki, düşük efor — önce yapılacaklar; sağ alt
+            &quot;nankör&quot; kutusu ise çok emek isteyip hiçbir sayıyı oynatmayan işler. Aşağıdaki tablo bu
+            matrisin POD&apos;a uygulanmış hâli.</>}
+        />
 
         <Table
           head={["Cazip kaçış", "Gerçek etkisi", "Onun yerine"]}

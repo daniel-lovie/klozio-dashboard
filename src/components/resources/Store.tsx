@@ -1,4 +1,4 @@
-import { Section, Sub, Rule, Table, Note, Cite, Checklist, DoDont } from "./parts";
+import { Section, Sub, Rule, Table, Note, Cite, Checklist, DoDont, Figure, FigurePair } from "./parts";
 
 export function Store() {
   return (
@@ -68,6 +68,16 @@ export function Store() {
           ]} />
         </Sub>
 
+        <Figure
+          src="urun-sayfasi-iyi.jpg"
+          alt="Sepete ekle butonu üst bantta duran, sade bir ürün sayfası"
+          v="review2" t="00:11:10"
+          look={<>Listedeki maddelerin neredeyse tamamının doğru uygulandığı bir ürün sayfası: kırmızı
+            ve tam genişlikte sepete ekle butonu ekranın üst bandında, altında üç rozet, hemen ardından
+            yeşil şeritte <em>&quot;müşterilerimizin %1&apos;inden azı para iade garantisini kullanıyor&quot;</em>
+            satırı. Sonra üç açılır başlık — metin var ama yol kapatmıyor.</>}
+        />
+
         <Sub title="Sepet çekmecesi — ödemeye ulaşma oranını oynatır">
           <Checklist items={[
             ["Shop Pay'i kapat", "Shopify hızlı ödeme logosunu tam ödeme butonunun üstüne koyuyor. Orası senin en değerli alanın, onların işine yarıyor."],
@@ -77,6 +87,16 @@ export function Store() {
             ["Boşlukları kapat", "Butonun altındaki ölü alan gözü aşağı çekiyor."],
           ]} />
         </Sub>
+
+        <Figure
+          src="sepet-cekmecesi.jpg"
+          alt="Shop Pay bloğu ödeme butonunun üstünde duran sepet çekmecesi"
+          v="review2" t="00:38:50"
+          look={<>Aynı mağazanın sepeti, iki hatayla birlikte. Bir: ödeme butonunun hemen üstündeki
+            Shop Pay taksit bloğu — sayfanın en değerli alanını Shopify&apos;ın işine veriyor. İki: ürün
+            sayfasındaki buton kırmızıyken buradaki siyah. Müşteriyi &quot;kırmızı = tıkla&quot; diye koşullandırıp
+            son adımda rengi değiştirmek, funnel&apos;ı tam ödeme anında kırıyor.</>}
+        />
 
         <Sub title="Checkout — ödemeyi tamamlama oranını oynatır">
           <Checklist items={[
@@ -92,12 +112,41 @@ export function Store() {
           ]} />
         </Sub>
 
+        <FigurePair>
+          <Figure
+            src="telefon-zorunlu.jpg"
+            alt="Checkout formunda kırmızı hata veren zorunlu telefon alanı"
+            v="review1" t="00:16:45"
+            look={<>Beş yayında bulduğu en büyük tek dönüşüm katili. Müşteri adresi doldurmuş, ödemeye
+              bir adım kalmış ve form kırmızı yanıp <em>telefon numarası</em> istiyor. Zorunlu olmasının
+              hiçbir karşılığı yok; Shopify ayarlarında tek bir seçenek.</>}
+          />
+          <Figure
+            src="checkout-mavi-buton.jpg"
+            alt="Mağazanın rengiyle uyumsuz mavi devam butonu"
+            v="review2" t="01:26:40"
+            look={<>Renk izolasyonunun kırıldığı yer. Bu mağaza telefonu <em>opsiyonel</em> yapmış — doğru
+              — ama son butonu Shopify&apos;ın varsayılan mavisinde bırakmış. Sitenin geri kalanındaki
+              çağrı rengi neyse, bu buton da o olmalı.</>}
+          />
+        </FigurePair>
+
         <Rule tone="danger">
           Ekranın altına yapışan &quot;Sınırlı süre %15 indirim&quot; çubuğu. Klaviyo ve benzeri her e-posta
           uygulaması bunu varsayılan açık getiriyor. Masaüstünde zararsız, mobilde kaydırırken en değerli
           alanı — parmağın olduğu yeri — kapatıyor. Beş yayının dördünde ayrı ayrı çıktı ve her seferinde
           ilk düzeltme oldu. <Cite v="build" t="00:26:45" />
         </Rule>
+
+        <Figure
+          src="popup-engeli.jpg"
+          alt="Mobil görünümde sayfanın altını kapatan indirim çubuğu"
+          v="scale" t="00:23:15"
+          look={<>Sorunun mobilde neye benzediği. Sol taraftaki telefon görünümünde, kırmızıyla
+            çevrelenmiş &quot;Limited time %15&quot; çubuğu ekranın en altına yapışmış durumda — yani müşteri
+            kaydırırken başparmağının olduğu yeri kapatıyor. Masaüstünde neredeyse görünmez, mobilde
+            koleksiyonun altını sürekli örtüyor.</>}
+        />
 
         <Note>
           Yazılım sağlayıcıları kötü niyetli değil; sadece kendi metriklerini optimize ediyorlar. E-posta

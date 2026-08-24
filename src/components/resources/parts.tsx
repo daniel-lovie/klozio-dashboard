@@ -131,6 +131,44 @@ export function Cite({ v, t }: { v: keyof typeof VIDEOS; t?: string }) {
   );
 }
 
+/**
+ * A frame from one of the streams, with our own reading of it underneath.
+ *
+ * The caption is the point — a screenshot of somebody else's dashboard means nothing on its own, so
+ * every figure says what to look at and why it matters. Images are lazy so the page stays light, and
+ * each one links back to the exact second it came from.
+ */
+export function Figure({ src, alt, look, v, t, tall = false }: {
+  src: string; alt: string; look: ReactNode; v: keyof typeof VIDEOS; t: string; tall?: boolean;
+}) {
+  return (
+    <figure className="overflow-hidden rounded-lg border border-line bg-raised shadow-sm">
+      <a href={`/resources/${src}`} target="_blank" rel="noreferrer"
+         className="block bg-sunken" title="tam boyutta aç">
+        <img
+          src={`/resources/${src}`}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          width={1360}
+          height={tall ? 782 : 854}
+          className="h-auto w-full"
+        />
+      </a>
+      <figcaption className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-line px-4 py-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-accent">Ne görüyoruz</span>
+        <Cite v={v} t={t} />
+        <p className="w-full text-sm leading-relaxed text-ink-soft">{look}</p>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Two frames side by side when the whole point is the difference between them. */
+export function FigurePair({ children }: { children: ReactNode }) {
+  return <div className="grid gap-3 lg:grid-cols-2">{children}</div>;
+}
+
 export const VIDEOS = {
   ep3:     { short: "Bölüm 3",  title: "Print-on-Demand Brand Building — Ep. 3",  url: "https://www.youtube.com/watch?v=qLd-vEFM95Y", date: "9 Mar 2026",  len: "1s 10dk" },
   review1: { short: "İnceleme 1", title: "Reviewing Your POD Stores LIVE",          url: "https://www.youtube.com/watch?v=iY5PvO9vdQY", date: "29 Tem 2026", len: "1s 2dk" },

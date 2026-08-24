@@ -1,4 +1,4 @@
-import { Section, Sub, Rule, Table, Note, Cite, DoDont } from "./parts";
+import { Section, Sub, Rule, Table, Note, Cite, DoDont, Figure, FigurePair } from "./parts";
 import { LeakyBucket } from "./LeakyBucket";
 
 export function Metrics() {
@@ -50,6 +50,16 @@ export function Metrics() {
           ]}
         />
 
+        <Figure
+          src="funnel-hedefleri.jpg"
+          alt="Dönüşüm hunisinin üzerine elle yazılmış hedef oranlar"
+          v="review2" t="00:42:20"
+          look={<>Bir mağazanın hunisinin üstüne hedefleri elle yazıyor: sepete ekleme <strong>6–8</strong>,
+            ödemeye ulaşma <strong>5</strong>. Ekrandaki mağaza sepete eklemede %6,43 ile bandın içinde,
+            ama ödemeye ulaşma %3,71 — yani kaçak sepet çekmecesinde. Tek bir yüzdeyi üçe bölmenin bütün
+            faydası bu: hangi sayfayı açacağını sana o söylüyor.</>}
+        />
+
         <Note>
           %40 ürün + kargo maliyetinde matematiksel başabaş ROAS 1.67. Sahada &quot;1.8–2.0 başabaş&quot;
           demesinin sebebi, iade ve diğer giderler için pay bırakması. 2.0&apos;ın üstü ölçekleme bölgesi.
@@ -64,6 +74,15 @@ export function Metrics() {
           küçük bir dönüşüm artışının aynı bütçede ne kadar ciro getirdiğini görmek, bu playbook&apos;un
           tamamının neden CRO etrafında döndüğünü açıklıyor. <Cite v="scale" t="00:08:10" /></>}
       >
+        <Figure
+          src="hesap-makinesi.jpg"
+          alt="Yayında kullanılan delik kova hesap makinesi ekranı"
+          v="scale" t="00:08:10"
+          look={<>Yayındaki orijinali. Üç kartın altındaki gri şeritler hedef bantları; kutunun içindeki
+            formül <em>dönüşüm × sepet ÷ TBM</em> ve %40 maliyette başabaşı 1.67 olarak veriyor. Dikkat
+            edilecek yer sağ alt: dönüşümü 2,35&apos;ten 2,41&apos;e — yarım puanın onda biri kadar — çektiğinde
+            aynı bütçe ayda 2 sipariş ve 89 dolar daha getiriyor. Aşağıdaki bizim çalışan kopyamız.</>}
+        />
         <LeakyBucket />
       </Section>
 
@@ -94,6 +113,23 @@ export function Metrics() {
             </li>
           ))}
         </ol>
+
+        <FigurePair>
+          <Figure
+            src="bot-filtresi-kapali.jpg"
+            alt="Shopify analytics, bot trafiği dahil, dönüşüm oranı yüzde 0,1"
+            v="review1" t="00:44:40"
+            look={<>Filtre <strong>kapalı</strong>: dönüşüm %0,1, sepete ekleme %0,4, hemen çıkma %98,75.
+              Bu ekrana bakan biri mağazasının tamamen bozuk olduğunu düşünür.</>}
+          />
+          <Figure
+            src="bot-filtresi-acik.jpg"
+            alt="Aynı mağaza, insan trafiği filtresi açık, dönüşüm oranı yüzde 2,26"
+            v="review1" t="00:45:20"
+            look={<>Aynı mağaza, aynı gün, tek fark sağdaki <em>&quot;Human or bot session · Human&quot;</em>
+              filtresi: dönüşüm <strong>%2,26</strong>, sepete ekleme %8,21. Mağaza gayet iyi durumda.</>}
+          />
+        </FigurePair>
 
         <Rule tone="danger">
           Bot filtresi kapalıyken dönüşüm oranına bakmak, beş yayında gördüğü en yaygın öz-sabotaj.

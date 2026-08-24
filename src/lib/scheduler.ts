@@ -9,7 +9,7 @@ import { pollOrders } from "./orders";
 import { snapshotAllShops } from "./analytics";
 import { adInsights } from "./meta";
 import { guardInventory } from "./inventory-guard";
-import { runTrendRound, trendShops } from "./trend-pipeline";
+import { runTrendRound, recordScan, trendShops } from "./trend-pipeline";
 import { q } from "./db";
 
 declare global {
@@ -191,29 +191,50 @@ export function startScheduler() {
     return part === "hour" ? get("hour") : `${get("year")}-${get("month")}-${get("day")}`;
   };
   const trendTick = async () => {
+    // WATCH ON EVERY TICK. The free feed holds ten items per geo on a rolling window — two reads a
+    // minute apart shared only 25 of 30 terms — so a once-a-night reader sees a sliver of the day and
+    // cannot know what it missed. Recording every half hour is what turns a coin flip into a sample.
+    try {
+      const s = await recordScan();
+      if (s.fresh) console.log("[trends] kaydedildi", JSON.stringify({ seen: s.seen, fresh: s.fresh, source: s.source }));
+    } catch (e) {
+      console.error("[trends] scan failed:", String(e).slice(0, 160));
+    }
+
+    // DRAW ONCE. Only after the hour, and only one shop-round per Chicago day.
+    let claimed: string | null = null;
     try {
       if (Number(chicago("hour")) < trendHour) return;
       const day = chicago("day");
-      // Claim the day before doing any work. `web` and `agent` both run this scheduler, and the advisory
-      // lock makes the check-then-insert one atomic step, so the loser of the race exits here instead of
-      // drafting a second copy of everything.
+      const key = `trend gunu ${day} (${TREND_TZ})`;
+      // Claim the day before doing any work. `web` and `agent` both run this scheduler, and the
+      // advisory lock makes the check-then-insert one atomic step, so the loser of the race exits here
+      // instead of drafting a second copy of everything.
       const claim = await q(
         `INSERT INTO events (kind, detail)
          SELECT 'trend_claim', $1
           WHERE pg_try_advisory_xact_lock(9182731)
             AND NOT EXISTS (SELECT 1 FROM events WHERE kind = 'trend_claim' AND detail = $1)
-         RETURNING id`, [`trend gunu ${day} (${TREND_TZ})`]);
+         RETURNING id`, [key]);
       if (!claim.length) return;
+      claimed = key;
 
       const shops = await trendShops();
       if (!shops.length) return;
-      // One scan for all of them, and each drawing goes to a single shop — see runTrendRound.
       const out = await runTrendRound(shops, { perDay: Number(process.env.TREND_PER_DAY || 2) });
       console.log("[trends]", JSON.stringify({
-        day, scanned: out.scanned, usable: out.usable, target: out.target,
-        shops, made: out.made, review: out.review.length }));
+        day, scanned: out.scanned, source: out.source, usable: out.usable, hours: out.hours,
+        target: out.target, made: out.made }));
+      claimed = null;                                    // the night is genuinely done
     } catch (e) {
       console.error("[trends] run failed:", String(e).slice(0, 200));
+      // Give the day back. The claim is written BEFORE the work so two services cannot both draw, but
+      // leaving it behind after a failure means one transient provider error silently costs the whole
+      // day — the next tick would find the day claimed and skip it until tomorrow.
+      if (claimed) {
+        await q(`DELETE FROM events WHERE kind='trend_claim' AND detail=$1`, [claimed]).catch(() => {});
+        console.error("[trends] gun geri birakildi, sonraki tik yeniden dener");
+      }
     }
   };
   setTimeout(trendTick, 180_000).unref?.();   // one attempt after boot; the claim row makes it idempotent

@@ -9,6 +9,7 @@ import { pollOrders } from "./orders";
 import { snapshotAllShops } from "./analytics";
 import { adInsights } from "./meta";
 import { guardInventory } from "./inventory-guard";
+import { runTrendDay } from "./trend-pipeline";
 import { q } from "./db";
 
 declare global {
@@ -23,6 +24,8 @@ declare global {
   var __klozioProducerTicker: NodeJS.Timeout | undefined;
   // eslint-disable-next-line no-var
   var __klozioInventoryTicker: NodeJS.Timeout | undefined;
+  // eslint-disable-next-line no-var
+  var __klozioTrendTicker: NodeJS.Timeout | undefined;
 }
 
 export function startScheduler() {
@@ -162,4 +165,50 @@ export function startScheduler() {
   global.__klozioMetaTicker = setInterval(metaTick, metaInterval);
   global.__klozioMetaTicker.unref?.();
   console.log(`[meta] insights sync every ${metaInterval}ms`);
+
+  // Daily trend run: read yesterday's trending searches, draft the ones that can legally become a
+  // design, and leave them for the operator to approve. Nothing here publishes — every product it
+  // makes lands on a `pending` schedule row, which is rule 1 of this project and also the only thing
+  // separating an automated pipeline from an automated mistake.
+  //
+  // The yield is deliberately small. Measured over US/GB/CA, roughly one trend in thirty survives:
+  // the rest are athletes, celebrities, clubs, leagues and companies, and drawing those would be
+  // manufacturing infringements on a schedule. TREND_MAX_PER_DAY caps it further.
+  //
+  // Opt-in per shop (`shops.settings.trend_daily = true`) rather than global, so turning it on for a
+  // second shop is a settings edit and never a surprise.
+  const trendInterval = Number(process.env.TREND_INTERVAL_MS || 30 * 60 * 1000);
+  const trendHour = Number(process.env.TREND_HOUR_UTC || 6);
+  const trendTick = async () => {
+    try {
+      if (new Date().getUTCHours() < trendHour) return;
+      // Claim the day before doing any work. `web` and `agent` both run this scheduler, and the
+      // advisory lock makes the check-then-insert one atomic step, so the loser of the race exits
+      // here instead of drafting a second copy of every design.
+      const claim = await q(
+        `INSERT INTO events (kind, detail)
+         SELECT 'trend_claim', $1
+          WHERE pg_try_advisory_xact_lock(9182731)
+            AND NOT EXISTS (SELECT 1 FROM events
+                             WHERE kind = 'trend_claim'
+                               AND created_at >= date_trunc('day', now() AT TIME ZONE 'UTC'))
+         RETURNING id`,
+        [`gunluk trend taramasi`]);
+      if (!claim.length) return;
+
+      const shops = await q<{ id: number }>(
+        `SELECT id FROM shops WHERE coalesce(settings->>'trend_daily','') = 'true' ORDER BY id`);
+      for (const s of shops) {
+        const out = await runTrendDay(s.id, { max: Number(process.env.TREND_MAX_PER_DAY || 2) });
+        console.log(`[trends] shop ${s.id}:`, JSON.stringify({
+          scanned: out.scanned, usable: out.usable, made: out.made, review: out.review.length }));
+      }
+    } catch (e) {
+      console.error("[trends] run failed:", String(e).slice(0, 200));
+    }
+  };
+  setTimeout(trendTick, 180_000).unref?.();   // one attempt after boot; the claim row makes it idempotent
+  global.__klozioTrendTicker = setInterval(trendTick, trendInterval);
+  global.__klozioTrendTicker.unref?.();
+  console.log(`[trends] daily scan after ${trendHour}:00 UTC, checked every ${trendInterval}ms`);
 }
